@@ -969,39 +969,40 @@ impl Display {
             }
         }
 
-        if config.window.size_info_millis > 0
-            && let Some(size_info_timestamp) = self.size_info_timestamp
-        {
-            let lines = self.size_info.screen_lines();
-            let cols = self.size_info.columns();
-            let message_text = lines.to_string() + "x" + &cols.to_string();
-            let message_len = message_text.len();
-            let col = (cols - message_len) / 2;
-            let size_info_timeout = Duration::from_millis(config.window.size_info_millis.into());
-            if size_info_timestamp + size_info_timeout > Instant::now() {
-                let glyph_cache = &mut self.glyph_cache;
+        if config.window.size_info_millis > 0 {
+            if let Some(size_info_timestamp) = self.size_info_timestamp {
+                let lines = self.size_info.screen_lines();
+                let cols = self.size_info.columns();
+                let message_text = lines.to_string() + "x" + &cols.to_string();
+                let message_len = message_text.len();
+                let col = (cols - message_len) / 2;
+                let size_info_timeout =
+                    Duration::from_millis(config.window.size_info_millis.into());
+                if size_info_timestamp + size_info_timeout > Instant::now() {
+                    let glyph_cache = &mut self.glyph_cache;
 
-                let point = Point::new(lines / 2, Column(col));
-                self.renderer.draw_string(
-                    point,
-                    config.colors.primary.background,
-                    config.colors.bright.green,
-                    message_text.chars(),
-                    &size_info,
-                    glyph_cache,
-                );
+                    let point = Point::new(lines / 2, Column(col));
+                    self.renderer.draw_string(
+                        point,
+                        config.colors.primary.background,
+                        config.colors.bright.green,
+                        message_text.chars(),
+                        &size_info,
+                        glyph_cache,
+                    );
 
-                let window_id = self.window.id();
-                let timer_id = TimerId::new(Topic::SizeInfo, window_id);
-                let event = Event::new(EventType::SizeInfo, window_id);
-                scheduler.unschedule(timer_id);
-                scheduler.schedule(event, size_info_timeout, false, timer_id);
-            } else {
-                self.size_info_timestamp = None;
+                    let window_id = self.window.id();
+                    let timer_id = TimerId::new(Topic::SizeInfo, window_id);
+                    let event = Event::new(EventType::SizeInfo, window_id);
+                    scheduler.unschedule(timer_id);
+                    scheduler.schedule(event, size_info_timeout, false, timer_id);
+                } else {
+                    self.size_info_timestamp = None;
+                }
+
+                let damage = LineDamageBounds::new(lines / 2, col, col + message_len - 1);
+                self.damage_tracker.frame().damage_line(damage);
             }
-
-            let damage = LineDamageBounds::new(lines / 2, col, col + message_len - 1);
-            self.damage_tracker.frame().damage_line(damage);
         }
 
         if let Some(message) = message_buffer.message() {
