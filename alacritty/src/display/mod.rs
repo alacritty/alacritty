@@ -973,7 +973,7 @@ impl Display {
             if let Some(size_info_timestamp) = self.size_info_timestamp {
                 let lines = self.size_info.screen_lines();
                 let cols = self.size_info.columns();
-                let message_text = lines.to_string() + "x" + &cols.to_string();
+                let message_text = cols.to_string() + "x" + &lines.to_string();
                 let message_len = message_text.len();
                 let col = (cols - message_len) / 2;
                 let size_info_timeout =
