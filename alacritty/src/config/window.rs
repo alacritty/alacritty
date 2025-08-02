@@ -65,6 +65,9 @@ pub struct WindowConfig {
 
     /// Window level.
     pub level: WindowLevel,
+
+    /// Show size info for this milliseconds when resizing
+    pub size_info_millis: u32,
 }
 
 impl Default for WindowConfig {
@@ -85,6 +88,7 @@ impl Default for WindowConfig {
             decorations_theme_variant: Default::default(),
             option_as_alt: Default::default(),
             level: Default::default(),
+            size_info_millis: Default::default(),
         }
     }
 }

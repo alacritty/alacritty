@@ -442,6 +442,11 @@ impl ApplicationHandler<Event> for Processor {
                     }
                 }
             },
+            (EventType::SizeInfo, Some(window_id)) => {
+                if let Some(window_context) = self.windows.get_mut(window_id) {
+                    window_context.display.window.request_redraw();
+                }
+            },
             (payload, Some(window_id)) => {
                 if let Some(window_context) = self.windows.get_mut(window_id) {
                     window_context.handle_event(
@@ -547,6 +552,7 @@ pub enum EventType {
     BlinkCursor,
     BlinkCursorTimeout,
     SearchNext,
+    SizeInfo,
     Frame,
 }
 
@@ -1919,6 +1925,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 | EventType::ConfigReload(_)
                 | EventType::CreateWindow(_)
                 | EventType::Frame => (),
+                EventType::SizeInfo => (),
             },
             WinitEvent::WindowEvent { event, .. } => {
                 match event {
