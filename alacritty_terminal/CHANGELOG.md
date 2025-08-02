@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Added `escape_args` field to `tty::Options` for Windows shell argument escaping control
+- New `escape_args` field on `tty::Options` for Windows shell argument escaping control
 
 ### Changed
 
