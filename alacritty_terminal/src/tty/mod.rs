@@ -36,8 +36,7 @@ pub struct Options {
 
     /// Specifies whether the Windows shell arguments should be escaped.
     ///
-    /// - When `true`: Arguments will be escaped according to the standard C run-time escaping
-    ///   rules.
+    /// - When `true`: Arguments will be escaped according to the standard C runtime rules.
     /// - When `false`: Arguments will be passed raw without additional escaping.
     #[cfg(target_os = "windows")]
     pub escape_args: bool,
