@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::cmp::Reverse;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::iter;
 use std::rc::Rc;
 
@@ -119,7 +119,9 @@ impl HintState {
         // Get the label for each match.
         self.labels.resize(match_count, Vec::new());
         for i in (0..match_count).rev() {
-            let mut label = generator.next();
+            let content = term.bounds_to_string(*self.matches[i].start(), *self.matches[i].end());
+            let mut label = generator.label_for_content(&content);
+
             if label.len() >= keys_len && label[..keys_len] == self.keys[..] {
                 self.labels[i] = label.split_off(keys_len);
             } else {
@@ -265,6 +267,9 @@ struct HintLabels {
     /// All characters in the alphabet before this index will be used for the last character, while
     /// the rest will be used for everything else.
     split_point: usize,
+
+    /// Cache for content-to-label mapping to ensure identical content gets same label.
+    content_cache: HashMap<String, Vec<char>>,
 }
 
 impl HintLabels {
@@ -276,7 +281,7 @@ impl HintLabels {
         let alphabet: Vec<char> = alphabet.into().chars().collect();
         let split_point = ((alphabet.len() - 1) as f32 * split_ratio.min(1.)) as usize;
 
-        Self { indices: vec![0], split_point, alphabet }
+        Self { indices: vec![0], split_point, alphabet, content_cache: HashMap::new() }
     }
 
     /// Get the characters for the next label.
@@ -284,6 +289,17 @@ impl HintLabels {
         let characters = self.indices.iter().rev().map(|index| self.alphabet[*index]).collect();
         self.increment();
         characters
+    }
+
+    /// Get a label for the given content, reusing existing labels for identical content.
+    fn label_for_content(&mut self, content: &str) -> Vec<char> {
+        if let Some(existing_label) = self.content_cache.get(content) {
+            existing_label.clone()
+        } else {
+            let new_label = self.next();
+            self.content_cache.insert(content.to_string(), new_label.clone());
+            new_label
+        }
     }
 
     /// Increment the character sequence.
@@ -699,5 +715,29 @@ mod tests {
 
         // The iterator should match everything in the viewport.
         assert_eq!(visible_regex_match_iter(&term, &mut regex).count(), 4096);
+    }
+
+    #[test]
+    fn identical_content_gets_same_label() {
+        // Test that HintLabels generates the same label for identical content.
+        let mut generator = HintLabels::new("abc", 0.5);
+
+        // Test identical content gets same label.
+        let contents = vec!["test", "different", "test", "another", "test"];
+        let mut labels = Vec::new();
+
+        for content in &contents {
+            labels.push(generator.label_for_content(content));
+        }
+
+        // All "test" entries should have the same label.
+        assert_eq!(labels[0], labels[2], "First and third 'test' should have same label");
+        assert_eq!(labels[0], labels[4], "First and fifth 'test' should have same label");
+        assert_eq!(labels[2], labels[4], "Third and fifth 'test' should have same label");
+
+        // Different content should have different labels.
+        assert_ne!(labels[0], labels[1], "'test' and 'different' should have different labels");
+        assert_ne!(labels[0], labels[3], "'test' and 'another' should have different labels");
+        assert_ne!(labels[1], labels[3], "'different' and 'another' should have different labels");
     }
 }
