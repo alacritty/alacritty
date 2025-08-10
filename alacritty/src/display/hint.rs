@@ -120,7 +120,7 @@ impl HintState {
         self.labels.resize(match_count, Vec::new());
         for i in (0..match_count).rev() {
             let content = term.bounds_to_string(*self.matches[i].start(), *self.matches[i].end());
-            let mut label = generator.label_for_content(&content);
+            let mut label = generator.label_for_content(content);
 
             if label.len() >= keys_len && label[..keys_len] == self.keys[..] {
                 self.labels[i] = label.split_off(keys_len);
@@ -292,14 +292,16 @@ impl HintLabels {
     }
 
     /// Get a label for the given content, reusing existing labels for identical content.
-    fn label_for_content(&mut self, content: &str) -> Vec<char> {
-        if let Some(existing_label) = self.content_cache.get(content) {
-            existing_label.clone()
-        } else {
-            let new_label = self.next();
-            self.content_cache.insert(content.to_string(), new_label.clone());
-            new_label
+    fn label_for_content(&mut self, content: String) -> Vec<char> {
+        // Check if we already have a label for this content.
+        if let Some(existing_label) = self.content_cache.get(&content) {
+            return existing_label.clone();
         }
+
+        // Generate new label and cache it.
+        let new_label = self.next();
+        self.content_cache.insert(content, new_label.clone());
+        new_label
     }
 
     /// Increment the character sequence.
@@ -726,8 +728,8 @@ mod tests {
         let contents = vec!["test", "different", "test", "another", "test"];
         let mut labels = Vec::new();
 
-        for content in &contents {
-            labels.push(generator.label_for_content(content));
+        for content in contents {
+            labels.push(generator.label_for_content(content.to_string()));
         }
 
         // All "test" entries should have the same label.
@@ -739,5 +741,56 @@ mod tests {
         assert_ne!(labels[0], labels[1], "'test' and 'different' should have different labels");
         assert_ne!(labels[0], labels[3], "'test' and 'another' should have different labels");
         assert_ne!(labels[1], labels[3], "'different' and 'another' should have different labels");
+    }
+
+    #[test]
+    fn hint_labels_mixed_usage() {
+        // Test that mixing label_for_content and next() works correctly.
+        let mut generator = HintLabels::new("abc", 0.5);
+
+        // Generate some labels using content-based method.
+        let label1 = generator.label_for_content("content1".to_string());
+        let label2 = generator.label_for_content("content2".to_string());
+        let label3 = generator.label_for_content("content1".to_string()); // Should reuse label1
+
+        // Generate some labels using direct method.
+        let label4 = generator.next();
+        let label5 = generator.next();
+
+        // Content-based labels should be consistent.
+        assert_eq!(label1, label3, "Same content should get same label");
+        assert_ne!(label1, label2, "Different content should get different labels");
+
+        // All labels should be unique except for identical content.
+        assert_ne!(label1, label4, "Content-based and direct labels should be different");
+        assert_ne!(label2, label4, "Content-based and direct labels should be different");
+        assert_ne!(label4, label5, "Sequential direct labels should be different");
+    }
+
+    #[test]
+    fn hint_labels_content_caching() {
+        // Test that content caching works properly and doesn't affect label generation order.
+        let mut generator = HintLabels::new("ab", 0.5);
+
+        // Generate labels in a specific order to test caching.
+        let label_a1 = generator.label_for_content("A".to_string());
+        let label_b1 = generator.label_for_content("B".to_string());
+        let label_c1 = generator.label_for_content("C".to_string());
+
+        // Request same content again - should get cached labels.
+        let label_a2 = generator.label_for_content("A".to_string());
+        let label_b2 = generator.label_for_content("B".to_string());
+        let label_c2 = generator.label_for_content("C".to_string());
+
+        // Cached labels should be identical.
+        assert_eq!(label_a1, label_a2, "Cached label A should be identical");
+        assert_eq!(label_b1, label_b2, "Cached label B should be identical");
+        assert_eq!(label_c1, label_c2, "Cached label C should be identical");
+
+        // New content should get a new label.
+        let label_d = generator.label_for_content("D".to_string());
+        assert_ne!(label_a1, label_d, "New content should get different label");
+        assert_ne!(label_b1, label_d, "New content should get different label");
+        assert_ne!(label_c1, label_d, "New content should get different label");
     }
 }
