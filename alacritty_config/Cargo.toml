@@ -12,7 +12,7 @@ rust-version.workspace = true
 [dependencies]
 log = { version = "0.4.17", features = ["serde"] }
 serde = "1.0.163"
-toml = "0.8.2"
+toml.workspace = true
 
 [dev-dependencies]
 alacritty_config_derive = { version = "0.2.5-dev", path = "../alacritty_config_derive" }

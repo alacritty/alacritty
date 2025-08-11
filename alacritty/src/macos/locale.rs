@@ -3,7 +3,7 @@
 use std::ffi::{CStr, CString};
 use std::{env, str};
 
-use libc::{setlocale, LC_ALL, LC_CTYPE};
+use libc::{LC_ALL, LC_CTYPE, setlocale};
 use log::debug;
 use objc2::sel;
 use objc2_foundation::{NSLocale, NSObjectProtocol};
@@ -37,12 +37,12 @@ pub fn set_locale_environment() {
         let fallback_locale_c = CString::new(FALLBACK_LOCALE).unwrap();
         unsafe { setlocale(LC_CTYPE, fallback_locale_c.as_ptr()) };
 
-        env::set_var("LC_CTYPE", FALLBACK_LOCALE);
+        unsafe { env::set_var("LC_CTYPE", FALLBACK_LOCALE) };
     } else {
         // Use system locale.
         debug!("Using system locale: {}", system_locale);
 
-        env::set_var("LC_ALL", system_locale);
+        unsafe { env::set_var("LC_ALL", system_locale) };
     }
 }
 

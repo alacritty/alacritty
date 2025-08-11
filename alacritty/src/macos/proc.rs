@@ -135,7 +135,7 @@ mod sys {
         pub pvi_rdir: vnode_info_path,
     }
 
-    extern "C" {
+    unsafe extern "C" {
         pub fn proc_pidinfo(
             pid: c_int,
             flavor: c_int,

@@ -6,15 +6,15 @@ use std::rc::Rc;
 
 use alacritty_config::SerdeReplace;
 use clap::{ArgAction, Args, Parser, Subcommand, ValueHint};
-use log::{error, LevelFilter};
+use log::{LevelFilter, error};
 use serde::{Deserialize, Serialize};
 use toml::Value;
 
 use alacritty_terminal::tty::Options as PtyOptions;
 
+use crate::config::UiConfig;
 use crate::config::ui_config::Program;
 use crate::config::window::{Class, Identity};
-use crate::config::UiConfig;
 use crate::logging::LOG_TARGET_IPC_CONFIG;
 
 /// CLI options for the main Alacritty executable.
@@ -135,7 +135,7 @@ fn parse_class(input: &str) -> Result<Class, String> {
     let (general, instance) = match input.split_once(',') {
         // Warn the user if they've passed too many values.
         Some((_, instance)) if instance.contains(',') => {
-            return Err(String::from("Too many parameters"))
+            return Err(String::from("Too many parameters"));
         },
         Some((general, instance)) => (general, instance),
         None => (input, input),
@@ -181,7 +181,7 @@ impl TerminalOptions {
             if working_directory.is_dir() {
                 pty_config.working_directory = Some(working_directory.to_owned());
             } else {
-                error!("Invalid working directory: {:?}", working_directory);
+                error!("Invalid working directory: {working_directory:?}");
             }
         }
 
@@ -200,6 +200,8 @@ impl From<TerminalOptions> for PtyOptions {
             shell: options.command().map(Into::into),
             drain_on_exit: options.hold,
             env: HashMap::new(),
+            #[cfg(target_os = "windows")]
+            escape_args: false,
         }
     }
 }
@@ -384,7 +386,7 @@ impl ParsedOptions {
                 Err(err) => {
                     error!(
                         target: LOG_TARGET_IPC_CONFIG,
-                        "Unable to override option '{}': {}", option, err
+                        "Unable to override option '{option}': {err}"
                     );
                     self.config_options.swap_remove(i);
                 },

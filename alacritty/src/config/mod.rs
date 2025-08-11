@@ -148,7 +148,7 @@ pub fn load(options: &mut Options) -> UiConfig {
 
 /// Attempt to reload the configuration file.
 pub fn reload(config_path: &Path, options: &mut Options) -> Result<UiConfig> {
-    debug!("Reloading configuration file: {:?}", config_path);
+    debug!("Reloading configuration file: {config_path:?}");
 
     // Load config, propagating errors.
     let mut config = load_from(config_path)?;
@@ -169,11 +169,11 @@ fn load_from(path: &Path) -> Result<UiConfig> {
     match read_config(path) {
         Ok(config) => Ok(config),
         Err(Error::Io(io)) if io.kind() == io::ErrorKind::NotFound => {
-            error!(target: LOG_TARGET_CONFIG, "Unable to load config {:?}: File not found", path);
+            error!(target: LOG_TARGET_CONFIG, "Unable to load config {path:?}: File not found");
             Err(Error::Io(io))
         },
         Err(err) => {
-            error!(target: LOG_TARGET_CONFIG, "Unable to load config {:?}: {}", path, err);
+            error!(target: LOG_TARGET_CONFIG, "Unable to load config {path:?}: {err}");
             Err(err)
         },
     }
@@ -268,7 +268,7 @@ fn load_imports(
                 continue;
             },
             Err(err) => {
-                error!(target: LOG_TARGET_CONFIG, "Unable to import config {:?}: {}", path, err)
+                error!(target: LOG_TARGET_CONFIG, "Unable to import config {path:?}: {err}")
             },
         }
     }
@@ -368,6 +368,7 @@ fn prune_yaml_nulls(value: &mut serde_yaml::Value, warn_pruned: bool) {
 /// 2. $XDG_CONFIG_HOME/alacritty.toml
 /// 3. $HOME/.config/alacritty/alacritty.toml
 /// 4. $HOME/.alacritty.toml
+/// 5. /etc/alacritty/alacritty.toml
 #[cfg(not(windows))]
 pub fn installed_config(suffix: &str) -> Option<PathBuf> {
     let file_name = format!("alacritty.{suffix}");
@@ -390,7 +391,9 @@ pub fn installed_config(suffix: &str) -> Option<PathBuf> {
                     return Some(fallback);
                 }
             }
-            None
+
+            let fallback = PathBuf::from("/etc/alacritty").join(&file_name);
+            fallback.exists().then_some(fallback)
         })
 }
 

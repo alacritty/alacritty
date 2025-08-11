@@ -6,17 +6,17 @@ use log::info;
 
 use alacritty_terminal::term::cell::Flags;
 
-use crate::display::content::RenderableCell;
 use crate::display::SizeInfo;
+use crate::display::content::RenderableCell;
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::shader::{ShaderProgram, ShaderVersion};
-use crate::renderer::{cstr, Error, GlExtensions};
+use crate::renderer::{Error, GlExtensions};
 
-use super::atlas::{Atlas, ATLAS_SIZE};
+use super::atlas::{ATLAS_SIZE, Atlas};
 use super::{
-    glsl3, Glyph, LoadGlyph, LoaderApi, RenderingGlyphFlags, RenderingPass, TextRenderApi,
-    TextRenderBatch, TextRenderer, TextShader,
+    Glyph, LoadGlyph, LoaderApi, RenderingGlyphFlags, RenderingPass, TextRenderApi,
+    TextRenderBatch, TextRenderer, TextShader, glsl3,
 };
 
 // Shader source.
@@ -482,8 +482,8 @@ impl TextShaderProgram {
         let program = ShaderProgram::new(shader_version, None, TEXT_SHADER_V, fragment_shader)?;
 
         Ok(Self {
-            u_projection: program.get_uniform_location(cstr!("projection"))?,
-            u_rendering_pass: program.get_uniform_location(cstr!("renderingPass"))?,
+            u_projection: program.get_uniform_location(c"projection")?,
+            u_rendering_pass: program.get_uniform_location(c"renderingPass")?,
             program,
         })
     }

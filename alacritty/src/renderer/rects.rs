@@ -9,13 +9,12 @@ use alacritty_terminal::grid::Dimensions;
 use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::term::cell::Flags;
 
+use crate::display::SizeInfo;
 use crate::display::color::Rgb;
 use crate::display::content::RenderableCell;
-use crate::display::SizeInfo;
-use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::shader::{ShaderError, ShaderProgram, ShaderVersion};
-use crate::renderer::{self, cstr};
+use crate::{gl, renderer};
 
 #[derive(Debug, Copy, Clone)]
 pub struct RenderRect {
@@ -447,13 +446,13 @@ impl RectShaderProgram {
         let program = ShaderProgram::new(shader_version, header, RECT_SHADER_V, RECT_SHADER_F)?;
 
         Ok(Self {
-            u_cell_width: program.get_uniform_location(cstr!("cellWidth")).ok(),
-            u_cell_height: program.get_uniform_location(cstr!("cellHeight")).ok(),
-            u_padding_x: program.get_uniform_location(cstr!("paddingX")).ok(),
-            u_padding_y: program.get_uniform_location(cstr!("paddingY")).ok(),
-            u_underline_position: program.get_uniform_location(cstr!("underlinePosition")).ok(),
-            u_underline_thickness: program.get_uniform_location(cstr!("underlineThickness")).ok(),
-            u_undercurl_position: program.get_uniform_location(cstr!("undercurlPosition")).ok(),
+            u_cell_width: program.get_uniform_location(c"cellWidth").ok(),
+            u_cell_height: program.get_uniform_location(c"cellHeight").ok(),
+            u_padding_x: program.get_uniform_location(c"paddingX").ok(),
+            u_padding_y: program.get_uniform_location(c"paddingY").ok(),
+            u_underline_position: program.get_uniform_location(c"underlinePosition").ok(),
+            u_underline_thickness: program.get_uniform_location(c"underlineThickness").ok(),
+            u_undercurl_position: program.get_uniform_location(c"undercurlPosition").ok(),
             program,
         })
     }

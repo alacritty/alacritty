@@ -313,10 +313,6 @@ If it is not present already, install it using one of the following options.
 - System-wide install (requires root):
 
   ```sh
-  # Most Linux/BSD systems
-  sudo tic -x -o /usr/local/share/terminfo -e alacritty,alacritty-direct extra/alacritty.info
-
-  # On some systems the canonical path is /usr/share/terminfo
   sudo tic -xe alacritty,alacritty-direct extra/alacritty.info
   ```
 
@@ -326,8 +322,8 @@ Troubleshooting (especially on macOS/Homebrew):
   only look in `/usr/share/terminfo`, while `infocmp` from Homebrew looks in
   Homebrew's database (for example `/opt/homebrew/opt/ncurses/share/terminfo`).
   If `infocmp alacritty` succeeds but applications report that `alacritty` is
-  unknown, install the terminfo into your home directory or into the system
-  terminfo directory as shown above.
+  unknown, install the terminfo into your home directory (which is checked first
+  by most ncurses implementations) or into the system terminfo directory as shown above.
 
 - Alternatively, point ncurses to additional databases by setting
   `TERMINFO_DIRS` (colon-separated):
@@ -339,7 +335,7 @@ Troubleshooting (especially on macOS/Homebrew):
 - Verify what Vim is linked against (macOS):
 
   ```sh
-  otool -L "$(command -v vim)" | grep -i curses || true
+  otool -L "$(command -v vim)" | grep -i curses
   ```
 
 After installation, verify again:

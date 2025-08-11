@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Error, Fields};
+use syn::{Data, DataStruct, DeriveInput, Error, Fields, parse_macro_input};
 
 /// Error if the derive was used on an unsupported type.
 const UNSUPPORTED_ERROR: &str = "ConfigDeserialize must be used on an enum or struct with fields";

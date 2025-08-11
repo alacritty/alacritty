@@ -400,21 +400,11 @@ macro_rules! bindings {
 }
 
 macro_rules! trigger {
-    (KeyBinding, $key:literal, $location:expr) => {{
-        BindingKey::Keycode { key: Key::Character($key.into()), location: $location }
-    }};
-    (KeyBinding, $key:literal,) => {{
-        BindingKey::Keycode { key: Key::Character($key.into()), location: KeyLocation::Any }
-    }};
-    (KeyBinding, $key:ident, $location:expr) => {{
-        BindingKey::Keycode { key: Key::Named(NamedKey::$key), location: $location }
-    }};
-    (KeyBinding, $key:ident,) => {{
-        BindingKey::Keycode { key: Key::Named(NamedKey::$key), location: KeyLocation::Any }
-    }};
-    (MouseBinding, $base:ident::$button:ident,) => {{
-        $base::$button
-    }};
+    (KeyBinding, $key:literal, $location:expr) => {{ BindingKey::Keycode { key: Key::Character($key.into()), location: $location } }};
+    (KeyBinding, $key:literal,) => {{ BindingKey::Keycode { key: Key::Character($key.into()), location: KeyLocation::Any } }};
+    (KeyBinding, $key:ident, $location:expr) => {{ BindingKey::Keycode { key: Key::Named(NamedKey::$key), location: $location } }};
+    (KeyBinding, $key:ident,) => {{ BindingKey::Keycode { key: Key::Named(NamedKey::$key), location: KeyLocation::Any } }};
+    (MouseBinding, $base:ident::$button:ident,) => {{ $base::$button }};
 }
 
 pub fn default_mouse_bindings() -> Vec<MouseBinding> {
@@ -478,6 +468,10 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         "y",                                +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
         "/",                                +BindingMode::VI, ~BindingMode::SEARCH; Action::SearchForward;
         "?",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; Action::SearchBackward;
+        "y",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::ToggleNormalSelection;
+        "y",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::Last;
+        "y",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; Action::Copy;
+        "y",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
         "v",                                +BindingMode::VI, ~BindingMode::SEARCH; ViAction::ToggleNormalSelection;
         "v",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::ToggleLineSelection;
         "v",      ModifiersState::CONTROL,  +BindingMode::VI, ~BindingMode::SEARCH; ViAction::ToggleBlockSelection;

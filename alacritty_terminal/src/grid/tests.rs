@@ -348,6 +348,33 @@ fn shrink_reflow_disabled() {
     assert_eq!(grid[Line(0)][Column(1)], cell('2'));
 }
 
+#[test]
+fn accurate_size_hint() {
+    let grid = Grid::<Cell>::new(5, 5, 2);
+
+    size_hint_matches_count(grid.iter_from(Point::new(Line(0), Column(0))));
+    size_hint_matches_count(grid.iter_from(Point::new(Line(2), Column(3))));
+    size_hint_matches_count(grid.iter_from(Point::new(Line(4), Column(4))));
+    size_hint_matches_count(grid.iter_from(Point::new(Line(4), Column(2))));
+    size_hint_matches_count(grid.iter_from(Point::new(Line(10), Column(10))));
+    size_hint_matches_count(grid.iter_from(Point::new(Line(2), Column(10))));
+
+    let mut iterator = grid.iter_from(Point::new(Line(3), Column(1)));
+    iterator.next();
+    iterator.next();
+    size_hint_matches_count(iterator);
+
+    size_hint_matches_count(grid.display_iter());
+}
+
+fn size_hint_matches_count<T>(iter: impl Iterator<Item = T>) {
+    let iterator = iter.into_iter();
+    let (lower, upper) = iterator.size_hint();
+    let count = iterator.count();
+    assert_eq!(lower, count);
+    assert_eq!(upper, Some(count));
+}
+
 // https://github.com/rust-lang/rust-clippy/pull/6375
 #[allow(clippy::all)]
 fn cell(c: char) -> Cell {

@@ -3,14 +3,14 @@ use winit::raw_window_handle::RawDisplayHandle;
 
 use alacritty_terminal::term::ClipboardType;
 
+#[cfg(any(feature = "x11", target_os = "macos", windows))]
+use copypasta::ClipboardContext;
+use copypasta::ClipboardProvider;
 use copypasta::nop_clipboard::NopClipboardContext;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use copypasta::wayland_clipboard;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use copypasta::x11_clipboard::{Primary as X11SelectionClipboard, X11ClipboardContext};
-#[cfg(any(feature = "x11", target_os = "macos", windows))]
-use copypasta::ClipboardContext;
-use copypasta::ClipboardProvider;
 
 pub struct Clipboard {
     clipboard: Box<dyn ClipboardProvider>,
@@ -22,8 +22,9 @@ impl Clipboard {
         match display {
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             RawDisplayHandle::Wayland(display) => {
-                let (selection, clipboard) =
-                    wayland_clipboard::create_clipboards_from_external(display.display.as_ptr());
+                let (selection, clipboard) = unsafe {
+                    wayland_clipboard::create_clipboards_from_external(display.display.as_ptr())
+                };
                 Self { clipboard: Box::new(clipboard), selection: Some(Box::new(selection)) }
             },
             _ => Self::default(),
@@ -62,7 +63,7 @@ impl Clipboard {
         };
 
         clipboard.set_contents(text.into()).unwrap_or_else(|err| {
-            warn!("Unable to store text in clipboard: {}", err);
+            warn!("Unable to store text in clipboard: {err}");
         });
     }
 
@@ -74,7 +75,7 @@ impl Clipboard {
 
         match clipboard.get_contents() {
             Err(err) => {
-                debug!("Unable to load text from clipboard: {}", err);
+                debug!("Unable to load text from clipboard: {err}");
                 String::new()
             },
             Ok(text) => text,

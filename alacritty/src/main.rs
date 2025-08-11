@@ -20,7 +20,7 @@ use std::{env, fs};
 
 use log::info;
 #[cfg(windows)]
-use windows_sys::Win32::System::Console::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
+use windows_sys::Win32::System::Console::{ATTACH_PARENT_PROCESS, AttachConsole, FreeConsole};
 use winit::event_loop::EventLoop;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use winit::raw_window_handle::{HasDisplayHandle, RawDisplayHandle};
@@ -49,7 +49,7 @@ mod string;
 mod window_context;
 
 mod gl {
-    #![allow(clippy::all)]
+    #![allow(clippy::all, unsafe_op_in_unsafe_fn)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
@@ -58,8 +58,8 @@ use crate::cli::MessageOptions;
 #[cfg(not(any(target_os = "macos", windows)))]
 use crate::cli::SocketMessage;
 use crate::cli::{Options, Subcommands};
-use crate::config::monitor::ConfigMonitor;
 use crate::config::UiConfig;
+use crate::config::monitor::ConfigMonitor;
 use crate::event::{Event, Processor};
 #[cfg(target_os = "macos")]
 use crate::macos::locale;
@@ -169,7 +169,7 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
 
     // Set env vars from config.
     for (key, value) in config.env.iter() {
-        env::set_var(key, value);
+        unsafe { env::set_var(key, value) };
     }
 
     // Switch to home directory.
@@ -187,7 +187,7 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
             Ok(path) => Some(path),
             Err(err) if options.daemon => return Err(err.into()),
             Err(err) => {
-                log::warn!("Unable to create socket: {:?}", err);
+                log::warn!("Unable to create socket: {err:?}");
                 None
             },
         }

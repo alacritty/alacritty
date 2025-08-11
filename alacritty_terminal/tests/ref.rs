@@ -24,7 +24,7 @@ macro_rules! ref_tests {
                 ref_test(&test_path);
             }
         )*
-    }
+    };
 }
 
 ref_tests! {
@@ -72,6 +72,7 @@ ref_tests! {
     zsh_tab_completion
     erase_in_line
     scroll_in_region_up_preserves_history
+    origin_goto
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>

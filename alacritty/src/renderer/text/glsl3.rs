@@ -6,14 +6,14 @@ use log::info;
 
 use alacritty_terminal::term::cell::Flags;
 
-use crate::display::content::RenderableCell;
 use crate::display::SizeInfo;
+use crate::display::content::RenderableCell;
 use crate::gl;
 use crate::gl::types::*;
+use crate::renderer::Error;
 use crate::renderer::shader::{ShaderProgram, ShaderVersion};
-use crate::renderer::{cstr, Error};
 
-use super::atlas::{Atlas, ATLAS_SIZE};
+use super::atlas::{ATLAS_SIZE, Atlas};
 use super::{
     Glyph, LoadGlyph, LoaderApi, RenderingGlyphFlags, RenderingPass, TextRenderApi,
     TextRenderBatch, TextRenderer, TextShader,
@@ -426,9 +426,9 @@ impl TextShaderProgram {
     pub fn new(shader_version: ShaderVersion) -> Result<TextShaderProgram, Error> {
         let program = ShaderProgram::new(shader_version, None, TEXT_SHADER_V, TEXT_SHADER_F)?;
         Ok(Self {
-            u_projection: program.get_uniform_location(cstr!("projection"))?,
-            u_cell_dim: program.get_uniform_location(cstr!("cellDim"))?,
-            u_rendering_pass: program.get_uniform_location(cstr!("renderingPass"))?,
+            u_projection: program.get_uniform_location(c"projection")?,
+            u_cell_dim: program.get_uniform_location(c"cellDim")?,
+            u_rendering_pass: program.get_uniform_location(c"renderingPass")?,
             program,
         })
     }

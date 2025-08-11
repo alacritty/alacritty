@@ -14,10 +14,11 @@ use winit::keyboard::{Key, ModifiersState};
 
 use alacritty_config::SerdeReplace;
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
-use alacritty_terminal::term::search::RegexSearch;
 use alacritty_terminal::term::Config as TermConfig;
+use alacritty_terminal::term::search::RegexSearch;
 use alacritty_terminal::tty::{Options as PtyOptions, Shell};
 
+use crate::config::LOG_TARGET_CONFIG;
 use crate::config::bell::BellConfig;
 use crate::config::bindings::{
     self, Action, Binding, BindingKey, KeyBinding, KeyLocation, ModeWrapper, ModsWrapper,
@@ -33,7 +34,6 @@ use crate::config::scrolling::Scrolling;
 use crate::config::selection::Selection;
 use crate::config::terminal::Terminal;
 use crate::config::window::WindowConfig;
-use crate::config::LOG_TARGET_CONFIG;
 
 /// Regex used for the default URL hint.
 #[rustfmt::skip]
@@ -132,7 +132,14 @@ impl UiConfig {
         let shell = self.terminal.shell.clone().or_else(|| self.shell.clone()).map(Into::into);
         let working_directory =
             self.working_directory.clone().or_else(|| self.general.working_directory.clone());
-        PtyOptions { working_directory, shell, drain_on_exit: false, env: HashMap::new() }
+        PtyOptions {
+            working_directory,
+            shell,
+            drain_on_exit: false,
+            env: HashMap::new(),
+            #[cfg(target_os = "windows")]
+            escape_args: false,
+        }
     }
 
     #[inline]
@@ -205,7 +212,7 @@ where
         match Binding::<T>::deserialize(value) {
             Ok(binding) => bindings.push(binding),
             Err(err) => {
-                error!(target: LOG_TARGET_CONFIG, "Config error: {}; ignoring binding", err);
+                error!(target: LOG_TARGET_CONFIG, "Config error: {err}; ignoring binding");
             },
         }
     }
@@ -410,7 +417,7 @@ impl<'de> Deserialize<'de> for HintContent {
                             Err(err) => {
                                 error!(
                                     target: LOG_TARGET_CONFIG,
-                                    "Config error: hint's regex: {}", err
+                                    "Config error: hint's regex: {err}"
                                 );
                             },
                         },
@@ -419,7 +426,7 @@ impl<'de> Deserialize<'de> for HintContent {
                             Err(err) => {
                                 error!(
                                     target: LOG_TARGET_CONFIG,
-                                    "Config error: hint's hyperlinks: {}", err
+                                    "Config error: hint's hyperlinks: {err}"
                                 );
                             },
                         },

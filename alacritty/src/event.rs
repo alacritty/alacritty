@@ -196,10 +196,9 @@ impl Processor {
     /// The result is exit code generate from the loop.
     pub fn run(&mut self, event_loop: EventLoop<Event>) -> Result<(), Box<dyn Error>> {
         let result = event_loop.run_app(self);
-        if let Some(initial_window_error) = self.initial_window_error.take() {
-            Err(initial_window_error)
-        } else {
-            result.map_err(Into::into)
+        match self.initial_window_error.take() {
+            Some(initial_window_error) => Err(initial_window_error),
+            _ => result.map_err(Into::into),
         }
     }
 
@@ -384,7 +383,7 @@ impl ApplicationHandler<Event> for Processor {
                         event_loop.exit();
                     }
                 } else if let Err(err) = self.create_window(event_loop, options) {
-                    error!("Could not open window: {:?}", err);
+                    error!("Could not open window: {err:?}");
                 }
             },
             // Process events affecting all windows.
@@ -507,7 +506,7 @@ impl ApplicationHandler<Event> for Processor {
 
         // SAFETY: The clipboard must be dropped before the event loop, so use the nop clipboard
         // as a safe placeholder.
-        mem::swap(&mut self.clipboard, &mut Clipboard::new_nop());
+        self.clipboard = Clipboard::new_nop();
     }
 }
 
@@ -746,7 +745,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn selection_is_empty(&self) -> bool {
-        self.terminal.selection.as_ref().map_or(true, Selection::is_empty)
+        self.terminal.selection.as_ref().is_none_or(Selection::is_empty)
     }
 
     fn clear_selection(&mut self) {
@@ -905,7 +904,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let result = spawn_daemon(program, args);
 
         match result {
-            Ok(_) => debug!("Launched {} with args {:?}", program, args),
+            Ok(_) => debug!("Launched {program} with args {args:?}"),
             Err(err) => warn!("Unable to launch {program} with args {args:?}: {err}"),
         }
     }
@@ -937,7 +936,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn start_search(&mut self, direction: Direction) {
         // Only create new history entry if the previous regex wasn't empty.
-        if self.search_state.history.front().map_or(true, |regex| !regex.is_empty()) {
+        if self.search_state.history.front().is_none_or(|regex| !regex.is_empty()) {
             self.search_state.history.push_front(String::new());
             self.search_state.history.truncate(MAX_SEARCH_HISTORY_SIZE);
         }
@@ -1702,6 +1701,7 @@ pub enum TouchPurpose {
     Select(TouchEvent),
     Scroll(TouchEvent),
     Zoom(TouchZoom),
+    ZoomPendingSlot(TouchEvent),
     Tap(TouchEvent),
     Invalid(HashSet<u64, RandomState>),
 }
@@ -1744,11 +1744,8 @@ impl TouchZoom {
     }
 
     /// Get active touch slots.
-    pub fn slots(&self) -> HashSet<u64, RandomState> {
-        let mut set = HashSet::default();
-        set.insert(self.slots.0.id);
-        set.insert(self.slots.1.id);
-        set
+    pub fn slots(&self) -> (TouchEvent, TouchEvent) {
+        self.slots
     }
 
     /// Calculate distance between slots.

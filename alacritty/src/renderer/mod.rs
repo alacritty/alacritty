@@ -1,24 +1,24 @@
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::ffi::{CStr, CString};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{fmt, ptr};
 
 use ahash::RandomState;
 use crossfont::Metrics;
 use glutin::context::{ContextApi, GlContext, PossiblyCurrentContext};
 use glutin::display::{GetGlDisplay, GlDisplay};
-use log::{debug, info, LevelFilter};
+use log::{LevelFilter, debug, info};
 use unicode_width::UnicodeWidthChar;
 
 use alacritty_terminal::index::Point;
 use alacritty_terminal::term::cell::Flags;
 
 use crate::config::debug::RendererPreference;
+use crate::display::SizeInfo;
 use crate::display::color::Rgb;
 use crate::display::content::RenderableCell;
-use crate::display::SizeInfo;
 use crate::gl;
 use crate::renderer::rects::{RectRenderer, RenderRect};
 use crate::renderer::shader::ShaderError;
@@ -32,14 +32,6 @@ pub use text::{GlyphCache, LoaderApi};
 
 use shader::ShaderVersion;
 use text::{Gles2Renderer, Glsl3Renderer, TextRenderer};
-
-macro_rules! cstr {
-    ($s:literal) => {
-        // This can be optimized into an no-op with pre-allocated NUL-terminated bytes.
-        unsafe { std::ffi::CStr::from_ptr(concat!($s, "\0").as_ptr().cast()) }
-    };
-}
-pub(crate) use cstr;
 
 /// Whether the OpenGL functions have been loaded.
 pub static GL_FUNS_LOADED: AtomicBool = AtomicBool::new(false);
@@ -303,7 +295,7 @@ impl Renderer {
                 _ => "invalid",
             };
 
-            info!("GPU reset ({})", reason);
+            info!("GPU reset ({reason})");
 
             true
         }
@@ -404,5 +396,5 @@ extern "system" fn gl_debug_log(
     _: *mut std::os::raw::c_void,
 ) {
     let msg = unsafe { CStr::from_ptr(msg).to_string_lossy() };
-    debug!("[gl_render] {}", msg);
+    debug!("[gl_render] {msg}");
 }

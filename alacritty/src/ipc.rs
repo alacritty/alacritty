@@ -37,7 +37,7 @@ pub fn spawn_ipc_socket(
 
     let listener = UnixListener::bind(&socket_path)?;
 
-    env::set_var(ALACRITTY_SOCKET_ENV, socket_path.as_os_str());
+    unsafe { env::set_var(ALACRITTY_SOCKET_ENV, socket_path.as_os_str()) };
     if options.daemon {
         println!("ALACRITTY_SOCKET={}; export ALACRITTY_SOCKET", socket_path.display());
     }
@@ -58,7 +58,7 @@ pub fn spawn_ipc_socket(
             let message: SocketMessage = match serde_json::from_str(&data) {
                 Ok(message) => message,
                 Err(err) => {
-                    warn!("Failed to convert data from socket: {}", err);
+                    warn!("Failed to convert data from socket: {err}");
                     continue;
                 },
             };

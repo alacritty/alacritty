@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use crate::event::EventListener;
 use crate::grid::{Dimensions, GridCell};
 use crate::index::{Boundary, Column, Direction, Line, Point, Side};
-use crate::term::cell::Flags;
 use crate::term::Term;
+use crate::term::cell::Flags;
 
 /// Possible vi mode motion movements.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -251,17 +251,19 @@ fn first_occupied<T>(term: &Term<T>, mut point: Point) -> Point {
 
         // Fallback to the next non-empty cell.
         let mut line = point.line;
-        occupied.unwrap_or_else(|| loop {
-            if let Some(occupied) = first_occupied_in_line(term, line) {
-                break occupied;
-            }
+        occupied.unwrap_or_else(|| {
+            loop {
+                if let Some(occupied) = first_occupied_in_line(term, line) {
+                    break occupied;
+                }
 
-            let last_cell = Point::new(line, last_column);
-            if !is_wrap(term, last_cell) {
-                break last_cell;
-            }
+                let last_cell = Point::new(line, last_column);
+                if !is_wrap(term, last_cell) {
+                    break last_cell;
+                }
 
-            line += 1;
+                line += 1;
+            }
         })
     } else {
         occupied
