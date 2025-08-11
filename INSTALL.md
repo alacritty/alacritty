@@ -302,11 +302,50 @@ already installed:
 infocmp alacritty
 ```
 
-If it is not present already, you can install it globally with the following
-command:
+If it is not present already, install it using one of the following options.
 
-```
-sudo tic -xe alacritty,alacritty-direct extra/alacritty.info
+- Per-user install (recommended):
+
+  ```sh
+  tic -x -o "$HOME/.terminfo" -e alacritty,alacritty-direct extra/alacritty.info
+  ```
+
+- System-wide install (requires root):
+
+  ```sh
+  # Most Linux/BSD systems
+  sudo tic -x -o /usr/local/share/terminfo -e alacritty,alacritty-direct extra/alacritty.info
+
+  # On some systems the canonical path is /usr/share/terminfo
+  sudo tic -xe alacritty,alacritty-direct extra/alacritty.info
+  ```
+
+Troubleshooting (especially on macOS/Homebrew):
+
+- Tools like Vim, Less, and Git may be linked against the system ncurses and
+  only look in `/usr/share/terminfo`, while `infocmp` from Homebrew looks in
+  Homebrew's database (for example `/opt/homebrew/opt/ncurses/share/terminfo`).
+  If `infocmp alacritty` succeeds but applications report that `alacritty` is
+  unknown, install the terminfo into your home directory or into the system
+  terminfo directory as shown above.
+
+- Alternatively, point ncurses to additional databases by setting
+  `TERMINFO_DIRS` (colon-separated):
+
+  ```sh
+  export TERMINFO_DIRS="$HOME/.terminfo:/usr/share/terminfo:/usr/local/share/terminfo:/opt/homebrew/opt/ncurses/share/terminfo"
+  ```
+
+- Verify what Vim is linked against (macOS):
+
+  ```sh
+  otool -L "$(command -v vim)" | grep -i curses || true
+  ```
+
+After installation, verify again:
+
+```sh
+infocmp alacritty && echo OK
 ```
 
 ### Desktop Entry
