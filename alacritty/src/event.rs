@@ -548,6 +548,7 @@ pub enum EventType {
     BlinkCursorTimeout,
     SearchNext,
     Frame,
+    BellCommandCooldown,
 }
 
 impl From<TerminalEvent> for EventType {
@@ -663,6 +664,7 @@ pub struct ActionContext<'a, N, T> {
     pub message_buffer: &'a mut MessageBuffer,
     pub config: &'a UiConfig,
     pub cursor_blink_timed_out: &'a mut bool,
+    pub bell_command_cooling_down: &'a mut bool,
     #[cfg(target_os = "macos")]
     pub event_loop: &'a ActiveEventLoop,
     pub event_proxy: &'a EventLoopProxy<Event>,
@@ -1881,7 +1883,22 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 
                         // Execute bell command.
                         if let Some(bell_command) = &self.ctx.config.bell.command {
-                            self.ctx.spawn_daemon(bell_command.program(), bell_command.args());
+                            if !*self.ctx.bell_command_cooling_down {
+                                self.ctx.spawn_daemon(bell_command.program(), bell_command.args());
+
+                                let cooldown = self.ctx.config.bell.command_cooldown();
+                                if !cooldown.is_zero() {
+                                    *self.ctx.bell_command_cooling_down = true;
+
+                                    let window_id = self.ctx.display.window.id();
+                                    let event =
+                                        Event::new(EventType::BellCommandCooldown, window_id);
+                                    let timer_id =
+                                        TimerId::new(Topic::BellCommandCooldown, window_id);
+
+                                    self.ctx.scheduler.schedule(event, cooldown, false, timer_id);
+                                }
+                            }
                         }
                     },
                     TerminalEvent::ClipboardStore(clipboard_type, content) => {
@@ -1912,6 +1929,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     TerminalEvent::MouseCursorDirty => self.reset_mouse_cursor(),
                     TerminalEvent::CursorBlinkingChange => self.ctx.update_cursor_blinking(),
                     TerminalEvent::Exit | TerminalEvent::ChildExit(_) | TerminalEvent::Wakeup => (),
+                },
+                EventType::BellCommandCooldown => {
+                    *self.ctx.bell_command_cooling_down = false;
                 },
                 #[cfg(unix)]
                 EventType::IpcConfig(_) | EventType::IpcGetConfig(..) => (),

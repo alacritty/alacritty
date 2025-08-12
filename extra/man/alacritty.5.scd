@@ -524,6 +524,13 @@ This section documents the *[bell]* table of the configuration file.
 
 	Default: _"None"_
 
+*command_cooldown* = <integer>
+
+	Duration of the cooldown between invocations of the bell command in
+	milliseconds. A `duration` of `0` will disable the cooldown.
+
+	Default: 100
+
 # SELECTION
 
 This section documents the *[selection]* table of the configuration file.

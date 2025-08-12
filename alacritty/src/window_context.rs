@@ -51,6 +51,7 @@ pub struct WindowContext {
     event_queue: Vec<WinitEvent<Event>>,
     terminal: Arc<FairMutex<Term<EventProxy>>>,
     cursor_blink_timed_out: bool,
+    bell_command_cooling_down: bool,
     modifiers: Modifiers,
     inline_search_state: InlineSearchState,
     search_state: SearchState,
@@ -240,6 +241,7 @@ impl WindowContext {
             config,
             notifier: Notifier(loop_tx),
             cursor_blink_timed_out: Default::default(),
+            bell_command_cooling_down: Default::default(),
             inline_search_state: Default::default(),
             message_buffer: Default::default(),
             window_config: Default::default(),
@@ -424,6 +426,7 @@ impl WindowContext {
 
         let context = ActionContext {
             cursor_blink_timed_out: &mut self.cursor_blink_timed_out,
+            bell_command_cooling_down: &mut self.bell_command_cooling_down,
             message_buffer: &mut self.message_buffer,
             inline_search_state: &mut self.inline_search_state,
             search_state: &mut self.search_state,

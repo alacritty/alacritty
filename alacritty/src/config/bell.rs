@@ -18,6 +18,9 @@ pub struct BellConfig {
     /// Visual bell flash color.
     pub color: Rgb,
 
+    /// Bell command cooldown in milliseconds.
+    command_cooldown: u16,
+
     /// Visual bell duration in milliseconds.
     duration: u16,
 }
@@ -28,12 +31,17 @@ impl Default for BellConfig {
             color: Rgb::new(255, 255, 255),
             animation: Default::default(),
             command: Default::default(),
+            command_cooldown: 100,
             duration: Default::default(),
         }
     }
 }
 
 impl BellConfig {
+    pub fn command_cooldown(&self) -> Duration {
+        Duration::from_millis(self.command_cooldown as u64)
+    }
+
     pub fn duration(&self) -> Duration {
         Duration::from_millis(self.duration as u64)
     }
