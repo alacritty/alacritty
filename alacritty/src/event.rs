@@ -77,7 +77,7 @@ const MAX_SEARCH_HISTORY_SIZE: usize = 255;
 /// Touch zoom speed.
 const TOUCH_ZOOM_FACTOR: f32 = 0.01;
 
-/// Cooldown between invocations of the bell command
+/// Cooldown between invocations of the bell command.
 const BELL_CMD_COOLDOWN: Duration = Duration::from_millis(100);
 
 /// The event processor.
