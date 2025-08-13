@@ -8,6 +8,7 @@ use std::mem;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::Instant;
 
 use glutin::config::Config as GlutinConfig;
 use glutin::display::GetGlDisplay;
@@ -51,6 +52,7 @@ pub struct WindowContext {
     event_queue: Vec<WinitEvent<Event>>,
     terminal: Arc<FairMutex<Term<EventProxy>>>,
     cursor_blink_timed_out: bool,
+    prev_bell_cmd: Option<Instant>,
     modifiers: Modifiers,
     inline_search_state: InlineSearchState,
     search_state: SearchState,
@@ -240,6 +242,7 @@ impl WindowContext {
             config,
             notifier: Notifier(loop_tx),
             cursor_blink_timed_out: Default::default(),
+            prev_bell_cmd: Default::default(),
             inline_search_state: Default::default(),
             message_buffer: Default::default(),
             window_config: Default::default(),
@@ -424,6 +427,7 @@ impl WindowContext {
 
         let context = ActionContext {
             cursor_blink_timed_out: &mut self.cursor_blink_timed_out,
+            prev_bell_cmd: &mut self.prev_bell_cmd,
             message_buffer: &mut self.message_buffer,
             inline_search_state: &mut self.inline_search_state,
             search_state: &mut self.search_state,

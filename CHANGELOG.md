@@ -37,6 +37,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Search matching a wrapping fullwidth character in the last column
 - Crash when `AppleFontSmoothing` option is not present on macOS
 - Origin mode (DECOM) not moving cursor to the origin point
+- Unresponsiveness when spamming the bell character with a bell command enabled
 
 ## 0.15.1
 
