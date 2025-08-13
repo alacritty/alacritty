@@ -1885,9 +1885,11 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 
                         // Execute bell command.
                         if let Some(bell_command) = &self.ctx.config.bell.command {
-                            if self.ctx.prev_bell_cmd.is_none_or(
-                                |i| i.elapsed() >= BELL_CMD_COOLDOWN
-                            ) {
+                            if self
+                                .ctx
+                                .prev_bell_cmd
+                                .is_none_or(|i| i.elapsed() >= BELL_CMD_COOLDOWN)
+                            {
                                 self.ctx.spawn_daemon(bell_command.program(), bell_command.args());
 
                                 *self.ctx.prev_bell_cmd = Some(Instant::now());
