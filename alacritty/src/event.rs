@@ -77,6 +77,9 @@ const MAX_SEARCH_HISTORY_SIZE: usize = 255;
 /// Touch zoom speed.
 const TOUCH_ZOOM_FACTOR: f32 = 0.01;
 
+/// Cooldown between invocations of the bell command.
+const BELL_CMD_COOLDOWN: Duration = Duration::from_millis(100);
+
 /// The event processor.
 ///
 /// Stores some state from received events and dispatches actions when they are
@@ -663,6 +666,7 @@ pub struct ActionContext<'a, N, T> {
     pub message_buffer: &'a mut MessageBuffer,
     pub config: &'a UiConfig,
     pub cursor_blink_timed_out: &'a mut bool,
+    pub prev_bell_cmd: &'a mut Option<Instant>,
     #[cfg(target_os = "macos")]
     pub event_loop: &'a ActiveEventLoop,
     pub event_proxy: &'a EventLoopProxy<Event>,
@@ -1881,7 +1885,15 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 
                         // Execute bell command.
                         if let Some(bell_command) = &self.ctx.config.bell.command {
-                            self.ctx.spawn_daemon(bell_command.program(), bell_command.args());
+                            if self
+                                .ctx
+                                .prev_bell_cmd
+                                .is_none_or(|i| i.elapsed() >= BELL_CMD_COOLDOWN)
+                            {
+                                self.ctx.spawn_daemon(bell_command.program(), bell_command.args());
+
+                                *self.ctx.prev_bell_cmd = Some(Instant::now());
+                            }
                         }
                     },
                     TerminalEvent::ClipboardStore(clipboard_type, content) => {
