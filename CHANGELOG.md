@@ -38,6 +38,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Crash when `AppleFontSmoothing` option is not present on macOS
 - Origin mode (DECOM) not moving cursor to the origin point
 - Unresponsiveness when spamming the bell character with a bell command enabled
+- `window.startup_mode` applied to existing window when opening a new tab on macOS
 
 ## 0.15.1
 
