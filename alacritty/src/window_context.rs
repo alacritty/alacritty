@@ -132,6 +132,13 @@ impl WindowContext {
         let mut identity = config.window.identity.clone();
         options.window_identity.override_identity_config(&mut identity);
 
+        // Check if new window will be opened as a tab.
+        // This must be done before `Window::new()`, which unsets `window_tabbing_id`.
+        #[cfg(target_os = "macos")]
+        let tabbed = options.window_tabbing_id.is_some();
+        #[cfg(not(target_os = "macos"))]
+        let tabbed = false;
+
         let window = Window::new(
             event_loop,
             &config,
@@ -145,12 +152,6 @@ impl WindowContext {
         let raw_window_handle = window.raw_window_handle();
         let gl_context =
             renderer::platform::create_gl_context(&gl_display, gl_config, Some(raw_window_handle))?;
-
-        // Check if new window will be opened as a tab.
-        #[cfg(target_os = "macos")]
-        let tabbed = options.window_tabbing_id.is_some();
-        #[cfg(not(target_os = "macos"))]
-        let tabbed = false;
 
         let display = Display::new(window, gl_context, &config, tabbed)?;
 
