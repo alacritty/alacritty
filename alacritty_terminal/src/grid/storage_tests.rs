@@ -1,9 +1,121 @@
 use std::fmt;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::grid::row::Row;
+    use crate::index::{Column, Line};
 
+    // A test struct to verify the Swappable trait works with non-Row types
+    #[derive(Clone, Debug, PartialEq)]
+    struct TestSwappable {
+        value: u32,
+        secondary: String,
+    }
+
+    impl Swappable for TestSwappable {
+        fn swap_with(&mut self, other: &mut Self) {
+            mem::swap(self, other);
+        }
+    }
+
+    // Create a test row with a specific character
+    fn create_test_row(ch: char) -> Row<char> {
+        let mut row = Row::new(1);
+        row[Column(0)] = ch;
+        row
+    }
+
+    #[test]
+    fn test_swappable_row() {
+        let mut row1 = create_test_row('a');
+        let mut row2 = create_test_row('b');
+
+        row1.swap_with(&mut row2);
+
+        assert_eq!(row1[Column(0)], 'b');
+        assert_eq!(row2[Column(0)], 'a');
+    }
+
+    #[test]
+    fn test_storage_swap() {
+        let mut storage = Storage::<char>::with_capacity(3, 1);
+
+        storage[Line(0)] = create_test_row('0');
+        storage[Line(1)] = create_test_row('1');
+
+        storage.swap(Line(0), Line(1));
+
+        assert_eq!(storage[Line(0)][Column(0)], '1');
+        assert_eq!(storage[Line(1)][Column(0)], '0');
+    }
+
+    #[test]
+    fn test_custom_swappable() {
+        // This test demonstrates that the Swappable trait can work
+        // with custom types that aren't Row<T>
+        let mut a = TestSwappable { value: 1, secondary: "test".to_string() };
+        let mut b = TestSwappable { value: 2, secondary: "other".to_string() };
+
+        a.swap_with(&mut b);
+
+        assert_eq!(a.value, 2);
+        assert_eq!(a.secondary, "other");
+        assert_eq!(b.value, 1);
+        assert_eq!(b.secondary, "test");
+    }
+}
 use super::*;
 use crate::grid::row::Row;
 use crate::index::Line;
+#[cfg(test)]
+mod swappable_tests {
+    use super::*;
+    use crate::grid::row::Row;
+    use crate::index::{Column, Line};
 
+    // Helper function to create a test row
+    fn create_test_row(ch: char) -> Row<char> {
+        let mut row = Row::new(1);
+        row[Column(0)] = ch;
+        row
+    }
+
+    #[test]
+    fn test_row_swap_with() {
+        let mut row1 = create_test_row('a');
+        let mut row2 = create_test_row('b');
+
+        row1.swap_with(&mut row2);
+
+        assert_eq!(row1[Column(0)], 'b');
+        assert_eq!(row2[Column(0)], 'a');
+    }
+
+    #[test]
+    fn test_storage_swap() {
+        let mut storage = Storage::<char>::with_capacity(3, 1);
+
+        storage[Line(0)] = create_test_row('0');
+        storage[Line(1)] = create_test_row('1');
+
+        storage.swap(Line(0), Line(1));
+
+        assert_eq!(storage[Line(0)][Column(0)], '1');
+        assert_eq!(storage[Line(1)][Column(0)], '0');
+    }
+
+    #[test]
+    fn test_swap_same_index() {
+        let mut storage = Storage::<char>::with_capacity(2, 1);
+
+        storage[Line(0)] = create_test_row('0');
+
+        // This should not panic
+        storage.swap(Line(0), Line(0));
+
+        assert_eq!(storage[Line(0)][Column(0)], '0');
+    }
+}
 // Simple test cell implementation
 #[derive(Clone, Debug, PartialEq)]
 struct TestCell {

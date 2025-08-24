@@ -1,6 +1,8 @@
 use std::cmp::max;
 use std::mem;
-use std::mem::MaybeUninit;
+use std::cmp::PartialEq;
+
+#[cfg_attr(not(feature = "std"), no_std)]
 use std::ops::{Index, IndexMut};
 
 #[cfg(feature = "serde")]
@@ -11,6 +13,19 @@ use crate::index::Line;
 
 /// Maximum number of buffered lines outside of the grid for performance optimization.
 const MAX_CACHE_SIZE: usize = 1_000;
+
+/// Trait for types that can be swapped.
+pub trait Swappable {
+    /// Swap this value with another value of the same type.
+    fn swap_with(&mut self, other: &mut Self);
+}
+
+/// Implement Swappable for all types that can be safely swapped with mem::swap
+impl<T> Swappable for Row<T> {
+    fn swap_with(&mut self, other: &mut Self) {
+        mem::swap(self, other);
+    }
+}
 
 /// A ring buffer for optimizing indexing and rotation.
 ///
@@ -55,7 +70,9 @@ pub struct Storage<T> {
 impl<T: PartialEq> PartialEq for Storage<T> {
     fn eq(&self, other: &Self) -> bool {
         // Both storage buffers need to be truncated and zeroed.
+        #[cfg(feature = "std")]
         assert_eq!(self.zero, 0);
+        #[cfg(feature = "std")]
         assert_eq!(other.zero, 0);
 
         self.inner == other.inner && self.len == other.len
@@ -144,34 +161,35 @@ impl<T> Storage<T> {
 
     /// Swap implementation for Row<T>.
     ///
-    /// Exploits the known size of Row<T> to produce a slightly more efficient
-    /// swap than going through slice::swap.
-    ///
-    /// The default implementation from swap generates 8 movups and 4 movaps
-    /// instructions. This implementation achieves the swap in only 8 movups
-    /// instructions.
+    /// Uses the Swappable trait to perform a generic swap operation without
+    /// relying on the size of the Row<T> type.
     pub fn swap(&mut self, a: Line, b: Line) {
-        debug_assert_eq!(mem::size_of::<Row<T>>(), mem::size_of::<usize>() * 4);
+        let a_idx = self.compute_index(a);
+        let b_idx = self.compute_index(b);
 
-        let a = self.compute_index(a);
-        let b = self.compute_index(b);
-
-        unsafe {
-            // Cast to a qword array to opt out of copy restrictions and avoid
-            // drop hazards. Byte array is no good here since for whatever
-            // reason LLVM won't optimized it.
-            let a_ptr = self.inner.as_mut_ptr().add(a) as *mut MaybeUninit<usize>;
-            let b_ptr = self.inner.as_mut_ptr().add(b) as *mut MaybeUninit<usize>;
-
-            // Copy 1 qword at a time.
-            //
-            // The optimizer unrolls this loop and vectorizes it.
-            let mut tmp: MaybeUninit<usize>;
-            for i in 0..4 {
-                tmp = *a_ptr.offset(i);
-                *a_ptr.offset(i) = *b_ptr.offset(i);
-                *b_ptr.offset(i) = tmp;
+        // Validity check for debug builds
+        #[cfg(debug_assertions)]
+        {
+            if a_idx >= self.inner.len() || b_idx >= self.inner.len() {
+                panic!(
+                    "a={:?}({}) or b={:?}({}) outside of grid ({})",
+                    a, a_idx, b, b_idx, self.inner.len()
+                );
             }
+        }
+
+        // Use split_at_mut to get mutable references to both elements
+        // This avoids borrowing self.inner mutably twice
+        if a_idx != b_idx {
+            let (lower_idx, upper_idx) = if a_idx < b_idx { (a_idx, b_idx) } else { (b_idx, a_idx) };
+
+            // Split the vector to get mutable references to both elements
+            let (head, tail) = self.inner.split_at_mut(upper_idx);
+            let lower = &mut head[lower_idx];
+            let upper = &mut tail[0];
+
+            // Use the Swappable trait to swap the elements
+            lower.swap_with(upper);
         }
     }
 

@@ -107,7 +107,10 @@ pub enum Scroll {
 /// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct Grid<T> {
+pub struct Grid<T> 
+where
+    Row<T>: storage::Swappable,
+{
     /// Current cursor for writing data.
     #[cfg_attr(feature = "serde", serde(skip))]
     pub cursor: Cursor<T>,
