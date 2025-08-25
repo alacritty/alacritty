@@ -1081,7 +1081,10 @@ impl Display {
         }
 
         // Abort if mouse highlighting conditions are not met.
-        if !mouse.inside_text_area || !term.selection.as_ref().is_none_or(Selection::is_empty) {
+        if !self.window.mouse_visible()
+            || !mouse.inside_text_area
+            || !term.selection.as_ref().is_none_or(Selection::is_empty)
+        {
             if self.highlighted_hint.take().is_some() {
                 self.damage_tracker.frame().mark_fully_damaged();
                 dirty = true;
