@@ -277,6 +277,11 @@ impl Window {
         }
     }
 
+    #[inline]
+    pub fn mouse_visible(&self) -> bool {
+        self.mouse_visible
+    }
+
     #[cfg(not(any(target_os = "macos", windows)))]
     pub fn get_platform_window(
         identity: &Identity,
