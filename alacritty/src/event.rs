@@ -1208,8 +1208,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         // Hide mouse cursor.
-        if self.config.mouse.hide_when_typing {
+        if self.config.mouse.hide_when_typing && self.display.window.mouse_visible() {
             self.display.window.set_mouse_visible(false);
+
+            // Request hint highlights update, since the mouse may have been hovering a hint.
+            self.mouse.hint_highlight_dirty = true
         }
     }
 

@@ -10,6 +10,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.17.0-dev
 
+### Changed
+
+- Don't highlight hints on hover when the mouse cursor is hidden
+
 ## 0.16.0
 
 ### Packaging
