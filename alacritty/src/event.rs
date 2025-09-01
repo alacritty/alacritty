@@ -1357,6 +1357,26 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
 
+    /// Input text directly from IME without clipboard interaction.
+    /// This is specifically for IME commit events to prevent clipboard interference.
+    fn ime_input(&mut self, text: &str) {
+        if self.search_active() {
+            for c in text.chars() {
+                self.search_input(c);
+            }
+        } else if self.inline_search_state.char_pending {
+            self.inline_search_input(text);
+        } else {
+            // For IME input, always treat as direct input without bracketed paste
+            // This prevents clipboard interference when using CJK input methods
+            self.on_terminal_input_start();
+            
+            // Convert line endings to match terminal expectations
+            let payload = text.replace("\r\n", "\r").replace('\n', "\r").into_bytes();
+            self.write_to_pty(payload);
+        }
+    }
+
     /// Paste a text into the terminal.
     fn paste(&mut self, text: &str, bracketed: bool) {
         if self.search_active() {
@@ -2019,8 +2039,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                                 self.ctx.display.ime.mark_commit(&text);
                             }
                             
-                            // Don't use bracketed paste for single char input.
-                            self.ctx.paste(&text, text.chars().count() > 1);
+                            // Use ime_input instead of paste to prevent clipboard interference
+                            // This fixes the issue where images get pasted when typing in CJK languages
+                            self.ctx.ime_input(&text);
                             self.ctx.update_cursor_blinking();
                         },
                         Ime::Preedit(text, cursor_offset) => {

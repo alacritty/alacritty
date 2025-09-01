@@ -136,6 +136,7 @@ pub trait ActionContext<T: EventListener> {
     fn semantic_word(&self, point: Point) -> String;
     fn on_terminal_input_start(&mut self) {}
     fn paste(&mut self, _text: &str, _bracketed: bool) {}
+    fn ime_input(&mut self, _text: &str) {}
     fn spawn_daemon<I, S>(&self, _program: &str, _args: I)
     where
         I: IntoIterator<Item = S> + Debug + Copy,
