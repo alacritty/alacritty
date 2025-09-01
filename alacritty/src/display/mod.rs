@@ -67,6 +67,9 @@ mod bell;
 mod damage;
 mod meter;
 
+#[cfg(test)]
+mod test_ime;
+
 /// Label for the forward terminal search bar.
 const FORWARD_SEARCH_LABEL: &str = "Search: ";
 
@@ -1476,6 +1479,11 @@ pub struct Ime {
 
     /// Current IME preedit.
     preedit: Option<Preedit>,
+
+    /// Tracks if we recently committed text to prevent double character input on CJK IME.
+    /// This issue occurs across macOS, Linux, and Windows with various CJK input methods.
+    /// This field stores the timestamp and content of the last commit.
+    last_commit: Option<(std::time::Instant, String)>,
 }
 
 impl Ime {
@@ -1502,6 +1510,25 @@ impl Ime {
     #[inline]
     pub fn preedit(&self) -> Option<&Preedit> {
         self.preedit.as_ref()
+    }
+
+    /// Mark that we just committed text from IME.
+    /// This helps prevent double character input on CJK IME across all platforms.
+    pub fn mark_commit(&mut self, text: &str) {
+        self.last_commit = Some((std::time::Instant::now(), text.to_string()));
+    }
+
+    /// Check if we recently committed text and should suppress the next key input.
+    /// This prevents double character input on CJK IME across macOS, Linux, and Windows.
+    pub fn should_suppress_key(&mut self, key_text: &str) -> bool {
+        if let Some((timestamp, commit_text)) = self.last_commit.take() {
+            // Suppress key if it comes within 10ms of a commit and matches the committed text
+            // This window is small enough to only affect IME-generated events
+            timestamp.elapsed() < std::time::Duration::from_millis(10) 
+                && commit_text.ends_with(key_text)
+        } else {
+            false
+        }
     }
 }
 

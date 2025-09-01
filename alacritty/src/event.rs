@@ -2012,6 +2012,13 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     WindowEvent::Ime(ime) => match ime {
                         Ime::Commit(text) => {
                             *self.ctx.dirty = true;
+                            
+                            // Track commits to prevent double character input on CJK IME
+                            // This issue occurs on macOS, Linux, and Windows with various CJK input methods
+                            if !text.is_empty() {
+                                self.ctx.display.ime.mark_commit(&text);
+                            }
+                            
                             // Don't use bracketed paste for single char input.
                             self.ctx.paste(&text, text.chars().count() > 1);
                             self.ctx.update_cursor_blinking();

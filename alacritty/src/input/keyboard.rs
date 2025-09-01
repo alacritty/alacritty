@@ -37,6 +37,13 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         let text = key.text_with_all_modifiers().unwrap_or_default();
 
+        // Check for double character input from CJK IME
+        // This issue occurs across macOS, Linux, and Windows with various CJK input methods
+        // If this key matches recently committed text, suppress it to prevent duplicates
+        if !text.is_empty() && self.ctx.display().ime.should_suppress_key(&text) {
+            return;
+        }
+
         // All key bindings are disabled while a hint is being selected.
         if self.ctx.display().hint_state.active() {
             for character in text.chars() {
