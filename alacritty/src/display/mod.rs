@@ -70,6 +70,9 @@ mod meter;
 #[cfg(test)]
 mod test_ime;
 
+#[cfg(test)] 
+mod ime_integration_test;
+
 /// Label for the forward terminal search bar.
 const FORWARD_SEARCH_LABEL: &str = "Search: ";
 
