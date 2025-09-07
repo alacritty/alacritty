@@ -8,7 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Notable changes to the `alacritty_terminal` crate are documented in its
 [CHANGELOG](./alacritty_terminal/CHANGELOG.md).
 
-## 0.16.0-dev
+## 0.17.0-dev
+
+### Changed
+
+- Don't highlight hints on hover when the mouse cursor is hidden
+
+## 0.16.0
 
 ### Packaging
 
@@ -25,6 +31,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Changed
 
 - Hide login message if `~/.hushlogin` is present
+- Improve rendering of rounded corners with builtin box drawing
 
 ### Fixed
 
@@ -35,6 +42,9 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Hint bindings not respecting IPC overrides
 - Search matching a wrapping fullwidth character in the last column
 - Crash when `AppleFontSmoothing` option is not present on macOS
+- Origin mode (DECOM) not moving cursor to the origin point
+- Unresponsiveness when spamming the bell character with a bell command enabled
+- `window.startup_mode` applied to existing window when opening a new tab on macOS
 
 ## 0.15.1
 
