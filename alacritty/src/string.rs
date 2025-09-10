@@ -45,7 +45,7 @@ impl<'a> StrShortener<'a> {
         mut shortener: Option<char>,
     ) -> Self {
         if text.is_empty() {
-            // If we don't have any text don't produce a shortener for it.
+            // For empty text, disable the shortener since there's nothing to shorten.
             let _ = shortener.take();
         }
 
