@@ -1616,7 +1616,10 @@ mod tests {
         // Test that process_mouse_bindings returns false when no binding matches
         processor.ctx.modifiers = Default::default(); // Remove Alt modifier
         let binding_executed = processor.process_mouse_bindings(MouseButton::Left);
-        assert!(!binding_executed, "Left mouse binding without Alt modifier should not be executed");
+        assert!(
+            !binding_executed,
+            "Left mouse binding without Alt modifier should not be executed"
+        );
     }
 
     #[test]
@@ -1674,7 +1677,9 @@ mod tests {
 
         // Enable mouse mode to reproduce the issue from #8473
         // We need to simulate mouse mode being active
-        terminal.set_private_mode(alacritty_terminal::vte::ansi::NamedPrivateMode::ReportMouseClicks.into());
+        terminal.set_private_mode(
+            alacritty_terminal::vte::ansi::NamedPrivateMode::ReportMouseClicks.into(),
+        );
 
         let mut mouse = Mouse::default();
         let mut inline_search_state = InlineSearchState::default();
@@ -1695,7 +1700,10 @@ mod tests {
 
         // This should return true now that the fix is applied
         let result = processor.process_mouse_bindings(MouseButton::Left);
-        assert!(result, "Left mouse binding with Alt modifier should work in mouse mode (fixes issue #8473)");
+        assert!(
+            result,
+            "Left mouse binding with Alt modifier should work in mouse mode (fixes issue #8473)"
+        );
     }
 
     #[test]
@@ -1759,7 +1767,9 @@ mod tests {
         // Test 2: With mouse mode (this was broken before the fix)
         {
             let mut terminal = Term::new(cfg.term_options(), &size, MockEventProxy);
-            terminal.set_private_mode(alacritty_terminal::vte::ansi::NamedPrivateMode::ReportMouseClicks.into());
+            terminal.set_private_mode(
+                alacritty_terminal::vte::ansi::NamedPrivateMode::ReportMouseClicks.into(),
+            );
 
             let mut mouse = Mouse::default();
             let mut inline_search_state = InlineSearchState::default();
@@ -1784,7 +1794,9 @@ mod tests {
         // Test 3: Shift+Left should still work in mouse mode
         {
             let mut terminal = Term::new(cfg.term_options(), &size, MockEventProxy);
-            terminal.set_private_mode(alacritty_terminal::vte::ansi::NamedPrivateMode::ReportMouseClicks.into());
+            terminal.set_private_mode(
+                alacritty_terminal::vte::ansi::NamedPrivateMode::ReportMouseClicks.into(),
+            );
 
             let mut mouse = Mouse::default();
             let mut inline_search_state = InlineSearchState::default();

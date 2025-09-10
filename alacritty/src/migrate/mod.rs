@@ -107,10 +107,11 @@ fn migrate_toml(toml: String) -> Result<DocumentMut, String> {
     };
 
     // Move `draw_bold_text_with_bright_colors` to its own section.
-    move_value(&mut document, &["draw_bold_text_with_bright_colors"], &[
-        "colors",
-        "draw_bold_text_with_bright_colors",
-    ])?;
+    move_value(
+        &mut document,
+        &["draw_bold_text_with_bright_colors"],
+        &["colors", "draw_bold_text_with_bright_colors"],
+    )?;
 
     // Move bindings to their own section.
     move_value(&mut document, &["key_bindings"], &["keyboard", "bindings"])?;
@@ -300,11 +301,11 @@ not_moved = 9
         let mut document = input.parse::<DocumentMut>().unwrap();
 
         move_value(&mut document, &["root_value"], &["new_table", "root_value"]).unwrap();
-        move_value(&mut document, &["table", "table_value"], &[
-            "preexisting",
-            "subtable",
-            "new_name",
-        ])
+        move_value(
+            &mut document,
+            &["table", "table_value"],
+            &["preexisting", "subtable", "new_name"],
+        )
         .unwrap();
 
         let output = document.to_string();
