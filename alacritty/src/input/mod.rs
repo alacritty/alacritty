@@ -627,31 +627,36 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
             self.mouse_report(code, ElementState::Pressed);
         } else {
-            // Calculate time since the last click to handle double/triple clicks.
-            let now = Instant::now();
-            let elapsed = now - self.ctx.mouse().last_click_timestamp;
-            self.ctx.mouse_mut().last_click_timestamp = now;
-
-            // Update multi-click state.
-            self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
-                // Reset click state if button has changed.
-                _ if button != self.ctx.mouse().last_click_button => {
-                    self.ctx.mouse_mut().last_click_button = button;
-                    ClickState::Click
-                },
-                ClickState::Click if elapsed < CLICK_THRESHOLD => ClickState::DoubleClick,
-                ClickState::DoubleClick if elapsed < CLICK_THRESHOLD => ClickState::TripleClick,
-                _ => ClickState::Click,
-            };
-
-            // Load mouse point, treating message bar and padding as the closest cell.
-            let display_offset = self.ctx.terminal().grid().display_offset();
-            let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
-
-            if let MouseButton::Left = button {
-                self.on_left_click(point)
-            }
+            self.update_click_state(button);
         }
+    }
+
+    /// Update click state for mouse press events.
+    fn update_click_state(&mut self, button: MouseButton) {
+        // Calculate time since the last click to handle double/triple clicks.
+        let now = Instant::now();
+        let elapsed = now - self.ctx.mouse().last_click_timestamp;
+        self.ctx.mouse_mut().last_click_timestamp = now;
+
+        // Update multi-click state.
+        self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
+            // Reset click state if button has changed.
+            _ if button != self.ctx.mouse().last_click_button => {
+                self.ctx.mouse_mut().last_click_button = button;
+                ClickState::Click
+            },
+            ClickState::Click if elapsed < CLICK_THRESHOLD => ClickState::DoubleClick,
+            ClickState::DoubleClick if elapsed < CLICK_THRESHOLD => ClickState::TripleClick,
+            _ => ClickState::Click,
+        };
+    }
+
+    /// Handle default left click behavior when no custom binding is triggered.
+    fn handle_default_left_click(&mut self) {
+        // Load mouse point, treating message bar and padding as the closest cell.
+        let display_offset = self.ctx.terminal().grid().display_offset();
+        let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
+        self.on_left_click(point);
     }
 
     /// Handle left click selection and vi mode cursor movement.
@@ -1016,9 +1021,16 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         } else {
             match state {
                 ElementState::Pressed => {
-                    // Process mouse press before bindings to update the `click_state`.
+                    // Update click state for all buttons.
                     self.on_mouse_press(button);
-                    self.process_mouse_bindings(button);
+
+                    // Check for custom bindings first.
+                    let binding_executed = self.process_mouse_bindings(button);
+
+                    // Only apply default left-click behavior if no custom binding was triggered.
+                    if !binding_executed && button == MouseButton::Left {
+                        self.handle_default_left_click();
+                    }
                 },
                 ElementState::Released => self.on_mouse_release(button),
             }
@@ -1029,7 +1041,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     ///
     /// The provided mode, mods, and key must match what is allowed by a binding
     /// for its action to be executed.
-    fn process_mouse_bindings(&mut self, button: MouseButton) {
+    ///
+    /// Returns `true` if a binding was found and executed, `false` otherwise.
+    fn process_mouse_bindings(&mut self, button: MouseButton) -> bool {
         let mode = BindingMode::new(self.ctx.terminal().mode(), self.ctx.search_active());
         let mouse_mode = self.ctx.mouse_mode();
         let mods = self.ctx.modifiers().state();
@@ -1040,8 +1054,17 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let mut exact_match_found = false;
 
         for binding in &mouse_bindings {
-            // Don't trigger normal bindings in mouse mode unless Shift is pressed.
-            if binding.is_triggered_by(mode, mods, &button) && (fallback_allowed || !mouse_mode) {
+            // In mouse mode, allow bindings with any modifiers to work, not just shift.
+            // This fixes issue #8473 where left mouse bindings with modifiers were ignored.
+            let binding_allowed = if mouse_mode {
+                // Allow binding if it has any modifiers or if shift is pressed
+                !binding.mods.is_empty() || mods.contains(ModifiersState::SHIFT)
+            } else {
+                // Normal mode - all bindings allowed
+                true
+            };
+
+            if binding.is_triggered_by(mode, mods, &button) && binding_allowed {
                 binding.action.execute(&mut self.ctx);
                 exact_match_found = true;
             }
@@ -1052,9 +1075,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             for binding in &mouse_bindings {
                 if binding.is_triggered_by(mode, fallback_mods, &button) {
                     binding.action.execute(&mut self.ctx);
+                    return true;
                 }
             }
         }
+
+        exact_match_found
     }
 
     /// Check mouse icon state in relation to the message bar.
@@ -1545,5 +1571,130 @@ mod tests {
         triggers: false,
         mode: BindingMode::empty(),
         mods: ModifiersState::ALT | ModifiersState::SUPER,
+    }
+
+    #[test]
+    fn test_left_mouse_binding_execution_returns_true() {
+        use winit::event::MouseButton;
+
+        let mut clipboard = Clipboard::new_nop();
+
+        // Create a config with a left mouse button binding
+        let mut cfg = UiConfig::default();
+        let left_click_binding = Binding {
+            trigger: MouseButton::Left,
+            mods: ModifiersState::ALT,
+            action: Action::Copy,
+            mode: BindingMode::empty(),
+            notmode: BindingMode::empty(),
+        };
+        cfg.mouse.bindings.0 = vec![left_click_binding];
+
+        let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0., 0., false);
+        let mut terminal = Term::new(cfg.term_options(), &size, MockEventProxy);
+        let mut mouse = Mouse::default();
+        let mut inline_search_state = InlineSearchState::default();
+        let mut message_buffer = MessageBuffer::default();
+
+        let context = ActionContext {
+            terminal: &mut terminal,
+            mouse: &mut mouse,
+            size_info: &size,
+            clipboard: &mut clipboard,
+            modifiers: ModifiersState::ALT.into(),
+            message_buffer: &mut message_buffer,
+            inline_search_state: &mut inline_search_state,
+            config: &cfg,
+        };
+
+        let mut processor = Processor::new(context);
+
+        // Test that process_mouse_bindings returns true when a binding is found
+        let binding_executed = processor.process_mouse_bindings(MouseButton::Left);
+        assert!(binding_executed, "Left mouse binding with Alt modifier should be executed");
+
+        // Test that process_mouse_bindings returns false when no binding matches
+        processor.ctx.modifiers = Default::default(); // Remove Alt modifier
+        let binding_executed = processor.process_mouse_bindings(MouseButton::Left);
+        assert!(!binding_executed, "Left mouse binding without Alt modifier should not be executed");
+    }
+
+    #[test]
+    fn test_no_left_mouse_binding_returns_false() {
+        use winit::event::MouseButton;
+
+        let mut clipboard = Clipboard::new_nop();
+
+        // Use default config with no custom bindings
+        let cfg = UiConfig::default();
+
+        let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0., 0., false);
+        let mut terminal = Term::new(cfg.term_options(), &size, MockEventProxy);
+        let mut mouse = Mouse::default();
+        let mut inline_search_state = InlineSearchState::default();
+        let mut message_buffer = MessageBuffer::default();
+
+        let context = ActionContext {
+            terminal: &mut terminal,
+            mouse: &mut mouse,
+            size_info: &size,
+            clipboard: &mut clipboard,
+            modifiers: Default::default(),
+            message_buffer: &mut message_buffer,
+            inline_search_state: &mut inline_search_state,
+            config: &cfg,
+        };
+
+        let mut processor = Processor::new(context);
+
+        // Test that process_mouse_bindings returns false when no custom bindings exist
+        let binding_executed = processor.process_mouse_bindings(MouseButton::Left);
+        assert!(!binding_executed, "No custom left mouse binding should return false");
+    }
+
+    #[test]
+    fn test_left_mouse_binding_with_alt_in_mouse_mode() {
+        use winit::event::MouseButton;
+
+        let mut clipboard = Clipboard::new_nop();
+        let mut cfg = UiConfig::default();
+
+        // Add a left mouse binding with Alt modifier
+        let left_click_binding = Binding {
+            trigger: MouseButton::Left,
+            mods: ModifiersState::ALT,
+            mode: BindingMode::empty(),
+            notmode: BindingMode::empty(),
+            action: Action::Copy,
+        };
+        cfg.mouse.bindings.0 = vec![left_click_binding];
+
+        let size = SizeInfo::new(21.0, 51.0, 3.0, 3.3, 0., 0., false);
+        let mut terminal = Term::new(cfg.term_options(), &size, MockEventProxy);
+
+        // Enable mouse mode to reproduce the issue from #8473
+        // We need to simulate mouse mode being active
+        terminal.set_private_mode(alacritty_terminal::vte::ansi::NamedPrivateMode::ReportMouseClicks.into());
+
+        let mut mouse = Mouse::default();
+        let mut inline_search_state = InlineSearchState::default();
+        let mut message_buffer = MessageBuffer::default();
+
+        let context = ActionContext {
+            terminal: &mut terminal,
+            mouse: &mut mouse,
+            size_info: &size,
+            clipboard: &mut clipboard,
+            modifiers: ModifiersState::ALT.into(),
+            message_buffer: &mut message_buffer,
+            inline_search_state: &mut inline_search_state,
+            config: &cfg,
+        };
+
+        let mut processor = Processor::new(context);
+
+        // This should return true now that the fix is applied
+        let result = processor.process_mouse_bindings(MouseButton::Left);
+        assert!(result, "Left mouse binding with Alt modifier should work in mouse mode (fixes issue #8473)");
     }
 }
