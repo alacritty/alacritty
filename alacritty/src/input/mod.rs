@@ -1697,4 +1697,113 @@ mod tests {
         let result = processor.process_mouse_bindings(MouseButton::Left);
         assert!(result, "Left mouse binding with Alt modifier should work in mouse mode (fixes issue #8473)");
     }
+
+    #[test]
+    fn test_issue_8473_comprehensive_scenarios() {
+        use winit::event::MouseButton;
+
+        let mut clipboard = Clipboard::new_nop();
+        let mut cfg = UiConfig::default();
+
+        // Add the exact bindings from issue #8473
+        let bindings = vec![
+            Binding {
+                trigger: MouseButton::Left,
+                mods: ModifiersState::SHIFT,
+                mode: BindingMode::empty(),
+                notmode: BindingMode::empty(),
+                action: Action::Mouse(MouseAction::ExpandSelection),
+            },
+            Binding {
+                trigger: MouseButton::Left,
+                mods: ModifiersState::ALT,
+                mode: BindingMode::empty(),
+                notmode: BindingMode::empty(),
+                action: Action::Copy,
+            },
+            Binding {
+                trigger: MouseButton::Right,
+                mods: ModifiersState::ALT,
+                mode: BindingMode::empty(),
+                notmode: BindingMode::empty(),
+                action: Action::Paste,
+            },
+        ];
+        cfg.mouse.bindings.0 = bindings;
+
+        let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0., 0., false);
+
+        // Test 1: Without mouse mode (should work)
+        {
+            let mut terminal = Term::new(cfg.term_options(), &size, MockEventProxy);
+            let mut mouse = Mouse::default();
+            let mut inline_search_state = InlineSearchState::default();
+            let mut message_buffer = MessageBuffer::default();
+
+            let context = ActionContext {
+                terminal: &mut terminal,
+                mouse: &mut mouse,
+                size_info: &size,
+                clipboard: &mut clipboard,
+                modifiers: ModifiersState::ALT.into(),
+                message_buffer: &mut message_buffer,
+                inline_search_state: &mut inline_search_state,
+                config: &cfg,
+            };
+
+            let mut processor = Processor::new(context);
+            let result = processor.process_mouse_bindings(MouseButton::Left);
+            assert!(result, "Alt+Left should work without mouse mode");
+        }
+
+        // Test 2: With mouse mode (this was broken before the fix)
+        {
+            let mut terminal = Term::new(cfg.term_options(), &size, MockEventProxy);
+            terminal.set_private_mode(alacritty_terminal::vte::ansi::NamedPrivateMode::ReportMouseClicks.into());
+
+            let mut mouse = Mouse::default();
+            let mut inline_search_state = InlineSearchState::default();
+            let mut message_buffer = MessageBuffer::default();
+
+            let context = ActionContext {
+                terminal: &mut terminal,
+                mouse: &mut mouse,
+                size_info: &size,
+                clipboard: &mut clipboard,
+                modifiers: ModifiersState::ALT.into(),
+                message_buffer: &mut message_buffer,
+                inline_search_state: &mut inline_search_state,
+                config: &cfg,
+            };
+
+            let mut processor = Processor::new(context);
+            let result = processor.process_mouse_bindings(MouseButton::Left);
+            assert!(result, "Alt+Left should work WITH mouse mode (this was the bug in #8473)");
+        }
+
+        // Test 3: Shift+Left should still work in mouse mode
+        {
+            let mut terminal = Term::new(cfg.term_options(), &size, MockEventProxy);
+            terminal.set_private_mode(alacritty_terminal::vte::ansi::NamedPrivateMode::ReportMouseClicks.into());
+
+            let mut mouse = Mouse::default();
+            let mut inline_search_state = InlineSearchState::default();
+            let mut message_buffer = MessageBuffer::default();
+
+            let context = ActionContext {
+                terminal: &mut terminal,
+                mouse: &mut mouse,
+                size_info: &size,
+                clipboard: &mut clipboard,
+                modifiers: ModifiersState::SHIFT.into(),
+                message_buffer: &mut message_buffer,
+                inline_search_state: &mut inline_search_state,
+                config: &cfg,
+            };
+
+            let mut processor = Processor::new(context);
+            let result = processor.process_mouse_bindings(MouseButton::Left);
+            assert!(result, "Shift+Left should still work in mouse mode");
+        }
+    }
 }
