@@ -1016,9 +1016,15 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         } else {
             match state {
                 ElementState::Pressed => {
-                    // Process mouse press before bindings to update the `click_state`.
+                    // Process bindings before mouse press to ensure they operate on the
+                    // existing selection rather than the new selection that will be started.
+                    // Only process bindings when they would normally be processed in on_mouse_press.
+                    if self.ctx.modifiers().state().shift_key() || !self.ctx.mouse_mode() {
+                        self.process_mouse_bindings(button);
+                    }
+
+                    // Process mouse press to update click state and handle selection.
                     self.on_mouse_press(button);
-                    self.process_mouse_bindings(button);
                 },
                 ElementState::Released => self.on_mouse_release(button),
             }
