@@ -1018,7 +1018,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 ElementState::Pressed => {
                     // Process bindings before mouse press to ensure they operate on the
                     // existing selection rather than the new selection that will be started.
-                    // Only process bindings when they would normally be processed in on_mouse_press.
+                    // Only process bindings when they would normally be processed in
+                    // on_mouse_press.
                     if self.ctx.modifiers().state().shift_key() || !self.ctx.mouse_mode() {
                         self.process_mouse_bindings(button);
                     }
