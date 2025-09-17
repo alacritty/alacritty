@@ -119,6 +119,9 @@ pub struct Window {
 
     is_x11: bool,
     current_mouse_cursor: CursorIcon,
+    text_input_active: bool,
+    pointer_focused: bool,
+    touch_focused: bool,
     mouse_visible: bool,
 }
 
@@ -202,15 +205,18 @@ impl Window {
         let is_x11 = matches!(window.window_handle().unwrap().as_raw(), RawWindowHandle::Xlib(_));
 
         Ok(Self {
+            current_mouse_cursor,
+            scale_factor,
+            is_x11,
+            window,
             hold: options.terminal_options.hold,
             requested_redraw: false,
+            text_input_active: true,
             title: identity.title,
-            current_mouse_cursor,
             mouse_visible: true,
             has_frame: true,
-            scale_factor,
-            window,
-            is_x11,
+            pointer_focused: Default::default(),
+            touch_focused: Default::default(),
         })
     }
 
@@ -433,11 +439,39 @@ impl Window {
         self.window.set_simple_fullscreen(simple_fullscreen);
     }
 
-    pub fn set_ime_allowed(&self, allowed: bool) {
-        // Skip runtime IME manipulation on X11 since it breaks some IMEs.
-        if !self.is_x11 {
-            self.window.set_ime_allowed(allowed);
+    /// Set whether plain-text input is currently possible.
+    pub fn set_text_input_active(&mut self, active: bool) {
+        if self.text_input_active != active {
+            self.text_input_active = active;
+            self.update_ime_allowed();
         }
+    }
+
+    /// Set whether the pointer is currently within the window.
+    pub fn set_pointer_focus(&mut self, focused: bool) {
+        if self.touch_focused != focused {
+            self.touch_focused = focused;
+            self.update_ime_allowed();
+        }
+    }
+
+    /// Set whether a touch action has focused the window.
+    pub fn set_touch_focus(&mut self, focused: bool) {
+        if self.touch_focused != focused {
+            self.touch_focused = focused;
+            self.update_ime_allowed();
+        }
+    }
+
+    /// Update whether IME should be offered.
+    fn update_ime_allowed(&mut self) {
+        // Skip runtime IME manipulation on X11 since it breaks some IMEs.
+        if self.is_x11 {
+            return;
+        }
+
+        let allowed = self.text_input_active && (self.touch_focused || self.pointer_focused);
+        self.window.set_ime_allowed(allowed);
     }
 
     /// Adjust the IME editor position according to the new location of the cursor.

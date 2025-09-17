@@ -214,7 +214,6 @@ impl Processor {
                 | WindowEvent::DoubleTapGesture { .. }
                 | WindowEvent::TouchpadPressure { .. }
                 | WindowEvent::RotationGesture { .. }
-                | WindowEvent::CursorEntered { .. }
                 | WindowEvent::PinchGesture { .. }
                 | WindowEvent::AxisMotion { .. }
                 | WindowEvent::PanGesture { .. }
@@ -969,7 +968,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         // Enable IME so we can input into the search bar with it if we were in Vi mode.
-        self.window().set_ime_allowed(true);
+        self.window().set_text_input_active(true);
 
         self.display.damage_tracker.frame().mark_fully_damaged();
         self.display.pending_update.dirty = true;
@@ -1424,7 +1423,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         // We don't want IME in Vi mode.
-        self.window().set_ime_allowed(was_in_vi_mode);
+        self.window().set_text_input_active(was_in_vi_mode);
 
         self.terminal.toggle_vi_mode();
 
@@ -1466,7 +1465,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         self.inline_search_state.char_pending = false;
         self.inline_search_state.character = Some(c);
-        self.window().set_ime_allowed(false);
+        self.window().set_text_input_active(false);
 
         // Immediately move to the captured character.
         self.inline_search_next();
@@ -1602,7 +1601,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     /// Cleanup the search state.
     fn exit_search(&mut self) {
         let vi_mode = self.terminal.mode().contains(TermMode::VI);
-        self.window().set_ime_allowed(!vi_mode);
+        self.window().set_text_input_active(!vi_mode);
 
         self.display.damage_tracker.frame().mark_fully_damaged();
         self.display.pending_update.dirty = true;
@@ -1702,8 +1701,9 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 }
 
 /// Identified purpose of the touch input.
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub enum TouchPurpose {
+    #[default]
     None,
     Select(TouchEvent),
     Scroll(TouchEvent),
@@ -1711,12 +1711,6 @@ pub enum TouchPurpose {
     ZoomPendingSlot(TouchEvent),
     Tap(TouchEvent),
     Invalid(HashSet<u64, RandomState>),
-}
-
-impl Default for TouchPurpose {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 /// Touch zooming state.
@@ -1990,9 +1984,12 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             *self.ctx.dirty = true;
                         }
 
-                        // Reset the urgency hint when gaining focus.
                         if is_focused {
+                            // Reset the urgency hint when gaining focus.
                             self.ctx.window().set_urgent(false);
+                        } else {
+                            // Clear touch focus when window loses focus.
+                            self.ctx.window().set_touch_focus(false);
                         }
 
                         self.ctx.update_cursor_blinking();
@@ -2005,7 +2002,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         let path: String = path.to_string_lossy().into();
                         self.ctx.paste(&(path + " "), true);
                     },
+                    WindowEvent::CursorEntered { .. } => self.ctx.window().set_pointer_focus(true),
                     WindowEvent::CursorLeft { .. } => {
+                        self.ctx.window().set_pointer_focus(false);
                         self.ctx.mouse.inside_text_area = false;
 
                         if self.ctx.display().highlighted_hint.is_some() {
@@ -2043,7 +2042,6 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     | WindowEvent::DoubleTapGesture { .. }
                     | WindowEvent::TouchpadPressure { .. }
                     | WindowEvent::RotationGesture { .. }
-                    | WindowEvent::CursorEntered { .. }
                     | WindowEvent::PinchGesture { .. }
                     | WindowEvent::AxisMotion { .. }
                     | WindowEvent::PanGesture { .. }
