@@ -933,6 +933,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 self.mouse_moved(start_location);
                 self.mouse_input(ElementState::Pressed, MouseButton::Left);
                 self.mouse_input(ElementState::Released, MouseButton::Left);
+
+                // Set touch focus, enabling IME.
+                self.ctx.window().set_touch_focus(true);
             },
             // Transition zoom to pending state once a finger was released.
             TouchPurpose::Zoom(zoom) => {
