@@ -267,6 +267,7 @@ impl Default for Hints {
             enabled: vec![Rc::new(Hint {
                 content,
                 action,
+                substitution: None,
                 persist: false,
                 post_processing: true,
                 mouse: Some(HintMouse { enabled: true, mods: Default::default() }),
@@ -355,6 +356,10 @@ pub struct Hint {
     /// Regex for finding matches.
     #[serde(flatten)]
     pub content: HintContent,
+
+    /// Optional regex substitution on the string before executing action.
+    #[serde(default)]
+    pub substitution: Option<String>,
 
     /// Action executed when this hint is triggered.
     #[serde(flatten)]
@@ -511,6 +516,14 @@ impl LazyRegex {
         F: FnMut(&mut RegexSearch) -> T,
     {
         self.0.borrow_mut().compiled().map(f)
+    }
+
+    pub fn get_text(&self) -> String {
+        match &*self.0.borrow() {
+            LazyRegexVariant::Compiled(value, _) => String::from(value),
+            LazyRegexVariant::Pattern(value) => String::from(value),
+            LazyRegexVariant::Uncompilable(value) => String::from(value),
+        }
     }
 }
 

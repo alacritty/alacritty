@@ -5,6 +5,7 @@ use std::iter;
 use std::rc::Rc;
 
 use ahash::RandomState;
+use regex_automata::meta::Regex;
 use winit::keyboard::ModifiersState;
 
 use alacritty_terminal::grid::{BidirectionalIterator, Dimensions};
@@ -219,6 +220,29 @@ impl HintMatch {
     #[inline]
     pub fn bounds(&self) -> &Match {
         &self.bounds
+    }
+
+    pub fn substitute_text<'a>(&self, raw_text: Cow<'a, str>) -> Cow<'a, str> {
+        if self.hint.substitution.is_none() {
+            return raw_text;
+        }
+
+        // alacritty_terminal's regex search engine is very optimized and does not contain
+        // a way to access capturing groups after matching. Still, triggering hints isn't
+        // a hotspot, so in this case we use a more costly regex engine.
+        match &self.hint.content.regex {
+            Some(regex) => match Regex::new(&regex.get_text()) {
+                Ok(expression) => {
+                    let mut captures = expression.create_captures();
+                    expression.captures(&*raw_text, &mut captures);
+                    captures
+                        .interpolate_string(&*raw_text, &self.hint.substitution.as_ref().unwrap())
+                        .into()
+                },
+                Err(_) => raw_text,
+            },
+            None => raw_text,
+        }
     }
 
     pub fn hyperlink(&self) -> Option<&Hyperlink> {

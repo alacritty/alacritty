@@ -673,7 +673,7 @@ terminal and pipe it to other applications.
 
 	Default: _"jfkdls;ahgurieowpq"_
 
-*enabled* = [{ *<regex>*, *<hyperlinks>*, *<post_processing>*, *<persist>*, *<action>*, *<command>*, *<binding>*, *<mouse>* },]
+*enabled* = [{ *<regex>*, *<hyperlinks>*, *<post_processing>*, *<persist>*, *<action>*, *<command>*, *<substitution>*, *<binding>*, *<mouse>* },]
 
 Array with all available hints.
 
@@ -716,6 +716,11 @@ _action_ or a _command_.
 		the _binding_.
 
 		The hint's text is always attached as the last argument.
+
+	*substitution* = _"<string>"_
+
+		Process the command by running a string interpolation operation on the hint
+		before attaching it to the command or action.
 
 	*binding* = { key = _"<string>"_, mods = _"<string>"_, mode = _"<string>"_ }
 
