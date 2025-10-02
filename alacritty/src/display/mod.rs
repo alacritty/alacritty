@@ -1375,8 +1375,8 @@ impl Display {
 
         // Damage the line indicator for current and next frame.
         let damage = LineDamageBounds::new(
-            point.line, 
-            point.column.0, 
+            point.line,
+            point.column.0,
             point.column.0 + text.len().saturating_sub(1),
         );
 
