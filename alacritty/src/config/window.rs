@@ -65,6 +65,9 @@ pub struct WindowConfig {
 
     /// Window level.
     pub level: WindowLevel,
+
+    /// Line indicator position.
+    pub line_indicator_corner: LineIndicatorCorner,
 }
 
 impl Default for WindowConfig {
@@ -85,6 +88,7 @@ impl Default for WindowConfig {
             decorations_theme_variant: Default::default(),
             option_as_alt: Default::default(),
             level: Default::default(),
+            line_indicator_corner: Default::default(),
         }
     }
 }
@@ -205,6 +209,15 @@ pub struct Dimensions {
 pub struct Class {
     pub general: String,
     pub instance: String,
+}
+
+#[derive(ConfigDeserialize, Serialize, Default, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum LineIndicatorCorner {
+    #[default]
+    TopRight,
+    TopLeft,
+    BottomRight,
+    BottomLeft,
 }
 
 impl Class {

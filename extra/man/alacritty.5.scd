@@ -207,6 +207,12 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: _"Normal"_
 
+*line_indicator_corner* = _"TopRight"_ | _"TopLeft"_ | _"BottomRight"_ | _"BottomLeft"_
+
+	Sets the position of the indicator displaying the position in history during search and vi mode.
+	
+	Default: _"TopRight"_
+
 Example:
 	*[window]*++
 padding = { x = _3_, y = _3_ }++

@@ -39,7 +39,7 @@ use alacritty_terminal::vte::ansi::{CursorShape, NamedColor};
 use crate::config::UiConfig;
 use crate::config::debug::RendererPreference;
 use crate::config::font::Font;
-use crate::config::window::Dimensions;
+use crate::config::window::{Dimensions,LineIndicatorCorner};
 #[cfg(not(windows))]
 use crate::config::window::StartupMode;
 use crate::display::bell::VisualBell;
@@ -1357,11 +1357,29 @@ impl Display {
     ) {
         let columns = self.size_info.columns();
         let text = format!("[{}/{}]", line, total_lines - 1);
-        let column = Column(self.size_info.columns().saturating_sub(text.len()));
-        let point = Point::new(0, column);
+
+        let (line_number, column) = match config.window.line_indicator_corner {
+            LineIndicatorCorner::TopRight => (0, Column(columns.saturating_sub(text.len()))),
+            LineIndicatorCorner::TopLeft => (0, Column(0)),
+            LineIndicatorCorner::BottomRight => (
+                self.size_info.screen_lines().saturating_sub(1),
+                Column(columns.saturating_sub(text.len())),
+            ),
+            LineIndicatorCorner::BottomLeft => (
+                self.size_info.screen_lines().saturating_sub(1),
+                Column(0),
+            )
+        };
+
+        let point = Point::new(line_number, column);
 
         // Damage the line indicator for current and next frame.
-        let damage = LineDamageBounds::new(point.line, point.column.0, columns - 1);
+        let damage = LineDamageBounds::new(
+            point.line, 
+            point.column.0, 
+            point.column.0 + text.len().saturating_sub(1),
+        );
+
         self.damage_tracker.frame().damage_line(damage);
         self.damage_tracker.next_frame().damage_line(damage);
 
