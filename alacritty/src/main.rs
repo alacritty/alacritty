@@ -180,6 +180,9 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     #[cfg(target_os = "macos")]
     locale::set_locale_environment();
 
+    #[cfg(target_os = "macos")]
+    macos::disable_autofill();
+
     // Create the IPC socket listener.
     #[cfg(unix)]
     let socket_path = if config.ipc_socket() {
