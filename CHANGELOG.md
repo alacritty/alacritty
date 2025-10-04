@@ -14,6 +14,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 - Don't highlight hints on hover when the mouse cursor is hidden
 
+### Fixed
+
+- Slowdowns over time on macOS 26
+
 ## 0.16.0
 
 ### Packaging
