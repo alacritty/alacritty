@@ -48,29 +48,27 @@ pub fn set_locale_environment() {
 
 /// Determine system locale based on language and country code.
 fn system_locale() -> String {
-    unsafe {
-        let locale = NSLocale::currentLocale();
+    let locale = NSLocale::currentLocale();
 
-        // `localeIdentifier` returns extra metadata with the locale (including currency and
-        // collator) on newer versions of macOS. This is not a valid locale, so we use
-        // `languageCode` and `countryCode`, if they're available (macOS 10.12+):
-        //
-        // https://developer.apple.com/documentation/foundation/nslocale/1416263-localeidentifier?language=objc
-        // https://developer.apple.com/documentation/foundation/nslocale/1643060-countrycode?language=objc
-        // https://developer.apple.com/documentation/foundation/nslocale/1643026-languagecode?language=objc
-        let is_language_code_supported: bool = locale.respondsToSelector(sel!(languageCode));
-        let is_country_code_supported: bool = locale.respondsToSelector(sel!(countryCode));
-        if is_language_code_supported && is_country_code_supported {
-            let language_code = locale.languageCode();
-            #[allow(deprecated)]
-            if let Some(country_code) = locale.countryCode() {
-                format!("{}_{}.UTF-8", language_code, country_code)
-            } else {
-                // Fall back to en_US in case the country code is not available.
-                "en_US.UTF-8".into()
-            }
+    // `localeIdentifier` returns extra metadata with the locale (including currency and
+    // collator) on newer versions of macOS. This is not a valid locale, so we use
+    // `languageCode` and `countryCode`, if they're available (macOS 10.12+):
+    //
+    // https://developer.apple.com/documentation/foundation/nslocale/1416263-localeidentifier?language=objc
+    // https://developer.apple.com/documentation/foundation/nslocale/1643060-countrycode?language=objc
+    // https://developer.apple.com/documentation/foundation/nslocale/1643026-languagecode?language=objc
+    let is_language_code_supported: bool = locale.respondsToSelector(sel!(languageCode));
+    let is_country_code_supported: bool = locale.respondsToSelector(sel!(countryCode));
+    if is_language_code_supported && is_country_code_supported {
+        let language_code = locale.languageCode();
+        #[allow(deprecated)]
+        if let Some(country_code) = locale.countryCode() {
+            format!("{}_{}.UTF-8", language_code, country_code)
         } else {
-            locale.localeIdentifier().to_string() + ".UTF-8"
+            // Fall back to en_US in case the country code is not available.
+            "en_US.UTF-8".into()
         }
+    } else {
+        locale.localeIdentifier().to_string() + ".UTF-8"
     }
 }
