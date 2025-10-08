@@ -512,7 +512,5 @@ fn use_srgb_color_space(window: &WinitWindow) {
         _ => return,
     };
 
-    unsafe {
-        view.window().unwrap().setColorSpace(Some(&NSColorSpace::sRGBColorSpace()));
-    }
+    view.window().unwrap().setColorSpace(Some(&NSColorSpace::sRGBColorSpace()));
 }
