@@ -6,6 +6,7 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use log::{debug, error, warn};
+use notify::event::{ModifyKind, RenameMode};
 use notify::{
     Config, Error as NotifyError, Event as NotifyEvent, EventKind, RecommendedWatcher,
     RecursiveMode, Watcher,
@@ -115,7 +116,8 @@ impl ConfigMonitor {
                         EventKind::Any
                         | EventKind::Create(_)
                         | EventKind::Modify(_)
-                        | EventKind::Other => {
+                        | EventKind::Other
+                        | EventKind::Remove(_) => {
                             received_events.push(event);
                         },
                         _ => (),
@@ -124,8 +126,17 @@ impl ConfigMonitor {
                         // Go back to polling the events.
                         debouncing_deadline = None;
 
+                        // If the last event was a deletion assume the file does not
+                        // exist any more and wait for new events.
+                        if received_events.last().is_some_and(Self::file_removed) {
+                            received_events.clear();
+                            debouncing_deadline = Some(Instant::now() + DEBOUNCE_DELAY);
+                            continue;
+                        }
+
                         if received_events
                             .drain(..)
+                            .filter(|e| !Self::file_removed(e))
                             .flat_map(|event| event.paths.into_iter())
                             .any(|path| paths.contains(&path))
                         {
@@ -188,5 +199,12 @@ impl ConfigMonitor {
         let mut hasher = DefaultHasher::new();
         Hash::hash_slice(&sorted_files, &mut hasher);
         Some(hasher.finish())
+    }
+
+    fn file_removed(event: &NotifyEvent) -> bool {
+        matches!(
+            event.kind,
+            EventKind::Remove(_) | EventKind::Modify(ModifyKind::Name(RenameMode::From))
+        )
     }
 }
