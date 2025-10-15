@@ -17,6 +17,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Fixed
 
 - Slowdowns over time on macOS 26
+- Brief error popup when saving the config file with some editors
 
 ## 0.16.0
 
