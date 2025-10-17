@@ -895,7 +895,7 @@ impl Canvas {
             *offset += 1.;
         }
 
-        let radius_i = (short_side + stroke_size + 1) / 2;
+        let radius_i = (short_side + stroke_size).div_ceil(2);
         for y in 0..radius_i {
             for x in 0..radius_i {
                 let y = y as f32;
