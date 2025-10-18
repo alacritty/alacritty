@@ -16,7 +16,6 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ### Fixed
 
-- Slowdowns over time on macOS 26
 - Brief error popup when saving the config file with some editors
 
 ## 0.16.0
@@ -51,6 +50,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Origin mode (DECOM) not moving cursor to the origin point
 - Unresponsiveness when spamming the bell character with a bell command enabled
 - `window.startup_mode` applied to existing window when opening a new tab on macOS
+- Slowdowns over time on macOS 26
 
 ## 0.15.1
 
