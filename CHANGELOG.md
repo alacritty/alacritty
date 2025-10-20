@@ -18,6 +18,12 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 - Brief error popup when saving the config file with some editors
 
+## 0.16.1
+
+### Fixed
+
+- Crashes on GPUs with partial robustness support
+
 ## 0.16.0
 
 ### Packaging
