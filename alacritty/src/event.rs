@@ -873,7 +873,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             args.push(arg);
         }
 
-        self.spawn_daemon(&alacritty, &args);
+        let envs: Vec<(&str, &str)> = vec![];
+        self.spawn_daemon(&alacritty, &args, envs);
     }
 
     #[cfg(not(windows))]
@@ -897,15 +898,18 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             .send_event(Event::new(EventType::CreateWindow(WindowOptions::default()), None));
     }
 
-    fn spawn_daemon<I, S>(&self, program: &str, args: I)
+    fn spawn_daemon<I, J, K, S, V>(&self, program: &str, args: I, envs: J)
     where
         I: IntoIterator<Item = S> + Debug + Copy,
+        J: IntoIterator<Item = (K, V)> + Debug,
+        K: AsRef<OsStr>,
         S: AsRef<OsStr>,
+        V: AsRef<OsStr>,
     {
         #[cfg(not(windows))]
-        let result = spawn_daemon(program, args, self.master_fd, self.shell_pid);
+        let result = spawn_daemon(program, args, envs, self.master_fd, self.shell_pid);
         #[cfg(windows)]
-        let result = spawn_daemon(program, args);
+        let result = spawn_daemon(program, args, envs);
 
         match result {
             Ok(_) => debug!("Launched {program} with args {args:?}"),
@@ -1240,9 +1244,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         match &hint.action() {
             // Launch an external program.
             HintAction::Command(command) => {
+                let title = self.window().title().to_owned();
                 let mut args = command.args().to_vec();
                 args.push(text.into());
-                self.spawn_daemon(command.program(), &args);
+                let envs = vec![("ALACRITTY_TERM_TITLE", &title)];
+                self.spawn_daemon(command.program(), &args, envs);
             },
             // Copy the text to the clipboard.
             HintAction::Action(HintInternalAction::Copy) => {
@@ -1893,7 +1899,12 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                                 .prev_bell_cmd
                                 .is_none_or(|i| i.elapsed() >= BELL_CMD_COOLDOWN)
                             {
-                                self.ctx.spawn_daemon(bell_command.program(), bell_command.args());
+                                let envs: Vec<(&str, &str)> = vec![];
+                                self.ctx.spawn_daemon(
+                                    bell_command.program(),
+                                    bell_command.args(),
+                                    envs,
+                                );
 
                                 *self.ctx.prev_bell_cmd = Some(Instant::now());
                             }

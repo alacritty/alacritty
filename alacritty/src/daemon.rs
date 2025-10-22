@@ -26,10 +26,13 @@ use crate::macos;
 
 /// Start a new process in the background.
 #[cfg(windows)]
-pub fn spawn_daemon<I, S>(program: &str, args: I) -> io::Result<()>
+pub fn spawn_daemon<I, J, K, S, V>(program: &str, args: I, envs: J) -> io::Result<()>
 where
     I: IntoIterator<Item = S> + Copy,
+    J: IntoIterator<Item = (K, V)> + std::fmt::Debug,
+    K: AsRef<OsStr>,
     S: AsRef<OsStr>,
+    V: AsRef<OsStr>,
 {
     // Setting all the I/O handles to null and setting the
     // CREATE_NEW_PROCESS_GROUP and CREATE_NO_WINDOW has the effect
@@ -37,6 +40,7 @@ where
     // console window.
     Command::new(program)
         .args(args)
+        .envs(envs)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -47,18 +51,22 @@ where
 
 /// Start a new process in the background.
 #[cfg(not(windows))]
-pub fn spawn_daemon<I, S>(
+pub fn spawn_daemon<I, J, K, S, V>(
     program: &str,
     args: I,
+    envs: J,
     master_fd: RawFd,
     shell_pid: u32,
 ) -> io::Result<()>
 where
     I: IntoIterator<Item = S> + Copy,
+    J: IntoIterator<Item = (K, V)> + std::fmt::Debug,
+    K: AsRef<OsStr>,
     S: AsRef<OsStr>,
+    V: AsRef<OsStr>,
 {
     let mut command = Command::new(program);
-    command.args(args).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    command.args(args).envs(envs).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
 
     let working_directory = foreground_process_path(master_fd, shell_pid).ok();
     unsafe {

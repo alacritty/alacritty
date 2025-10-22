@@ -136,10 +136,13 @@ pub trait ActionContext<T: EventListener> {
     fn semantic_word(&self, point: Point) -> String;
     fn on_terminal_input_start(&mut self) {}
     fn paste(&mut self, _text: &str, _bracketed: bool) {}
-    fn spawn_daemon<I, S>(&self, _program: &str, _args: I)
+    fn spawn_daemon<I, J, K, S, V>(&self, _program: &str, _args: I, _envs: J)
     where
         I: IntoIterator<Item = S> + Debug + Copy,
+        J: IntoIterator<Item = (K, V)> + Debug,
+        K: AsRef<OsStr>,
         S: AsRef<OsStr>,
+        V: AsRef<OsStr>,
     {
     }
 }
@@ -168,7 +171,10 @@ impl<T: EventListener> Execute<T> for Action {
     fn execute<A: ActionContext<T>>(&self, ctx: &mut A) {
         match self {
             Action::Esc(s) => ctx.paste(s, false),
-            Action::Command(program) => ctx.spawn_daemon(program.program(), program.args()),
+            Action::Command(program) => {
+                let envs: Vec<(&str, &str)> = vec![];
+                ctx.spawn_daemon(program.program(), program.args(), envs);
+            },
             Action::Hint(hint) => {
                 ctx.display().hint_state.start(hint.clone());
                 ctx.mark_dirty();
