@@ -36,18 +36,26 @@ pub struct Options {
     /// Specify alternative configuration file [default:
     /// $XDG_CONFIG_HOME/alacritty/alacritty.toml].
     #[cfg(not(any(target_os = "macos", windows)))]
-    #[clap(long, value_hint = ValueHint::FilePath)]
-    pub config_file: Option<PathBuf>,
+    {
+        #[clap(long, value_hint = ValueHint::FilePath)]
+        pub config_file: Option<PathBuf>,
+    }
+    
 
     /// Specify alternative configuration file [default: %APPDATA%\alacritty\alacritty.toml].
     #[cfg(windows)]
-    #[clap(long, value_hint = ValueHint::FilePath)]
-    pub config_file: Option<PathBuf>,
+    {
+        #[clap(long, value_hint = ValueHint::FilePath)]
+        pub config_file: Option<PathBuf>,
+    }
+    
 
     /// Specify alternative configuration file [default: $HOME/.config/alacritty/alacritty.toml].
     #[cfg(target_os = "macos")]
-    #[clap(long, value_hint = ValueHint::FilePath)]
-    pub config_file: Option<PathBuf>,
+    {
+        #[clap(long, value_hint = ValueHint::FilePath)]
+        pub config_file: Option<PathBuf>,
+    }
 
     /// Path for IPC socket creation.
     #[cfg(unix)]
