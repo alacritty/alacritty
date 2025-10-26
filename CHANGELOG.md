@@ -17,6 +17,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Changed
 
 - Don't highlight hints on hover when the mouse cursor is hidden
+- Require explicit tap to enable IME with touch input
 
 ### Fixed
 
