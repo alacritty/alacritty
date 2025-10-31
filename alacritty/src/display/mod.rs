@@ -488,6 +488,7 @@ impl Display {
         }
 
         window.set_visible(true);
+        window.set_maximized(config.window.maximized());
 
         // Always focus new windows, even if no Alacritty window is currently focused.
         #[cfg(target_os = "macos")]

@@ -180,7 +180,6 @@ impl Window {
             .with_visible(false)
             .with_transparent(true)
             .with_blur(config.window.blur)
-            .with_maximized(config.window.maximized())
             .with_fullscreen(config.window.fullscreen())
             .with_window_level(config.window.level.into());
 
