@@ -22,6 +22,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Fixed
 
 - Brief error popup when saving the config file with some editors
+- Subprocesses on OpenBSD now run with their CWD set to that of the shell's foreground process.
 
 ## 0.16.1
 
