@@ -1,3 +1,5 @@
+#[cfg(target_os = "openbsd")]
+use std::ffi::CStr;
 use std::ffi::OsStr;
 #[cfg(not(any(target_os = "macos", target_os = "openbsd", windows)))]
 use std::fs;
@@ -5,6 +7,8 @@ use std::io;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use std::process::{Command, Stdio};
+#[cfg(target_os = "openbsd")]
+use std::ptr;
 
 #[rustfmt::skip]
 #[cfg(not(windows))]
@@ -20,11 +24,6 @@ use {
 use libc::pid_t;
 #[cfg(windows)]
 use windows_sys::Win32::System::Threading::{CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
-
-#[cfg(target_os = "openbsd")]
-use std::ffi::CStr;
-#[cfg(target_os = "openbsd")]
-use std::ptr;
 
 #[cfg(target_os = "macos")]
 use crate::macos;
