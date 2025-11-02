@@ -1,10 +1,14 @@
+#[cfg(target_os = "openbsd")]
+use std::ffi::CStr;
 use std::ffi::OsStr;
-#[cfg(not(any(target_os = "macos", windows)))]
+#[cfg(not(any(target_os = "macos", target_os = "openbsd", windows)))]
 use std::fs;
 use std::io;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use std::process::{Command, Stdio};
+#[cfg(target_os = "openbsd")]
+use std::ptr;
 
 #[rustfmt::skip]
 #[cfg(not(windows))]
@@ -88,7 +92,7 @@ where
 }
 
 /// Get working directory of controlling process.
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "openbsd")))]
 pub fn foreground_process_path(
     master_fd: RawFd,
     shell_pid: u32,
@@ -110,4 +114,33 @@ pub fn foreground_process_path(
     let cwd = macos::proc::cwd(pid)?;
 
     Ok(cwd)
+}
+
+#[cfg(target_os = "openbsd")]
+pub fn foreground_process_path(
+    master_fd: RawFd,
+    shell_pid: u32,
+) -> Result<PathBuf, Box<dyn Error>> {
+    let mut pid = unsafe { libc::tcgetpgrp(master_fd) };
+    if pid < 0 {
+        pid = shell_pid as pid_t;
+    }
+    let name = [libc::CTL_KERN, libc::KERN_PROC_CWD, pid];
+    let mut buf = [0u8; libc::PATH_MAX as usize];
+    let result = unsafe {
+        libc::sysctl(
+            name.as_ptr(),
+            name.len().try_into().unwrap(),
+            buf.as_mut_ptr() as *mut _,
+            &mut buf.len() as *mut _,
+            ptr::null_mut(),
+            0,
+        )
+    };
+    if result != 0 {
+        Err(io::Error::last_os_error().into())
+    } else {
+        let foreground_path = unsafe { CStr::from_ptr(buf.as_ptr().cast()) }.to_str()?;
+        Ok(PathBuf::from(foreground_path))
+    }
 }
