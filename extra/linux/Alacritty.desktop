@@ -13,6 +13,11 @@ StartupNotify=true
 StartupWMClass=Alacritty
 Actions=New;
 
+X-TerminalArgExec=-e
+X-TerminalArgAppId=--class=
+X-TerminalArgTitle=--title=
+X-TerminalArgDir=--working-directory=
+
 [Desktop Action New]
 Name=New Terminal
 Exec=alacritty
