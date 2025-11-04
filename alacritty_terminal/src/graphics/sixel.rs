@@ -638,20 +638,15 @@ mod tests {
         // We allow some difference between each component to ignore rounding
         // errors.
 
-        // Reimplement abs_diff to be compatible with rustc before 1.60.
-        fn abs_diff(x: u8, y: u8) -> u8 {
-            if x > y { x - y } else { y - x }
-        }
-
         macro_rules! assert_color {
             ($h:expr, $l:expr, $s:expr => $r:expr, $g:expr, $b:expr) => {
                 let left = hls_to_rgb($h, $l, $s);
                 let right = rgb($r, $g, $b, 255);
 
                 assert!(
-                    abs_diff(left.r, right.r) < 4
-                        && abs_diff(left.g, right.g) < 4
-                        && abs_diff(left.b, right.b) < 4,
+                    left.r.abs_diff(right.r) < 4
+                        && left.g.abs_diff(right.g) < 4
+                        && left.b.abs_diff(right.b) < 4,
                     "Expected {:?} Found {:?}",
                     right,
                     left,
