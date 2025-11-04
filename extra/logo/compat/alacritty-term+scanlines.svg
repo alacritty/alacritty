@@ -461,7 +461,6 @@
      transform="translate(-16,35.820639)"
      sodipodi:insensitive="true"><g
        id="g4199"><path
-         clip-path="none"
          sodipodi:nodetypes="ccccccc"
          inkscape:connector-curvature="0"
          id="path5352"
@@ -471,7 +470,7 @@
          inkscape:connector-curvature="0"
          id="path5336"
          d="m 44.673625,-23.161141 h 6.65275 L 66.05747,13.39925 H 59.879914 L 48,-14.524464 36.120086,13.39925 H 29.94253 Z"
-         style="clip-rule:evenodd;fill:url(#linearGradient11006);fill-opacity:1;fill-rule:evenodd;stroke:url(#linearGradient10962);stroke-width:0;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:1.41420996;stroke-dasharray:none;stroke-opacity:1" /></g></g><g
+         style="clip-rule:evenodd;fill:url(#linearGradient11006);fill-opacity:1;fill-rule:evenodd;stroke-width:0;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:1.41420996;stroke-dasharray:none;stroke-opacity:1" /></g></g><g
      sodipodi:insensitive="true"
      transform="translate(-16,35.820639)"
      style="display:inline"
@@ -484,9 +483,8 @@
          d="M 44.994167,1.199154 44.05107,3.4841975 C 46.585268,11.287754 46.585268,11.287754 48,18.095103 49.414732,11.287754 49.414732,11.287754 51.94893,3.4841975 L 51.005833,1.199154 48,-6.0837323 Z"
          id="path1019"
          inkscape:connector-curvature="0"
-         sodipodi:nodetypes="ccccccc"
-         clip-path="none" /><path
-         style="clip-rule:evenodd;fill:url(#linearGradient11006);fill-opacity:1;fill-rule:evenodd;stroke:url(#linearGradient10962);stroke-width:0;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:1.41420996;stroke-dasharray:none;stroke-opacity:1"
+         sodipodi:nodetypes="ccccccc" /><path
+         style="clip-rule:evenodd;fill:url(#linearGradient11006);fill-opacity:1;fill-rule:evenodd;stroke-width:0;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:1.41420996;stroke-dasharray:none;stroke-opacity:1"
          d="m 44.673625,-23.161141 h 6.65275 L 66.05747,13.39925 H 59.879914 L 48,-14.524464 36.120086,13.39925 H 29.94253 Z"
          id="path4185"
          inkscape:connector-curvature="0"

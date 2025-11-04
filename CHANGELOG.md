@@ -10,9 +10,25 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.17.0-dev
 
+### Packaging
+
+- Fixed invalid logo SVG attributes
+
 ### Changed
 
 - Don't highlight hints on hover when the mouse cursor is hidden
+- Require explicit tap to enable IME with touch input
+
+### Fixed
+
+- Brief error popup when saving the config file with some editors
+- Subprocesses on OpenBSD now run with their CWD set to that of the shell's foreground process.
+
+## 0.16.1
+
+### Fixed
+
+- Crashes on GPUs with partial robustness support
 
 ## 0.16.0
 
@@ -27,6 +43,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Multi-sequence touch zoom sequences
 - Vi action `Y` keybind, yank to the end of line
 - Add `/etc/alacritty/alacritty.toml` fallback for system wide configuration
+- Unicode 17 support
 
 ### Changed
 
@@ -45,6 +62,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Origin mode (DECOM) not moving cursor to the origin point
 - Unresponsiveness when spamming the bell character with a bell command enabled
 - `window.startup_mode` applied to existing window when opening a new tab on macOS
+- Slowdowns over time on macOS 26
 
 ## 0.15.1
 

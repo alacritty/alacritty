@@ -6,6 +6,7 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use log::{debug, error, warn};
+use notify::event::{ModifyKind, RenameMode};
 use notify::{
     Config, Error as NotifyError, Event as NotifyEvent, EventKind, RecommendedWatcher,
     RecursiveMode, Watcher,
@@ -112,6 +113,11 @@ impl ConfigMonitor {
                 match event {
                     Ok(Ok(event)) => match event.kind {
                         EventKind::Other if event.info() == Some("shutdown") => break,
+                        // Ignore when config file is moved as it's equivalent to deletion.
+                        // Some editors trigger this as they move the file as part of saving.
+                        EventKind::Modify(ModifyKind::Name(
+                            RenameMode::From | RenameMode::Both,
+                        )) => (),
                         EventKind::Any
                         | EventKind::Create(_)
                         | EventKind::Modify(_)
