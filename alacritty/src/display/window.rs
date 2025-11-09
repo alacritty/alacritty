@@ -27,6 +27,7 @@ use {
     winit::platform::macos::{OptionAsAlt, WindowAttributesExtMacOS, WindowExtMacOS},
 };
 
+use bitflags::bitflags;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 use winit::monitor::MonitorHandle;
@@ -120,8 +121,7 @@ pub struct Window {
     is_x11: bool,
     current_mouse_cursor: CursorIcon,
     mouse_visible: bool,
-    ime_touch_inhibited: bool,
-    ime_allowed: bool,
+    ime_inhibitor: ImeInhibitor,
 }
 
 impl Window {
@@ -205,16 +205,15 @@ impl Window {
 
         Ok(Self {
             hold: options.terminal_options.hold,
-            ime_touch_inhibited: false,
             requested_redraw: false,
             title: identity.title,
             current_mouse_cursor,
             mouse_visible: true,
-            ime_allowed: true,
             has_frame: true,
             scale_factor,
             window,
             is_x11,
+            ime_inhibitor: Default::default(),
         })
     }
 
@@ -437,29 +436,17 @@ impl Window {
         self.window.set_simple_fullscreen(simple_fullscreen);
     }
 
-    /// Set whether plain-text input is currently possible.
-    pub fn set_ime_allowed(&mut self, allowed: bool) {
-        if self.ime_allowed != allowed {
-            self.ime_allowed = allowed;
-            self.update_ime_allowed();
-        }
-    }
-
-    /// Set touch IME inhibitor.
-    ///
-    /// This is used to require a tap action to complete before IME is shown, allowing for
-    /// scrolling without opening virtual keyboards on touch devices.
-    pub fn set_ime_touch_inhibited(&mut self, inhibited: bool) {
-        if self.ime_touch_inhibited != inhibited {
-            self.ime_touch_inhibited = inhibited;
+    /// Set IME inhibitor state.
+    pub fn set_ime_inhibitor(&mut self, inhibitor: ImeInhibitor, inhibit: bool) {
+        if self.ime_inhibitor.contains(inhibitor) != inhibit {
+            self.ime_inhibitor.set(inhibitor, inhibit);
             self.update_ime_allowed();
         }
     }
 
     /// Update whether IME should be offered.
     fn update_ime_allowed(&mut self) {
-        let allowed = self.ime_allowed && !self.ime_touch_inhibited;
-        self.window.set_ime_allowed(allowed);
+        self.window.set_ime_allowed(self.ime_inhibitor.is_empty());
     }
 
     /// Adjust the IME editor position according to the new location of the cursor.
@@ -526,6 +513,16 @@ impl Window {
     #[cfg(target_os = "macos")]
     pub fn tabbing_id(&self) -> String {
         self.window.tabbing_identifier()
+    }
+}
+
+bitflags! {
+    /// IME inhibition sources.
+    #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct ImeInhibitor: u8 {
+        const FOCUS = 1;
+        const TOUCH = 1 << 1;
+        const VI    = 1 << 2;
     }
 }
 
