@@ -29,7 +29,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         if key.state == ElementState::Released {
             if self.ctx.inline_search_state().char_pending {
-                self.ctx.window().set_text_input_active(true);
+                self.ctx.window().set_ime_allowed(true);
             }
             self.key_release(key, mode, mods);
             return;
