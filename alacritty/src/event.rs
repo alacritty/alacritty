@@ -1992,6 +1992,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 
                         self.ctx.update_cursor_blinking();
                         self.on_focus_change(is_focused);
+
+                        // Ensure IME is disabled while unfocused.
+                        self.ctx.window().set_ime_allowed(is_focused);
                     },
                     WindowEvent::Occluded(occluded) => {
                         *self.ctx.occluded = occluded;

@@ -847,6 +847,11 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Handle beginning of touch input.
     pub fn on_touch_start(&mut self, touch: TouchEvent) {
+        // Inhibit IME on touch while not focused, forcing a touch tap while focused to enable IME.
+        if !self.ctx.terminal().is_focused {
+            self.ctx.window().set_ime_touch_inhibited(true);
+        }
+
         let touch_purpose = self.ctx.touch_purpose();
         *touch_purpose = match mem::take(touch_purpose) {
             TouchPurpose::None => TouchPurpose::Tap(touch),
@@ -933,6 +938,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 self.mouse_moved(start_location);
                 self.mouse_input(ElementState::Pressed, MouseButton::Left);
                 self.mouse_input(ElementState::Released, MouseButton::Left);
+
+                self.ctx.window().set_ime_touch_inhibited(false);
             },
             // Transition zoom to pending state once a finger was released.
             TouchPurpose::Zoom(zoom) => {

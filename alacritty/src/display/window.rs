@@ -120,6 +120,8 @@ pub struct Window {
     is_x11: bool,
     current_mouse_cursor: CursorIcon,
     mouse_visible: bool,
+    ime_touch_inhibited: bool,
+    ime_allowed: bool,
 }
 
 impl Window {
@@ -203,10 +205,12 @@ impl Window {
 
         Ok(Self {
             hold: options.terminal_options.hold,
+            ime_touch_inhibited: false,
             requested_redraw: false,
             title: identity.title,
             current_mouse_cursor,
             mouse_visible: true,
+            ime_allowed: true,
             has_frame: true,
             scale_factor,
             window,
@@ -433,7 +437,28 @@ impl Window {
         self.window.set_simple_fullscreen(simple_fullscreen);
     }
 
-    pub fn set_ime_allowed(&self, allowed: bool) {
+    /// Set whether plain-text input is currently possible.
+    pub fn set_ime_allowed(&mut self, allowed: bool) {
+        if self.ime_allowed != allowed {
+            self.ime_allowed = allowed;
+            self.update_ime_allowed();
+        }
+    }
+
+    /// Set touch IME inhibitor.
+    ///
+    /// This is used to require a tap action to complete before IME is shown, allowing for
+    /// scrolling without opening virtual keyboards on touch devices.
+    pub fn set_ime_touch_inhibited(&mut self, inhibited: bool) {
+        if self.ime_touch_inhibited != inhibited {
+            self.ime_touch_inhibited = inhibited;
+            self.update_ime_allowed();
+        }
+    }
+
+    /// Update whether IME should be offered.
+    fn update_ime_allowed(&mut self) {
+        let allowed = self.ime_allowed && !self.ime_touch_inhibited;
         self.window.set_ime_allowed(allowed);
     }
 
