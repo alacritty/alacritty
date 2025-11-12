@@ -436,17 +436,14 @@ impl Window {
         self.window.set_simple_fullscreen(simple_fullscreen);
     }
 
-    /// Set IME inhibitor state.
+    /// Set IME inhibitor state and disable IME while any are present.
+    ///
+    /// IME is re-enabled once all inhibitors are unset.
     pub fn set_ime_inhibitor(&mut self, inhibitor: ImeInhibitor, inhibit: bool) {
         if self.ime_inhibitor.contains(inhibitor) != inhibit {
             self.ime_inhibitor.set(inhibitor, inhibit);
-            self.update_ime_allowed();
+            self.window.set_ime_allowed(self.ime_inhibitor.is_empty());
         }
-    }
-
-    /// Update whether IME should be offered.
-    fn update_ime_allowed(&mut self) {
-        self.window.set_ime_allowed(self.ime_inhibitor.is_empty());
     }
 
     /// Adjust the IME editor position according to the new location of the cursor.
