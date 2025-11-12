@@ -40,7 +40,7 @@ use crate::clipboard::Clipboard;
 use crate::config::window::Decorations;
 use crate::config::{Action, BindingMode, MouseAction, SearchAction, UiConfig, ViAction};
 use crate::display::hint::HintMatch;
-use crate::display::window::Window;
+use crate::display::window::{ImeInhibitor, Window};
 use crate::display::{Display, SizeInfo};
 use crate::event::{
     ClickState, Event, EventType, InlineSearchState, Mouse, TouchPurpose, TouchZoom,
@@ -847,6 +847,11 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Handle beginning of touch input.
     pub fn on_touch_start(&mut self, touch: TouchEvent) {
+        // Inhibit IME on touch while not focused, forcing a touch tap while focused to enable IME.
+        if !self.ctx.terminal().is_focused {
+            self.ctx.window().set_ime_inhibitor(ImeInhibitor::TOUCH, true);
+        }
+
         let touch_purpose = self.ctx.touch_purpose();
         *touch_purpose = match mem::take(touch_purpose) {
             TouchPurpose::None => TouchPurpose::Tap(touch),
@@ -933,6 +938,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 self.mouse_moved(start_location);
                 self.mouse_input(ElementState::Pressed, MouseButton::Left);
                 self.mouse_input(ElementState::Released, MouseButton::Left);
+
+                self.ctx.window().set_ime_inhibitor(ImeInhibitor::TOUCH, false);
             },
             // Transition zoom to pending state once a finger was released.
             TouchPurpose::Zoom(zoom) => {

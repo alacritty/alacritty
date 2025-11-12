@@ -12,6 +12,7 @@ use alacritty_terminal::term::TermMode;
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 
 use crate::config::{Action, BindingKey, BindingMode, KeyBinding};
+use crate::display::window::ImeInhibitor;
 use crate::event::TYPING_SEARCH_DELAY;
 use crate::input::{ActionContext, Execute, Processor};
 use crate::scheduler::{TimerId, Topic};
@@ -29,7 +30,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         if key.state == ElementState::Released {
             if self.ctx.inline_search_state().char_pending {
-                self.ctx.window().set_ime_allowed(true);
+                self.ctx.window().set_ime_inhibitor(ImeInhibitor::VI, false);
             }
             self.key_release(key, mode, mods);
             return;

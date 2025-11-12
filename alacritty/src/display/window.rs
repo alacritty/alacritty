@@ -27,6 +27,7 @@ use {
     winit::platform::macos::{OptionAsAlt, WindowAttributesExtMacOS, WindowExtMacOS},
 };
 
+use bitflags::bitflags;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 use winit::monitor::MonitorHandle;
@@ -120,6 +121,7 @@ pub struct Window {
     is_x11: bool,
     current_mouse_cursor: CursorIcon,
     mouse_visible: bool,
+    ime_inhibitor: ImeInhibitor,
 }
 
 impl Window {
@@ -211,6 +213,7 @@ impl Window {
             scale_factor,
             window,
             is_x11,
+            ime_inhibitor: Default::default(),
         })
     }
 
@@ -433,8 +436,14 @@ impl Window {
         self.window.set_simple_fullscreen(simple_fullscreen);
     }
 
-    pub fn set_ime_allowed(&self, allowed: bool) {
-        self.window.set_ime_allowed(allowed);
+    /// Set IME inhibitor state and disable IME while any are present.
+    ///
+    /// IME is re-enabled once all inhibitors are unset.
+    pub fn set_ime_inhibitor(&mut self, inhibitor: ImeInhibitor, inhibit: bool) {
+        if self.ime_inhibitor.contains(inhibitor) != inhibit {
+            self.ime_inhibitor.set(inhibitor, inhibit);
+            self.window.set_ime_allowed(self.ime_inhibitor.is_empty());
+        }
     }
 
     /// Adjust the IME editor position according to the new location of the cursor.
@@ -501,6 +510,16 @@ impl Window {
     #[cfg(target_os = "macos")]
     pub fn tabbing_id(&self) -> String {
         self.window.tabbing_identifier()
+    }
+}
+
+bitflags! {
+    /// IME inhibition sources.
+    #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct ImeInhibitor: u8 {
+        const FOCUS = 1;
+        const TOUCH = 1 << 1;
+        const VI    = 1 << 2;
     }
 }
 
