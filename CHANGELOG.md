@@ -17,6 +17,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Changed
 
 - Don't highlight hints on hover when the mouse cursor is hidden
+- IME is disabled in Vi mode on X11
 
 ### Fixed
 
