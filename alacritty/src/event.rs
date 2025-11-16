@@ -1,8 +1,7 @@
 //! Process window events.
 
-use crate::ConfigMonitor;
-use glutin::config::GetGlConfig;
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -15,22 +14,26 @@ use std::os::unix::io::RawFd;
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::rc::Rc;
-#[cfg(unix)]
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
 use ahash::RandomState;
 use crossfont::Size as FontSize;
-use glutin::config::Config as GlutinConfig;
+use glutin::config::{Config as GlutinConfig, GetGlConfig};
 use glutin::display::GetGlDisplay;
 use log::{debug, error, info, warn};
+#[cfg(windows)]
+use windows_sys::Win32::System::Console::FreeConsole;
 use winit::application::ApplicationHandler;
+use winit::dpi::PhysicalPosition;
 use winit::event::{
-    ElementState, Event as WinitEvent, Ime, Modifiers, MouseButton, StartCause,
-    Touch as TouchEvent, WindowEvent,
+    ButtonSource, ElementState, FingerId, Ime, Modifiers, MouseButton, PointerKind, PointerSource,
+    StartCause, TouchPhase, WindowEvent,
 };
-use winit::event_loop::{ActiveEventLoop, ControlFlow, DeviceEvents, EventLoop, EventLoopProxy};
+use winit::event_loop::{
+    ActiveEventLoop, ControlFlow, DeviceEvents, EventLoop, EventLoopProxy as WinitWakeUpProxy,
+};
 use winit::raw_window_handle::HasDisplayHandle;
 use winit::window::WindowId;
 
@@ -44,6 +47,7 @@ use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, ClipboardType, Term, TermMode};
 use alacritty_terminal::vte::ansi::NamedColor;
 
+use crate::ConfigMonitor;
 #[cfg(unix)]
 use crate::cli::{IpcConfig, ParsedOptions};
 use crate::cli::{Options as CliOptions, WindowOptions};
@@ -85,14 +89,14 @@ const BELL_CMD_COOLDOWN: Duration = Duration::from_millis(100);
 /// Stores some state from received events and dispatches actions when they are
 /// triggered.
 pub struct Processor {
-    pub config_monitor: Option<ConfigMonitor>,
-
+    config_monitor: Option<ConfigMonitor>,
     clipboard: Clipboard,
     scheduler: Scheduler,
     initial_window_options: Option<WindowOptions>,
-    initial_window_error: Option<Box<dyn Error>>,
+    initial_window_error: Rc<RefCell<Option<Box<dyn Error>>>>,
     windows: HashMap<WindowId, WindowContext, RandomState>,
-    proxy: EventLoopProxy<Event>,
+    proxy: EventLoopProxy,
+    proxy_event_buffer: Vec<Event>,
     gl_config: Option<GlutinConfig>,
     #[cfg(unix)]
     global_ipc_options: ParsedOptions,
@@ -105,9 +109,9 @@ impl Processor {
     pub fn new(
         config: UiConfig,
         cli_options: CliOptions,
-        event_loop: &EventLoop<Event>,
+        event_loop: &EventLoop,
+        proxy: EventLoopProxy,
     ) -> Processor {
-        let proxy = event_loop.create_proxy();
         let scheduler = Scheduler::new(proxy.clone());
         let initial_window_options = Some(cli_options.window_options.clone());
 
@@ -124,13 +128,13 @@ impl Processor {
         // config changes are processed in the main loop.
         let mut config_monitor = None;
         if config.live_config_reload() {
-            config_monitor =
-                ConfigMonitor::new(config.config_paths.clone(), event_loop.create_proxy());
+            config_monitor = ConfigMonitor::new(config.config_paths.clone(), proxy.clone());
         }
 
         Processor {
             initial_window_options,
-            initial_window_error: None,
+            initial_window_error: Default::default(),
+            proxy_event_buffer: Default::default(),
             cli_options,
             proxy,
             scheduler,
@@ -150,7 +154,7 @@ impl Processor {
     /// will be used for the rest of the windows.
     pub fn create_initial_window(
         &mut self,
-        event_loop: &ActiveEventLoop,
+        event_loop: &dyn ActiveEventLoop,
         window_options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
         let window_context = WindowContext::initial(
@@ -169,7 +173,7 @@ impl Processor {
     /// Create a new terminal window.
     pub fn create_window(
         &mut self,
-        event_loop: &ActiveEventLoop,
+        event_loop: &dyn ActiveEventLoop,
         options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
         let gl_config = self.gl_config.as_ref().unwrap();
@@ -197,9 +201,10 @@ impl Processor {
     /// Run the event loop.
     ///
     /// The result is exit code generate from the loop.
-    pub fn run(&mut self, event_loop: EventLoop<Event>) -> Result<(), Box<dyn Error>> {
+    pub fn run(self, event_loop: EventLoop) -> Result<(), Box<dyn Error>> {
+        let initial_window_error = self.initial_window_error.clone();
         let result = event_loop.run_app(self);
-        match self.initial_window_error.take() {
+        match initial_window_error.borrow_mut().take() {
             Some(initial_window_error) => Err(initial_window_error),
             _ => result.map_err(Into::into),
         }
@@ -214,30 +219,71 @@ impl Processor {
                 | WindowEvent::DoubleTapGesture { .. }
                 | WindowEvent::TouchpadPressure { .. }
                 | WindowEvent::RotationGesture { .. }
-                | WindowEvent::CursorEntered { .. }
+                | WindowEvent::PointerEntered { .. }
                 | WindowEvent::PinchGesture { .. }
-                | WindowEvent::AxisMotion { .. }
+                | WindowEvent::DragEntered { .. }
                 | WindowEvent::PanGesture { .. }
-                | WindowEvent::HoveredFileCancelled
+                | WindowEvent::DragMoved { .. }
+                | WindowEvent::DragLeft { .. }
                 | WindowEvent::Destroyed
                 | WindowEvent::ThemeChanged(_)
-                | WindowEvent::HoveredFile(_)
                 | WindowEvent::Moved(_)
         )
     }
 }
 
-impl ApplicationHandler<Event> for Processor {
-    fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
+impl Drop for Processor {
+    fn drop(&mut self) {
+        if self.config.debug.print_events {
+            info!("Exiting the event loop");
+        }
 
-    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
+        match self.gl_config.take().map(|config| config.display()) {
+            #[cfg(not(target_os = "macos"))]
+            Some(glutin::display::Display::Egl(display)) => {
+                // Ensure that all the windows are dropped, so the destructors for
+                // Renderer and contexts ran.
+                self.windows.clear();
+
+                // SAFETY: the display is being destroyed after destroying all the
+                // windows, thus no attempt to access the EGL state will be made.
+                unsafe {
+                    display.terminate();
+                }
+            },
+            _ => (),
+        }
+
+        // SAFETY: The clipboard must be dropped before the event loop, so use the nop clipboard
+        // as a safe placeholder.
+        self.clipboard = Clipboard::new_nop();
+
+        // Terminate the config monitor.
+        if let Some(config_monitor) = self.config_monitor.take() {
+            config_monitor.shutdown();
+        }
+
+        // Without explicitly detaching the console cmd won't redraw it's prompt.
+        #[cfg(windows)]
+        unsafe {
+            FreeConsole();
+        }
+    }
+}
+
+impl ApplicationHandler for Processor {
+    fn resumed(&mut self, _event_loop: &dyn ActiveEventLoop) {}
+
+    fn can_create_surfaces(&mut self, _event_loop: &dyn ActiveEventLoop) {}
+
+    fn new_events(&mut self, event_loop: &dyn ActiveEventLoop, cause: StartCause) {
         if cause != StartCause::Init || self.cli_options.daemon {
             return;
         }
 
         if let Some(window_options) = self.initial_window_options.take() {
             if let Err(err) = self.create_initial_window(event_loop, window_options) {
-                self.initial_window_error = Some(err);
+                *self.initial_window_error.borrow_mut() = Some(err);
                 event_loop.exit();
                 return;
             }
@@ -248,7 +294,7 @@ impl ApplicationHandler<Event> for Processor {
 
     fn window_event(
         &mut self,
-        _event_loop: &ActiveEventLoop,
+        _event_loop: &dyn ActiveEventLoop,
         window_id: WindowId,
         event: WindowEvent,
     ) {
@@ -274,7 +320,7 @@ impl ApplicationHandler<Event> for Processor {
             &self.proxy,
             &mut self.clipboard,
             &mut self.scheduler,
-            WinitEvent::WindowEvent { window_id, event },
+            WinitEvent::WindowEvent(event),
         );
 
         if is_redraw {
@@ -282,185 +328,192 @@ impl ApplicationHandler<Event> for Processor {
         }
     }
 
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: Event) {
-        if self.config.debug.print_events {
-            info!(target: LOG_TARGET_WINIT, "{event:?}");
-        }
+    fn proxy_wake_up(&mut self, event_loop: &dyn ActiveEventLoop) {
+        mem::swap(&mut *self.proxy.events.lock().unwrap(), &mut self.proxy_event_buffer);
+        let mut events = Vec::new();
+        mem::swap(&mut events, &mut self.proxy_event_buffer);
+        for event in events.drain(..) {
+            if self.config.debug.print_events {
+                info!(target: LOG_TARGET_WINIT, "{event:?}");
+            }
 
-        // Handle events which don't mandate the WindowId.
-        match (event.payload, event.window_id.as_ref()) {
-            // Process IPC config update.
-            #[cfg(unix)]
-            (EventType::IpcConfig(ipc_config), window_id) => {
-                // Try and parse options as toml.
-                let mut options = ParsedOptions::from_options(&ipc_config.options);
+            // Handle events which don't mandate the WindowId.
+            match (event.payload, event.window_id.as_ref()) {
+                // Process IPC config update.
+                #[cfg(unix)]
+                (EventType::IpcConfig(ipc_config), window_id) => {
+                    // Try and parse options as toml.
+                    let mut options = ParsedOptions::from_options(&ipc_config.options);
 
-                // Override IPC config for each window with matching ID.
-                for (_, window_context) in self
-                    .windows
-                    .iter_mut()
-                    .filter(|(id, _)| window_id.is_none() || window_id == Some(*id))
-                {
-                    if ipc_config.reset {
-                        window_context.reset_window_config(self.config.clone());
-                    } else {
-                        window_context.add_window_config(self.config.clone(), &options);
-                    }
-                }
-
-                // Persist global options for future windows.
-                if window_id.is_none() {
-                    if ipc_config.reset {
-                        self.global_ipc_options.clear();
-                    } else {
-                        self.global_ipc_options.append(&mut options);
-                    }
-                }
-            },
-            // Process IPC config requests.
-            #[cfg(unix)]
-            (EventType::IpcGetConfig(stream), window_id) => {
-                // Get the config for the requested window ID.
-                let config = match self.windows.iter().find(|(id, _)| window_id == Some(*id)) {
-                    Some((_, window_context)) => window_context.config(),
-                    None => &self.global_ipc_options.override_config_rc(self.config.clone()),
-                };
-
-                // Convert config to JSON format.
-                let config_json = match serde_json::to_string(&config) {
-                    Ok(config_json) => config_json,
-                    Err(err) => {
-                        error!("Failed config serialization: {err}");
-                        return;
-                    },
-                };
-
-                // Send JSON config to the socket.
-                if let Ok(mut stream) = stream.try_clone() {
-                    ipc::send_reply(&mut stream, SocketReply::GetConfig(config_json));
-                }
-            },
-            (EventType::ConfigReload(path), _) => {
-                // Clear config logs from message bar for all terminals.
-                for window_context in self.windows.values_mut() {
-                    if !window_context.message_buffer.is_empty() {
-                        window_context.message_buffer.remove_target(LOG_TARGET_CONFIG);
-                        window_context.display.pending_update.dirty = true;
-                    }
-                }
-
-                // Load config and update each terminal.
-                if let Ok(config) = config::reload(&path, &mut self.cli_options) {
-                    self.config = Rc::new(config);
-
-                    // Restart config monitor if imports changed.
-                    if let Some(monitor) = self.config_monitor.take() {
-                        let paths = &self.config.config_paths;
-                        self.config_monitor = if monitor.needs_restart(paths) {
-                            monitor.shutdown();
-                            ConfigMonitor::new(paths.clone(), self.proxy.clone())
+                    // Override IPC config for each window with matching ID.
+                    for (_, window_context) in self
+                        .windows
+                        .iter_mut()
+                        .filter(|(id, _)| window_id.is_none() || window_id == Some(*id))
+                    {
+                        if ipc_config.reset {
+                            window_context.reset_window_config(self.config.clone());
                         } else {
-                            Some(monitor)
-                        };
+                            window_context.add_window_config(self.config.clone(), &options);
+                        }
                     }
 
+                    // Persist global options for future windows.
+                    if window_id.is_none() {
+                        if ipc_config.reset {
+                            self.global_ipc_options.clear();
+                        } else {
+                            self.global_ipc_options.append(&mut options);
+                        }
+                    }
+                },
+                // Process IPC config requests.
+                #[cfg(unix)]
+                (EventType::IpcGetConfig(stream), window_id) => {
+                    // Get the config for the requested window ID.
+                    let config = match self.windows.iter().find(|(id, _)| window_id == Some(*id)) {
+                        Some((_, window_context)) => window_context.config(),
+                        None => &self.global_ipc_options.override_config_rc(self.config.clone()),
+                    };
+
+                    // Convert config to JSON format.
+                    let config_json = match serde_json::to_string(&config) {
+                        Ok(config_json) => config_json,
+                        Err(err) => {
+                            error!("Failed config serialization: {err}");
+                            continue;
+                        },
+                    };
+
+                    // Send JSON config to the socket.
+                    if let Ok(mut stream) = stream.try_clone() {
+                        ipc::send_reply(&mut stream, SocketReply::GetConfig(config_json));
+                    }
+                },
+                (EventType::ConfigReload(path), _) => {
+                    // Clear config logs from message bar for all terminals.
                     for window_context in self.windows.values_mut() {
-                        window_context.update_config(self.config.clone());
+                        if !window_context.message_buffer.is_empty() {
+                            window_context.message_buffer.remove_target(LOG_TARGET_CONFIG);
+                            window_context.display.pending_update.dirty = true;
+                        }
                     }
-                }
-            },
-            // Create a new terminal window.
-            (EventType::CreateWindow(options), _) => {
-                // XXX Ensure that no context is current when creating a new window,
-                // otherwise it may lock the backing buffer of the
-                // surface of current context when asking
-                // e.g. EGL on Wayland to create a new context.
-                for window_context in self.windows.values_mut() {
-                    window_context.display.make_not_current();
-                }
 
-                if self.gl_config.is_none() {
-                    // Handle initial window creation in daemon mode.
-                    if let Err(err) = self.create_initial_window(event_loop, options) {
-                        self.initial_window_error = Some(err);
+                    // Load config and update each terminal.
+                    if let Ok(config) = config::reload(&path, &mut self.cli_options) {
+                        self.config = Rc::new(config);
+
+                        // Restart config monitor if imports changed.
+                        if let Some(monitor) = self.config_monitor.take() {
+                            let paths = &self.config.config_paths;
+                            self.config_monitor = if monitor.needs_restart(paths) {
+                                monitor.shutdown();
+                                ConfigMonitor::new(paths.clone(), self.proxy.clone())
+                            } else {
+                                Some(monitor)
+                            };
+                        }
+
+                        for window_context in self.windows.values_mut() {
+                            window_context.update_config(self.config.clone());
+                        }
+                    }
+                },
+                // Create a new terminal window.
+                (EventType::CreateWindow(options), _) => {
+                    // XXX Ensure that no context is current when creating a new window,
+                    // otherwise it may lock the backing buffer of the
+                    // surface of current context when asking
+                    // e.g. EGL on Wayland to create a new context.
+                    for window_context in self.windows.values_mut() {
+                        window_context.display.make_not_current();
+                    }
+
+                    if self.gl_config.is_none() {
+                        // Handle initial window creation in daemon mode.
+                        if let Err(err) = self.create_initial_window(event_loop, options) {
+                            *self.initial_window_error.borrow_mut() = Some(err);
+                            event_loop.exit();
+                        }
+                    } else if let Err(err) = self.create_window(event_loop, options) {
+                        error!("Could not open window: {err:?}");
+                    }
+                },
+                // Process events affecting all windows.
+                (payload, None) => {
+                    let event = WinitEvent::UserEvent(Event::new(payload, None));
+                    for window_context in self.windows.values_mut() {
+                        window_context.handle_event(
+                            #[cfg(target_os = "macos")]
+                            event_loop,
+                            &self.proxy,
+                            &mut self.clipboard,
+                            &mut self.scheduler,
+                            event.clone(),
+                        );
+                    }
+                },
+                (EventType::Terminal(TerminalEvent::Wakeup), Some(window_id)) => {
+                    if let Some(window_context) = self.windows.get_mut(window_id) {
+                        window_context.dirty = true;
+                        if window_context.display.window.has_frame {
+                            window_context.display.window.request_redraw();
+                        }
+                    }
+                },
+                (EventType::Terminal(TerminalEvent::Exit), Some(window_id)) => {
+                    // Remove the closed terminal.
+                    let window_context = match self.windows.entry(*window_id) {
+                        // Don't exit when terminal exits if user asked to hold the window.
+                        Entry::Occupied(window_context)
+                            if !window_context.get().display.window.hold =>
+                        {
+                            window_context.remove()
+                        },
+                        _ => continue,
+                    };
+
+                    // Unschedule pending events.
+                    self.scheduler.unschedule_window(window_context.id());
+
+                    // Shutdown if no more terminals are open.
+                    if self.windows.is_empty() && !self.cli_options.daemon {
+                        // Write ref tests of last window to disk.
+                        if self.config.debug.ref_test {
+                            window_context.write_ref_test_results();
+                        }
+
                         event_loop.exit();
                     }
-                } else if let Err(err) = self.create_window(event_loop, options) {
-                    error!("Could not open window: {err:?}");
-                }
-            },
-            // Process events affecting all windows.
-            (payload, None) => {
-                let event = WinitEvent::UserEvent(Event::new(payload, None));
-                for window_context in self.windows.values_mut() {
-                    window_context.handle_event(
-                        #[cfg(target_os = "macos")]
-                        event_loop,
-                        &self.proxy,
-                        &mut self.clipboard,
-                        &mut self.scheduler,
-                        event.clone(),
-                    );
-                }
-            },
-            (EventType::Terminal(TerminalEvent::Wakeup), Some(window_id)) => {
-                if let Some(window_context) = self.windows.get_mut(window_id) {
-                    window_context.dirty = true;
-                    if window_context.display.window.has_frame {
-                        window_context.display.window.request_redraw();
+                },
+                // NOTE: This event bypasses batching to minimize input latency.
+                (EventType::Frame, Some(window_id)) => {
+                    if let Some(window_context) = self.windows.get_mut(window_id) {
+                        window_context.display.window.has_frame = true;
+                        if window_context.dirty {
+                            window_context.display.window.request_redraw();
+                        }
                     }
-                }
-            },
-            (EventType::Terminal(TerminalEvent::Exit), Some(window_id)) => {
-                // Remove the closed terminal.
-                let window_context = match self.windows.entry(*window_id) {
-                    // Don't exit when terminal exits if user asked to hold the window.
-                    Entry::Occupied(window_context)
-                        if !window_context.get().display.window.hold =>
-                    {
-                        window_context.remove()
-                    },
-                    _ => return,
-                };
-
-                // Unschedule pending events.
-                self.scheduler.unschedule_window(window_context.id());
-
-                // Shutdown if no more terminals are open.
-                if self.windows.is_empty() && !self.cli_options.daemon {
-                    // Write ref tests of last window to disk.
-                    if self.config.debug.ref_test {
-                        window_context.write_ref_test_results();
+                },
+                (payload, Some(window_id)) => {
+                    if let Some(window_context) = self.windows.get_mut(window_id) {
+                        window_context.handle_event(
+                            #[cfg(target_os = "macos")]
+                            event_loop,
+                            &self.proxy,
+                            &mut self.clipboard,
+                            &mut self.scheduler,
+                            WinitEvent::UserEvent(Event::new(payload, *window_id)),
+                        );
                     }
+                },
+            }
+        }
 
-                    event_loop.exit();
-                }
-            },
-            // NOTE: This event bypasses batching to minimize input latency.
-            (EventType::Frame, Some(window_id)) => {
-                if let Some(window_context) = self.windows.get_mut(window_id) {
-                    window_context.display.window.has_frame = true;
-                    if window_context.dirty {
-                        window_context.display.window.request_redraw();
-                    }
-                }
-            },
-            (payload, Some(window_id)) => {
-                if let Some(window_context) = self.windows.get_mut(window_id) {
-                    window_context.handle_event(
-                        #[cfg(target_os = "macos")]
-                        event_loop,
-                        &self.proxy,
-                        &mut self.clipboard,
-                        &mut self.scheduler,
-                        WinitEvent::UserEvent(Event::new(payload, *window_id)),
-                    );
-                }
-            },
-        };
+        mem::swap(&mut events, &mut self.proxy_event_buffer);
     }
 
-    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+    fn about_to_wait(&mut self, event_loop: &dyn ActiveEventLoop) {
         if self.config.debug.print_events {
             info!(target: LOG_TARGET_WINIT, "About to wait");
         }
@@ -485,32 +538,30 @@ impl ApplicationHandler<Event> for Processor {
         };
         event_loop.set_control_flow(control_flow);
     }
+}
 
-    fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
-        if self.config.debug.print_events {
-            info!("Exiting the event loop");
-        }
+#[derive(Debug, Clone)]
+pub struct EventLoopProxy {
+    winit_wake_up_proxy: WinitWakeUpProxy,
+    events: Arc<Mutex<Vec<Event>>>,
+}
 
-        match self.gl_config.take().map(|config| config.display()) {
-            #[cfg(not(target_os = "macos"))]
-            Some(glutin::display::Display::Egl(display)) => {
-                // Ensure that all the windows are dropped, so the destructors for
-                // Renderer and contexts ran.
-                self.windows.clear();
-
-                // SAFETY: the display is being destroyed after destroying all the
-                // windows, thus no attempt to access the EGL state will be made.
-                unsafe {
-                    display.terminate();
-                }
-            },
-            _ => (),
-        }
-
-        // SAFETY: The clipboard must be dropped before the event loop, so use the nop clipboard
-        // as a safe placeholder.
-        self.clipboard = Clipboard::new_nop();
+impl EventLoopProxy {
+    pub fn new(winit_wake_up_proxy: WinitWakeUpProxy) -> Self {
+        Self { winit_wake_up_proxy, events: Default::default() }
     }
+
+    pub fn send_event(&self, event: Event) {
+        self.events.lock().unwrap().push(event);
+        self.winit_wake_up_proxy.wake_up();
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum WinitEvent {
+    UserEvent(Event),
+    WindowEvent(WindowEvent),
+    AboutToWait,
 }
 
 /// Alacritty events.
@@ -529,7 +580,7 @@ impl Event {
     }
 }
 
-impl From<Event> for WinitEvent<Event> {
+impl From<Event> for WinitEvent {
     fn from(event: Event) -> Self {
         WinitEvent::UserEvent(event)
     }
@@ -668,8 +719,8 @@ pub struct ActionContext<'a, N, T> {
     pub cursor_blink_timed_out: &'a mut bool,
     pub prev_bell_cmd: &'a mut Option<Instant>,
     #[cfg(target_os = "macos")]
-    pub event_loop: &'a ActiveEventLoop,
-    pub event_proxy: &'a EventLoopProxy<Event>,
+    pub event_loop: &'a dyn ActiveEventLoop,
+    pub event_proxy: &'a EventLoopProxy,
     pub scheduler: &'a mut Scheduler,
     pub search_state: &'a mut SearchState,
     pub inline_search_state: &'a mut InlineSearchState,
@@ -887,13 +938,12 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             options.window_tabbing_id = tabbing_id;
         }
 
-        let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow(options), None));
+        self.event_proxy.send_event(Event::new(EventType::CreateWindow(options), None));
     }
 
     #[cfg(windows)]
     fn create_new_window(&mut self) {
-        let _ = self
-            .event_proxy
+        self.event_proxy
             .send_event(Event::new(EventType::CreateWindow(WindowOptions::default()), None));
     }
 
@@ -1481,7 +1531,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     #[cfg(target_os = "macos")]
-    fn event_loop(&self) -> &ActiveEventLoop {
+    fn event_loop(&self) -> &dyn ActiveEventLoop {
         self.event_loop
     }
 
@@ -1701,6 +1751,14 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct TouchEvent {
+    /// Unique identifier of a finger.
+    pub finger_id: FingerId,
+    pub position: PhysicalPosition<f64>,
+    pub phase: TouchPhase,
+}
+
 /// Identified purpose of the touch input.
 #[derive(Default, Debug)]
 pub enum TouchPurpose {
@@ -1711,7 +1769,7 @@ pub enum TouchPurpose {
     Zoom(TouchZoom),
     ZoomPendingSlot(TouchEvent),
     Tap(TouchEvent),
-    Invalid(HashSet<u64, RandomState>),
+    Invalid(HashSet<FingerId, RandomState>),
 }
 
 /// Touch zooming state.
@@ -1731,7 +1789,7 @@ impl TouchZoom {
         let old_distance = self.distance();
 
         // Update touch slots.
-        if slot.id == self.slots.0.id {
+        if slot.finger_id == self.slots.0.finger_id {
             self.slots.0 = slot;
         } else {
             self.slots.1 = slot;
@@ -1752,8 +1810,8 @@ impl TouchZoom {
 
     /// Calculate distance between slots.
     fn distance(&self) -> f32 {
-        let delta_x = self.slots.0.location.x - self.slots.1.location.x;
-        let delta_y = self.slots.0.location.y - self.slots.1.location.y;
+        let delta_x = self.slots.0.position.x - self.slots.1.position.x;
+        let delta_y = self.slots.0.position.y - self.slots.1.position.y;
         delta_x.hypot(delta_y) as f32
     }
 }
@@ -1833,7 +1891,7 @@ pub struct AccumulatedScroll {
 
 impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
     /// Handle events from winit.
-    pub fn handle_event(&mut self, event: WinitEvent<Event>) {
+    pub fn handle_event(&mut self, event: WinitEvent) {
         match event {
             WinitEvent::UserEvent(Event { payload, .. }) => match payload {
                 EventType::SearchNext => self.ctx.goto_match(None),
@@ -1930,7 +1988,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 | EventType::CreateWindow(_)
                 | EventType::Frame => (),
             },
-            WinitEvent::WindowEvent { event, .. } => {
+            WinitEvent::WindowEvent(event) => {
                 match event {
                     WindowEvent::CloseRequested => {
                         // User asked to close the window, so no need to hold it.
@@ -1950,7 +2008,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         let font = self.ctx.config.font.clone();
                         display_update_pending.set_font(font.with_size(self.ctx.display.font_size));
                     },
-                    WindowEvent::Resized(size) => {
+                    WindowEvent::SurfaceResized(size) => {
                         // Ignore resize events to zero in any dimension, to avoid issues with Winit
                         // and the ConPTY. A 0x0 resize will also occur when the window is minimized
                         // on Windows.
@@ -1964,19 +2022,32 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         self.key_input(event);
                     },
                     WindowEvent::ModifiersChanged(modifiers) => self.modifiers_input(modifiers),
-                    WindowEvent::MouseInput { state, button, .. } => {
-                        self.ctx.window().set_mouse_visible(true);
-                        self.mouse_input(state, button);
+                    WindowEvent::PointerButton { state, position, button, .. } => {
+                        if let ButtonSource::Touch { finger_id, .. } = button {
+                            let phase = if state.is_pressed() {
+                                TouchPhase::Started
+                            } else {
+                                TouchPhase::Ended
+                            };
+                            self.touch(TouchEvent { finger_id, position, phase });
+                        } else if let Some(mouse_button) = button.mouse_button() {
+                            self.ctx.window().set_mouse_visible(true);
+                            self.mouse_input(state, mouse_button);
+                        }
                     },
-                    WindowEvent::CursorMoved { position, .. } => {
-                        self.ctx.window().set_mouse_visible(true);
-                        self.mouse_moved(position);
+                    WindowEvent::PointerMoved { position, source, .. } => {
+                        if let PointerSource::Touch { finger_id, .. } = source {
+                            let phase = TouchPhase::Moved;
+                            self.touch(TouchEvent { finger_id, position, phase });
+                        } else {
+                            self.ctx.window().set_mouse_visible(true);
+                            self.mouse_moved(position);
+                        }
                     },
                     WindowEvent::MouseWheel { delta, phase, .. } => {
                         self.ctx.window().set_mouse_visible(true);
                         self.mouse_wheel_input(delta, phase);
                     },
-                    WindowEvent::Touch(touch) => self.touch(touch),
                     WindowEvent::Focused(is_focused) => {
                         self.ctx.terminal.is_focused = is_focused;
 
@@ -1999,17 +2070,26 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     WindowEvent::Occluded(occluded) => {
                         *self.ctx.occluded = occluded;
                     },
-                    WindowEvent::DroppedFile(path) => {
-                        let path: String = path.to_string_lossy().into();
-                        self.ctx.paste(&(path + " "), true);
-                    },
-                    WindowEvent::CursorLeft { .. } => {
-                        self.ctx.mouse.inside_text_area = false;
-
-                        if self.ctx.display().highlighted_hint.is_some() {
-                            *self.ctx.dirty = true;
+                    WindowEvent::DragDropped { paths, .. } => {
+                        for path in paths {
+                            let path: String = path.to_string_lossy().into();
+                            self.ctx.paste(&(path + " "), true);
                         }
                     },
+                    WindowEvent::PointerLeft { kind, position, .. } => {
+                        if let PointerKind::Touch(finger_id) = kind {
+                            let phase = TouchPhase::Cancelled;
+                            let position = position.unwrap_or_default();
+                            self.touch(TouchEvent { finger_id, position, phase });
+                        } else {
+                            self.ctx.mouse.inside_text_area = false;
+
+                            if self.ctx.display().highlighted_hint.is_some() {
+                                *self.ctx.dirty = true;
+                            }
+                        }
+                    },
+
                     WindowEvent::Ime(ime) => match ime {
                         Ime::Commit(text) => {
                             *self.ctx.dirty = true;
@@ -2035,54 +2115,50 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             self.ctx.display.ime.set_enabled(false);
                             *self.ctx.dirty = true;
                         },
+                        Ime::DeleteSurrounding { .. } => (),
                     },
+
                     WindowEvent::KeyboardInput { is_synthetic: true, .. }
                     | WindowEvent::ActivationTokenDone { .. }
                     | WindowEvent::DoubleTapGesture { .. }
                     | WindowEvent::TouchpadPressure { .. }
                     | WindowEvent::RotationGesture { .. }
-                    | WindowEvent::CursorEntered { .. }
+                    | WindowEvent::PointerEntered { .. }
                     | WindowEvent::PinchGesture { .. }
-                    | WindowEvent::AxisMotion { .. }
+                    | WindowEvent::DragEntered { .. }
                     | WindowEvent::PanGesture { .. }
-                    | WindowEvent::HoveredFileCancelled
-                    | WindowEvent::Destroyed
-                    | WindowEvent::ThemeChanged(_)
-                    | WindowEvent::HoveredFile(_)
+                    | WindowEvent::DragMoved { .. }
+                    | WindowEvent::DragLeft { .. }
                     | WindowEvent::RedrawRequested
-                    | WindowEvent::Moved(_) => (),
+                    | WindowEvent::Destroyed
+                    | WindowEvent::Moved(_)
+                    | WindowEvent::ThemeChanged(_) => (),
                 }
             },
-            WinitEvent::Suspended
-            | WinitEvent::NewEvents { .. }
-            | WinitEvent::DeviceEvent { .. }
-            | WinitEvent::LoopExiting
-            | WinitEvent::Resumed
-            | WinitEvent::MemoryWarning
-            | WinitEvent::AboutToWait => (),
+            WinitEvent::AboutToWait => (),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct EventProxy {
-    proxy: EventLoopProxy<Event>,
+    proxy: EventLoopProxy,
     window_id: WindowId,
 }
 
 impl EventProxy {
-    pub fn new(proxy: EventLoopProxy<Event>, window_id: WindowId) -> Self {
+    pub fn new(proxy: EventLoopProxy, window_id: WindowId) -> Self {
         Self { proxy, window_id }
     }
 
     /// Send an event to the event loop.
     pub fn send_event(&self, event: EventType) {
-        let _ = self.proxy.send_event(Event::new(event, self.window_id));
+        self.proxy.send_event(Event::new(event, self.window_id));
     }
 }
 
 impl EventListener for EventProxy {
     fn send_event(&self, event: TerminalEvent) {
-        let _ = self.proxy.send_event(Event::new(event.into(), self.window_id));
+        self.proxy.send_event(Event::new(event.into(), self.window_id));
     }
 }
