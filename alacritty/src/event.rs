@@ -55,7 +55,7 @@ use crate::daemon::foreground_process_path;
 use crate::daemon::spawn_daemon;
 use crate::display::color::Rgb;
 use crate::display::hint::HintMatch;
-use crate::display::window::Window;
+use crate::display::window::{ImeInhibitor, Window};
 use crate::display::{Display, Preedit, SizeInfo};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
 #[cfg(unix)]
@@ -968,8 +968,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             };
         }
 
-        // Enable IME so we can input into the search bar with it if we were in Vi mode.
-        self.window().set_ime_allowed(true);
+        // Remove vi mode IME inhibitor, so the user can input the target character.
+        self.window().set_ime_inhibitor(ImeInhibitor::VI, false);
 
         self.display.damage_tracker.frame().mark_fully_damaged();
         self.display.pending_update.dirty = true;
@@ -1424,7 +1424,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         // We don't want IME in Vi mode.
-        self.window().set_ime_allowed(was_in_vi_mode);
+        self.window().set_ime_inhibitor(ImeInhibitor::VI, !was_in_vi_mode);
 
         self.terminal.toggle_vi_mode();
 
@@ -1466,7 +1466,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         self.inline_search_state.char_pending = false;
         self.inline_search_state.character = Some(c);
-        self.window().set_ime_allowed(false);
+        self.window().set_ime_inhibitor(ImeInhibitor::VI, true);
 
         // Immediately move to the captured character.
         self.inline_search_next();
@@ -1602,7 +1602,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     /// Cleanup the search state.
     fn exit_search(&mut self) {
         let vi_mode = self.terminal.mode().contains(TermMode::VI);
-        self.window().set_ime_allowed(!vi_mode);
+        self.window().set_ime_inhibitor(ImeInhibitor::VI, vi_mode);
 
         self.display.damage_tracker.frame().mark_fully_damaged();
         self.display.pending_update.dirty = true;
@@ -1992,6 +1992,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 
                         self.ctx.update_cursor_blinking();
                         self.on_focus_change(is_focused);
+
+                        // Ensure IME is disabled while unfocused.
+                        self.ctx.window().set_ime_inhibitor(ImeInhibitor::FOCUS, !is_focused);
                     },
                     WindowEvent::Occluded(occluded) => {
                         *self.ctx.occluded = occluded;
