@@ -5,18 +5,17 @@ use std::os::unix::net::UnixStream;
 
 use signal_hook::consts::{SIGINT, SIGTERM};
 use signal_hook::low_level::pipe;
-use winit::event_loop::EventLoopProxy;
 
-use crate::event::{Event, EventType};
+use crate::event::{Event, EventLoopProxy, EventType};
 
 pub struct SignalListener {
     pub pipe: UnixStream,
 
-    event_proxy: EventLoopProxy<Event>,
+    event_proxy: EventLoopProxy,
 }
 
 impl SignalListener {
-    pub fn new(event_proxy: EventLoopProxy<Event>) -> Result<Self, IoError> {
+    pub fn new(event_proxy: EventLoopProxy) -> Result<Self, IoError> {
         let (pipe, write) = UnixStream::pair()?;
         pipe::register(SIGINT, write.try_clone()?)?;
         pipe::register(SIGTERM, write)?;

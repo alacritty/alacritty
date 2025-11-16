@@ -1,42 +1,37 @@
-#[cfg(not(any(target_os = "macos", windows)))]
-use winit::platform::startup_notify::{
-    self, EventLoopExtStartupNotify, WindowAttributesExtStartupNotify,
-};
-#[cfg(not(any(target_os = "macos", windows)))]
-use winit::window::ActivationToken;
+use std::fmt::{self, Display, Formatter};
 
-#[cfg(all(not(feature = "x11"), not(any(target_os = "macos", windows))))]
-use winit::platform::wayland::WindowAttributesExtWayland;
-
+use bitflags::bitflags;
 #[rustfmt::skip]
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use {
     std::io::Cursor,
-    winit::platform::x11::{WindowAttributesExtX11, ActiveEventLoopExtX11},
     glutin::platform::x11::X11VisualInfo,
-    winit::window::Icon,
-    png::Decoder,
+    winit::icon::RgbaIcon,
+    winit::platform::x11::WindowAttributesX11,
 };
-
-use std::fmt::{self, Display, Formatter};
-
+use winit::cursor::CursorIcon;
+use winit::dpi::{PhysicalPosition, PhysicalSize};
+use winit::event_loop::ActiveEventLoop;
+use winit::monitor::{Fullscreen, MonitorHandle};
+#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+use winit::platform::wayland::WindowAttributesWayland;
+#[cfg(windows)]
+use winit::platform::windows::{WinIcon, WindowAttributesWindows};
+use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use winit::window::{
+    ImePurpose, Theme, UserAttentionType, Window as WinitWindow, WindowAttributes, WindowId,
+};
 #[cfg(target_os = "macos")]
 use {
     objc2::MainThreadMarker,
     objc2_app_kit::{NSColorSpace, NSView},
-    winit::platform::macos::{OptionAsAlt, WindowAttributesExtMacOS, WindowExtMacOS},
+    winit::platform::macos::{OptionAsAlt, WindowAttributesMacOS, WindowExtMacOS},
 };
-
-use bitflags::bitflags;
-use winit::dpi::{PhysicalPosition, PhysicalSize};
-use winit::event_loop::ActiveEventLoop;
-use winit::monitor::MonitorHandle;
-#[cfg(windows)]
-use winit::platform::windows::{IconExtWindows, WindowAttributesExtWindows};
-use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use winit::window::{
-    CursorIcon, Fullscreen, ImePurpose, Theme, UserAttentionType, Window as WinitWindow,
-    WindowAttributes, WindowId,
+#[cfg(not(any(target_os = "macos", windows)))]
+use {
+    winit::platform::startup_notify::{self, EventLoopExtStartupNotify},
+    winit::raw_window_handle::{HasDisplayHandle, RawDisplayHandle},
+    winit::window::ActivationToken,
 };
 
 use alacritty_terminal::index::Point;
@@ -58,7 +53,7 @@ const IDI_ICON: u16 = 0x101;
 #[derive(Debug)]
 pub enum Error {
     /// Error creating the window.
-    WindowCreation(winit::error::OsError),
+    WindowCreation(winit::error::RequestError),
 
     /// Error dealing with fonts.
     Font(crossfont::Error),
@@ -85,8 +80,8 @@ impl Display for Error {
     }
 }
 
-impl From<winit::error::OsError> for Error {
-    fn from(val: winit::error::OsError) -> Self {
+impl From<winit::error::RequestError> for Error {
+    fn from(val: winit::error::RequestError) -> Self {
         Error::WindowCreation(val)
     }
 }
@@ -113,7 +108,7 @@ pub struct Window {
     /// Hold the window when terminal exits.
     pub hold: bool,
 
-    window: WinitWindow,
+    window: Box<dyn WinitWindow>,
 
     /// Current window title.
     title: String,
@@ -129,7 +124,7 @@ impl Window {
     ///
     /// This creates a window and fully initializes a window.
     pub fn new(
-        event_loop: &ActiveEventLoop,
+        event_loop: &dyn ActiveEventLoop,
         config: &UiConfig,
         identity: &Identity,
         options: &mut WindowOptions,
@@ -137,10 +132,13 @@ impl Window {
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         x11_visual: Option<X11VisualInfo>,
     ) -> Result<Window> {
-        let identity = identity.clone();
-        let mut window_attributes = Window::get_platform_window(
-            &identity,
+        let mut window_attributes = Window::get_platform_window_attributes(
+            #[cfg(not(any(target_os = "macos", windows)))]
+            event_loop,
+            identity,
             &config.window,
+            #[cfg(not(any(target_os = "macos", windows)))]
+            options.activation_token.take(),
             #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
             x11_visual,
             #[cfg(target_os = "macos")]
@@ -150,27 +148,6 @@ impl Window {
         if let Some(position) = config.window.position {
             window_attributes = window_attributes
                 .with_position(PhysicalPosition::<i32>::from((position.x, position.y)));
-        }
-
-        #[cfg(not(any(target_os = "macos", windows)))]
-        if let Some(token) = options
-            .activation_token
-            .take()
-            .map(ActivationToken::from_raw)
-            .or_else(|| event_loop.read_token_from_env())
-        {
-            log::debug!("Activating window with token: {token:?}");
-            window_attributes = window_attributes.with_activation_token(token);
-
-            // Remove the token from the env.
-            startup_notify::reset_activation_token_env();
-        }
-
-        // On X11, embed the window inside another if the parent ID has been set.
-        #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-        if let Some(parent_window_id) = event_loop.is_x11().then_some(config.window.embed).flatten()
-        {
-            window_attributes = window_attributes.with_embed_parent_window(parent_window_id);
         }
 
         window_attributes = window_attributes
@@ -187,17 +164,19 @@ impl Window {
 
         // Text cursor.
         let current_mouse_cursor = CursorIcon::Text;
-        window.set_cursor(current_mouse_cursor);
+        window.set_cursor(current_mouse_cursor.into());
 
         // Enable IME.
+        #[allow(deprecated)]
         window.set_ime_allowed(true);
+        #[allow(deprecated)]
         window.set_ime_purpose(ImePurpose::Terminal);
 
         // Set initial transparency hint.
         window.set_transparent(config.window_opacity() < 1.);
 
         #[cfg(target_os = "macos")]
-        use_srgb_color_space(&window);
+        use_srgb_color_space(window.as_ref());
 
         let scale_factor = window.scale_factor();
         log::info!("Window scale factor: {scale_factor}");
@@ -206,7 +185,7 @@ impl Window {
         Ok(Self {
             hold: options.terminal_options.hold,
             requested_redraw: false,
-            title: identity.title,
+            title: identity.title.clone(),
             current_mouse_cursor,
             mouse_visible: true,
             has_frame: true,
@@ -224,12 +203,12 @@ impl Window {
 
     #[inline]
     pub fn request_inner_size(&self, size: PhysicalSize<u32>) {
-        let _ = self.window.request_inner_size(size);
+        let _ = self.window.request_surface_size(size.into());
     }
 
     #[inline]
     pub fn inner_size(&self) -> PhysicalSize<u32> {
-        self.window.inner_size()
+        self.window.surface_size()
     }
 
     #[inline]
@@ -268,7 +247,7 @@ impl Window {
     pub fn set_mouse_cursor(&mut self, cursor: CursorIcon) {
         if cursor != self.current_mouse_cursor {
             self.current_mouse_cursor = cursor;
-            self.window.set_cursor(cursor);
+            self.window.set_cursor(cursor.into());
         }
     }
 
@@ -286,76 +265,138 @@ impl Window {
     }
 
     #[cfg(not(any(target_os = "macos", windows)))]
-    pub fn get_platform_window(
+    pub fn get_platform_window_attributes(
+        event_loop: &dyn ActiveEventLoop,
         identity: &Identity,
         window_config: &WindowConfig,
+        activation_token: Option<String>,
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))] x11_visual: Option<
             X11VisualInfo,
         >,
     ) -> WindowAttributes {
-        #[cfg(feature = "x11")]
-        let icon = {
-            let mut decoder = Decoder::new(Cursor::new(WINDOW_ICON));
-            decoder.set_transformations(png::Transformations::normalize_to_color8());
-            let mut reader = decoder.read_info().expect("invalid embedded icon");
-            let mut buf = vec![0; reader.output_buffer_size()];
-            let _ = reader.next_frame(&mut buf);
-            Icon::from_rgba(buf, reader.info().width, reader.info().height)
-                .expect("invalid embedded icon format")
-        };
+        let activation_token = activation_token
+            .map(ActivationToken::from_raw)
+            .or_else(|| event_loop.read_token_from_env())
+            .map(|activation_token| {
+                log::debug!("Activating window with token: {activation_token:?}");
+                // Remove the token from the env.
+                startup_notify::reset_activation_token_env();
+                activation_token
+            });
 
-        let builder = WinitWindow::default_attributes()
-            .with_name(&identity.class.general, &identity.class.instance)
-            .with_decorations(window_config.decorations != Decorations::None);
+        match event_loop.display_handle().unwrap().as_raw() {
+            #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+            RawDisplayHandle::Xlib(_) | RawDisplayHandle::Xcb(_) => {
+                Self::get_x11_window_attributes(
+                    identity,
+                    window_config,
+                    activation_token,
+                    x11_visual,
+                )
+            },
+            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+            RawDisplayHandle::Wayland(_) => {
+                Self::get_wayland_window_attributes(identity, window_config, activation_token)
+            },
+            _ => unreachable!(),
+        }
+    }
 
-        #[cfg(feature = "x11")]
-        let builder = builder.with_window_icon(Some(icon));
+    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+    fn get_wayland_window_attributes(
+        identity: &Identity,
+        window_config: &WindowConfig,
+        activation_token: Option<ActivationToken>,
+    ) -> WindowAttributes {
+        let mut attrs = WindowAttributesWayland::default()
+            .with_name(&identity.class.general, &identity.class.instance);
 
-        #[cfg(feature = "x11")]
-        let builder = match x11_visual {
-            Some(visual) => builder.with_x11_visual(visual.visual_id() as u32),
-            None => builder,
-        };
+        if let Some(activation_token) = activation_token {
+            attrs = attrs.with_activation_token(activation_token);
+        }
 
-        builder
+        WindowAttributes::default()
+            .with_decorations(window_config.decorations != Decorations::None)
+            .with_platform_attributes(Box::new(attrs))
+    }
+
+    #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+    fn get_x11_window_attributes(
+        identity: &Identity,
+        window_config: &WindowConfig,
+        activation_token: Option<ActivationToken>,
+        x11_visual: Option<X11VisualInfo>,
+    ) -> WindowAttributes {
+        let mut decoder = png::Decoder::new(Cursor::new(WINDOW_ICON));
+        decoder.set_transformations(png::Transformations::normalize_to_color8());
+        let mut reader = decoder.read_info().expect("invalid embedded icon");
+        let mut buf = vec![0; reader.output_buffer_size()];
+        let _ = reader.next_frame(&mut buf);
+        let reader_info = reader.info();
+        let icon = RgbaIcon::new(buf, reader_info.width, reader_info.height)
+            .expect("invalid embedded icon format")
+            .into();
+
+        let mut attrs = WindowAttributesX11::default()
+            .with_x11_visual(x11_visual.unwrap().visual_id() as _)
+            .with_name(&identity.class.general, &identity.class.instance);
+
+        if let Some(embed) = window_config.embed {
+            attrs = attrs.with_embed_parent_window(embed);
+        }
+
+        if let Some(activation_token) = activation_token {
+            attrs = attrs.with_activation_token(activation_token);
+        }
+
+        WindowAttributes::default()
+            .with_decorations(window_config.decorations != Decorations::None)
+            .with_window_icon(Some(icon))
+            .with_platform_attributes(Box::new(attrs))
     }
 
     #[cfg(windows)]
-    pub fn get_platform_window(_: &Identity, window_config: &WindowConfig) -> WindowAttributes {
-        let icon = winit::window::Icon::from_resource(IDI_ICON, None);
+    pub fn get_platform_window_attributes(
+        _: &Identity,
+        window_config: &WindowConfig,
+    ) -> WindowAttributes {
+        let icon = WinIcon::from_resource(IDI_ICON, None).ok().map(Into::into);
+        let attrs = WindowAttributesWindows::default().with_taskbar_icon(icon.clone());
 
-        WinitWindow::default_attributes()
+        WindowAttributes::default()
             .with_decorations(window_config.decorations != Decorations::None)
-            .with_window_icon(icon.as_ref().ok().cloned())
-            .with_taskbar_icon(icon.ok())
+            .with_window_icon(icon)
+            .with_platform_attributes(Box::new(attrs))
     }
 
     #[cfg(target_os = "macos")]
-    pub fn get_platform_window(
+    pub fn get_platform_window_attributes(
         _: &Identity,
         window_config: &WindowConfig,
         tabbing_id: &Option<String>,
     ) -> WindowAttributes {
-        let mut window =
-            WinitWindow::default_attributes().with_option_as_alt(window_config.option_as_alt());
+        let mut attrs =
+            WindowAttributesMacOS::default().with_option_as_alt(window_config.option_as_alt());
 
         if let Some(tabbing_id) = tabbing_id {
-            window = window.with_tabbing_identifier(tabbing_id);
+            attrs = attrs.with_tabbing_identifier(tabbing_id);
         }
 
-        match window_config.decorations {
-            Decorations::Full => window,
-            Decorations::Transparent => window
+        attrs = match window_config.decorations {
+            Decorations::Full => attrs,
+            Decorations::Transparent => attrs
                 .with_title_hidden(true)
                 .with_titlebar_transparent(true)
                 .with_fullsize_content_view(true),
-            Decorations::Buttonless => window
+            Decorations::Buttonless => attrs
                 .with_title_hidden(true)
                 .with_titlebar_buttons_hidden(true)
                 .with_titlebar_transparent(true)
                 .with_fullsize_content_view(true),
-            Decorations::None => window.with_titlebar_hidden(true),
-        }
+            Decorations::None => attrs.with_titlebar_hidden(true),
+        };
+
+        WindowAttributes::default().with_platform_attributes(Box::new(attrs))
     }
 
     pub fn set_urgent(&self, is_urgent: bool) {
@@ -385,7 +426,7 @@ impl Window {
     }
 
     pub fn set_resize_increments(&self, increments: PhysicalSize<f32>) {
-        self.window.set_resize_increments(Some(increments));
+        self.window.set_surface_resize_increments(Some(increments.into()));
     }
 
     /// Toggle the window's fullscreen state.
@@ -442,6 +483,7 @@ impl Window {
     pub fn set_ime_inhibitor(&mut self, inhibitor: ImeInhibitor, inhibit: bool) {
         if self.ime_inhibitor.contains(inhibitor) != inhibit {
             self.ime_inhibitor.set(inhibitor, inhibit);
+            #[allow(deprecated)]
             self.window.set_ime_allowed(self.ime_inhibitor.is_empty());
         }
     }
@@ -461,9 +503,10 @@ impl Window {
         let width = size.cell_width() as f64 * 2.;
         let height = size.cell_height as f64;
 
+        #[allow(deprecated)]
         self.window.set_ime_cursor_area(
-            PhysicalPosition::new(nspot_x, nspot_y),
-            PhysicalSize::new(width, height),
+            PhysicalPosition::new(nspot_x, nspot_y).into(),
+            PhysicalSize::new(width, height).into(),
         );
     }
 
@@ -524,7 +567,7 @@ bitflags! {
 }
 
 #[cfg(target_os = "macos")]
-fn use_srgb_color_space(window: &WinitWindow) {
+fn use_srgb_color_space(window: &dyn WinitWindow) {
     let view = match window.window_handle().unwrap().as_raw() {
         RawWindowHandle::AppKit(handle) => {
             assert!(MainThreadMarker::new().is_some());

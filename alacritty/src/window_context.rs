@@ -16,8 +16,8 @@ use glutin::display::GetGlDisplay;
 use glutin::platform::x11::X11GlConfigExt;
 use log::info;
 use serde_json as json;
-use winit::event::{Event as WinitEvent, Modifiers, WindowEvent};
-use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
+use winit::event::{Modifiers, WindowEvent};
+use winit::event_loop::ActiveEventLoop;
 use winit::raw_window_handle::HasDisplayHandle;
 use winit::window::WindowId;
 
@@ -36,7 +36,8 @@ use crate::config::UiConfig;
 use crate::display::Display;
 use crate::display::window::Window;
 use crate::event::{
-    ActionContext, Event, EventProxy, InlineSearchState, Mouse, SearchState, TouchPurpose,
+    ActionContext, Event, EventLoopProxy, EventProxy, InlineSearchState, Mouse, SearchState,
+    TouchPurpose, WinitEvent,
 };
 #[cfg(unix)]
 use crate::logging::LOG_TARGET_IPC_CONFIG;
@@ -49,7 +50,7 @@ pub struct WindowContext {
     pub message_buffer: MessageBuffer,
     pub display: Display,
     pub dirty: bool,
-    event_queue: Vec<WinitEvent<Event>>,
+    event_queue: Vec<WinitEvent>,
     terminal: Arc<FairMutex<Term<EventProxy>>>,
     cursor_blink_timed_out: bool,
     prev_bell_cmd: Option<Instant>,
@@ -72,8 +73,8 @@ pub struct WindowContext {
 impl WindowContext {
     /// Create initial window context that does bootstrapping the graphics API we're going to use.
     pub fn initial(
-        event_loop: &ActiveEventLoop,
-        proxy: EventLoopProxy<Event>,
+        event_loop: &dyn ActiveEventLoop,
+        proxy: EventLoopProxy,
         config: Rc<UiConfig>,
         mut options: WindowOptions,
     ) -> Result<Self, Box<dyn Error>> {
@@ -121,8 +122,8 @@ impl WindowContext {
     /// Create additional context with the graphics platform other windows are using.
     pub fn additional(
         gl_config: &GlutinConfig,
-        event_loop: &ActiveEventLoop,
-        proxy: EventLoopProxy<Event>,
+        event_loop: &dyn ActiveEventLoop,
+        proxy: EventLoopProxy,
         config: Rc<UiConfig>,
         mut options: WindowOptions,
         config_overrides: ParsedOptions,
@@ -170,7 +171,7 @@ impl WindowContext {
         display: Display,
         config: Rc<UiConfig>,
         options: WindowOptions,
-        proxy: EventLoopProxy<Event>,
+        proxy: EventLoopProxy,
     ) -> Result<Self, Box<dyn Error>> {
         let mut pty_config = config.pty_config();
         options.terminal_options.override_pty_config(&mut pty_config);
@@ -198,7 +199,8 @@ impl WindowContext {
         // The PTY forks a process to run the shell on the slave side of the
         // pseudoterminal. A file descriptor for the master side is retained for
         // reading/writing to the shell.
-        let pty = tty::new(&pty_config, display.size_info.into(), display.window.id().into())?;
+        let pty =
+            tty::new(&pty_config, display.size_info.into(), display.window.id().into_raw() as u64)?;
 
         #[cfg(not(windows))]
         let master_fd = pty.file().as_raw_fd();
@@ -400,15 +402,14 @@ impl WindowContext {
     /// Process events for this terminal window.
     pub fn handle_event(
         &mut self,
-        #[cfg(target_os = "macos")] event_loop: &ActiveEventLoop,
-        event_proxy: &EventLoopProxy<Event>,
+        #[cfg(target_os = "macos")] event_loop: &dyn ActiveEventLoop,
+        event_proxy: &EventLoopProxy,
         clipboard: &mut Clipboard,
         scheduler: &mut Scheduler,
-        event: WinitEvent<Event>,
+        event: WinitEvent,
     ) {
         match event {
-            WinitEvent::AboutToWait
-            | WinitEvent::WindowEvent { event: WindowEvent::RedrawRequested, .. } => {
+            WinitEvent::AboutToWait | WinitEvent::WindowEvent(WindowEvent::RedrawRequested) => {
                 // Skip further event handling with no staged updates.
                 if self.event_queue.is_empty() {
                     return;
@@ -487,7 +488,7 @@ impl WindowContext {
         if self.dirty
             && self.display.window.has_frame
             && !self.occluded
-            && !matches!(event, WinitEvent::WindowEvent { event: WindowEvent::RedrawRequested, .. })
+            && !matches!(event, WinitEvent::WindowEvent(WindowEvent::RedrawRequested))
         {
             self.display.window.request_redraw();
         }
