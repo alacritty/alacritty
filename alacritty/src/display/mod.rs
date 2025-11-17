@@ -364,6 +364,9 @@ pub struct Display {
     /// Mapped RGB values for each terminal color.
     pub colors: List,
 
+    /// Mapped RGB values for each terminal color.
+    pub colors_dark: List,
+
     /// State of the keyboard hints.
     pub hint_state: HintState,
 
@@ -521,6 +524,7 @@ impl Display {
             renderer_preference: config.debug.renderer,
             surface: ManuallyDrop::new(surface),
             colors: List::from(&config.colors),
+            colors_dark: List::from(&config.colors_dark),
             frame_timer: FrameTimer::new(),
             raw_window_handle,
             damage_tracker,

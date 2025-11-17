@@ -73,8 +73,17 @@ impl<'a> RenderableContent<'a> {
             None
         };
 
+        let colors = if let Some(theme) = display.window.theme() {
+            match theme {
+                winit::window::Theme::Dark => &display.colors_dark,
+                winit::window::Theme::Light => &display.colors,
+            }
+        } else {
+            &display.colors
+        };
+
         Self {
-            colors: &display.colors,
+            colors,
             size: &display.size_info,
             cursor: RenderableCursor::new_hidden(),
             terminal_content,

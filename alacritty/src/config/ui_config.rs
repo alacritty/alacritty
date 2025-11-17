@@ -75,6 +75,9 @@ pub struct UiConfig {
     /// RGB values for colors.
     pub colors: Colors,
 
+    /// RGB values for colors.
+    pub colors_dark: Colors,
+
     /// Path where config was loaded from.
     #[config(skip)]
     #[serde(skip_serializing)]

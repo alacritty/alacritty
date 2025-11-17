@@ -409,6 +409,10 @@ impl Window {
         self.window.set_theme(theme);
     }
 
+    pub fn theme(&self) -> Option<Theme> {
+        self.window.theme()
+    }
+
     #[cfg(target_os = "macos")]
     pub fn toggle_simple_fullscreen(&self) {
         self.set_simple_fullscreen(!self.window.simple_fullscreen());
