@@ -1,9 +1,13 @@
 #[cfg(target_os = "openbsd")]
 use std::ffi::CStr;
+#[cfg(not(windows))]
+use std::ffi::CString;
 use std::ffi::OsStr;
 #[cfg(not(any(target_os = "macos", target_os = "openbsd", windows)))]
 use std::fs;
 use std::io;
+#[cfg(not(windows))]
+use std::os::unix::ffi::OsStringExt;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use std::process::{Command, Stdio};
@@ -13,7 +17,6 @@ use std::ptr;
 #[rustfmt::skip]
 #[cfg(not(windows))]
 use {
-    std::env,
     std::error::Error,
     std::os::unix::process::CommandExt,
     std::os::unix::io::RawFd,
@@ -64,10 +67,15 @@ where
     let mut command = Command::new(program);
     command.args(args).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
 
-    let working_directory = foreground_process_path(master_fd, shell_pid).ok();
+    let working_directory = foreground_process_path(master_fd, shell_pid)
+        .ok()
+        .and_then(|path| CString::new(path.into_os_string().into_vec()).ok());
+
     unsafe {
         command
             .pre_exec(move || {
+                // FIXME: `libc::fork` calls `pthread_atfork` handlers, which are not
+                // async-signal-safe.
                 match libc::fork() {
                     -1 => return Err(io::Error::last_os_error()),
                     0 => (),
@@ -76,7 +84,7 @@ where
 
                 // Copy foreground process' working directory, ignoring invalid paths.
                 if let Some(working_directory) = working_directory.as_ref() {
-                    let _ = env::set_current_dir(working_directory);
+                    libc::chdir(working_directory.as_ptr());
                 }
 
                 if libc::setsid() == -1 {
