@@ -860,17 +860,17 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             TouchPurpose::Zoom(zoom) => {
                 let slots = zoom.slots();
                 let mut set = HashSet::default();
-                set.insert(slots.0.finger_id);
-                set.insert(slots.1.finger_id);
+                set.insert(slots.0.slot_id);
+                set.insert(slots.1.slot_id);
                 TouchPurpose::Invalid(set)
             },
             TouchPurpose::Scroll(event) | TouchPurpose::Select(event) => {
                 let mut set = HashSet::default();
-                set.insert(event.finger_id);
+                set.insert(event.slot_id);
                 TouchPurpose::Invalid(set)
             },
             TouchPurpose::Invalid(mut slots) => {
-                slots.insert(touch.finger_id);
+                slots.insert(touch.slot_id);
                 TouchPurpose::Invalid(slots)
             },
         };
@@ -942,14 +942,13 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             // Transition zoom to pending state once a finger was released.
             TouchPurpose::Zoom(zoom) => {
                 let slots = zoom.slots();
-                let remaining =
-                    if slots.0.finger_id == touch.finger_id { slots.1 } else { slots.0 };
+                let remaining = if slots.0.slot_id == touch.slot_id { slots.1 } else { slots.0 };
                 *touch_purpose = TouchPurpose::ZoomPendingSlot(remaining);
             },
             TouchPurpose::ZoomPendingSlot(_) => *touch_purpose = Default::default(),
             // Reset touch state once all slots were released.
             TouchPurpose::Invalid(slots) => {
-                slots.remove(&touch.finger_id);
+                slots.remove(&touch.slot_id);
                 if slots.is_empty() {
                     *touch_purpose = Default::default();
                 }

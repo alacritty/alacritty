@@ -1,33 +1,37 @@
-#[cfg(not(any(target_os = "macos", windows)))]
-use {
-    winit::platform::startup_notify::{self, EventLoopExtStartupNotify},
-    winit::raw_window_handle::{HasDisplayHandle, RawDisplayHandle},
-    winit::window::ActivationToken,
-};
-
-#[rustfmt::skip]
-#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-use  glutin::platform::x11::X11VisualInfo;
-
 use std::fmt::{self, Display, Formatter};
 
+use bitflags::bitflags;
+#[rustfmt::skip]
+#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+use {
+    std::io::Cursor,
+    glutin::platform::x11::X11VisualInfo,
+    winit::icon::RgbaIcon,
+    winit::platform::x11::WindowAttributesX11,
+};
+use winit::cursor::CursorIcon;
+use winit::dpi::{PhysicalPosition, PhysicalSize};
+use winit::event_loop::ActiveEventLoop;
+use winit::monitor::{Fullscreen, MonitorHandle};
+#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+use winit::platform::wayland::WindowAttributesWayland;
+#[cfg(windows)]
+use winit::platform::windows::{WinIcon, WindowAttributesWindows};
+use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use winit::window::{
+    ImePurpose, Theme, UserAttentionType, Window as WinitWindow, WindowAttributes, WindowId,
+};
 #[cfg(target_os = "macos")]
 use {
     objc2::MainThreadMarker,
     objc2_app_kit::{NSColorSpace, NSView},
     winit::platform::macos::{OptionAsAlt, WindowAttributesMacOS, WindowExtMacOS},
 };
-
-use bitflags::bitflags;
-use winit::cursor::CursorIcon;
-use winit::dpi::{PhysicalPosition, PhysicalSize};
-use winit::event_loop::ActiveEventLoop;
-use winit::monitor::{Fullscreen, MonitorHandle};
-#[cfg(windows)]
-use winit::platform::windows::{WinIcon, WindowAttributesWindows};
-use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use winit::window::{
-    ImePurpose, Theme, UserAttentionType, Window as WinitWindow, WindowAttributes, WindowId,
+#[cfg(not(any(target_os = "macos", windows)))]
+use {
+    winit::platform::startup_notify::{self, EventLoopExtStartupNotify},
+    winit::raw_window_handle::{HasDisplayHandle, RawDisplayHandle},
+    winit::window::ActivationToken,
 };
 
 use alacritty_terminal::index::Point;
@@ -128,7 +132,7 @@ impl Window {
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         x11_visual: Option<X11VisualInfo>,
     ) -> Result<Window> {
-        let mut window_attributes = Window::get_platform_window(
+        let mut window_attributes = Window::get_platform_window_attributes(
             #[cfg(not(any(target_os = "macos", windows)))]
             event_loop,
             identity,
@@ -261,7 +265,7 @@ impl Window {
     }
 
     #[cfg(not(any(target_os = "macos", windows)))]
-    pub fn get_platform_window(
+    pub fn get_platform_window_attributes(
         event_loop: &dyn ActiveEventLoop,
         identity: &Identity,
         window_config: &WindowConfig,
@@ -270,38 +274,41 @@ impl Window {
             X11VisualInfo,
         >,
     ) -> WindowAttributes {
-        let activation_token = if let Some(activation_token) = activation_token
+        let activation_token = activation_token
             .map(ActivationToken::from_raw)
             .or_else(|| event_loop.read_token_from_env())
-        {
-            log::debug!("Activating window with token: {activation_token:?}");
-            // Remove the token from the env.
-            startup_notify::reset_activation_token_env();
-            Some(activation_token)
-        } else {
-            None
-        };
+            .map(|activation_token| {
+                log::debug!("Activating window with token: {activation_token:?}");
+                // Remove the token from the env.
+                startup_notify::reset_activation_token_env();
+                activation_token
+            });
 
         match event_loop.display_handle().unwrap().as_raw() {
             #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
             RawDisplayHandle::Xlib(_) | RawDisplayHandle::Xcb(_) => {
-                Self::get_x11_window(identity, window_config, activation_token, x11_visual)
+                Self::get_x11_window_attributes(
+                    identity,
+                    window_config,
+                    activation_token,
+                    x11_visual,
+                )
             },
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             RawDisplayHandle::Wayland(_) => {
-                Self::get_wayland_window(identity, window_config, activation_token)
+                Self::get_wayland_window_attributes(identity, window_config, activation_token)
             },
             _ => unreachable!(),
         }
     }
 
     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-    fn get_wayland_window(
+    fn get_wayland_window_attributes(
         identity: &Identity,
         window_config: &WindowConfig,
         activation_token: Option<ActivationToken>,
     ) -> WindowAttributes {
-        let mut attrs = winit::platform::wayland::WindowAttributesWayland::default()
+        let mut attrs = WindowAttributesWayland::default()
             .with_name(&identity.class.general, &identity.class.instance);
 
         if let Some(activation_token) = activation_token {
@@ -314,22 +321,19 @@ impl Window {
     }
 
     #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-    fn get_x11_window(
+    fn get_x11_window_attributes(
         identity: &Identity,
         window_config: &WindowConfig,
         activation_token: Option<ActivationToken>,
         x11_visual: Option<X11VisualInfo>,
     ) -> WindowAttributes {
-        use std::io::Cursor;
-        use winit::icon::RgbaIcon;
-        use winit::platform::x11::WindowAttributesX11;
-
         let mut decoder = png::Decoder::new(Cursor::new(WINDOW_ICON));
         decoder.set_transformations(png::Transformations::normalize_to_color8());
         let mut reader = decoder.read_info().expect("invalid embedded icon");
         let mut buf = vec![0; reader.output_buffer_size()];
         let _ = reader.next_frame(&mut buf);
-        let icon = RgbaIcon::new(buf, reader.info().width, reader.info().height)
+        let reader_info = reader.info();
+        let icon = RgbaIcon::new(buf, reader_info.width, reader_info.height)
             .expect("invalid embedded icon format")
             .into();
 
@@ -352,7 +356,10 @@ impl Window {
     }
 
     #[cfg(windows)]
-    pub fn get_platform_window(_: &Identity, window_config: &WindowConfig) -> WindowAttributes {
+    pub fn get_platform_window_attributes(
+        _: &Identity,
+        window_config: &WindowConfig,
+    ) -> WindowAttributes {
         let icon = WinIcon::from_resource(IDI_ICON, None).ok().map(Into::into);
         let attrs = WindowAttributesWindows::default().with_taskbar_icon(icon.clone());
 
@@ -363,7 +370,7 @@ impl Window {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn get_platform_window(
+    pub fn get_platform_window_attributes(
         _: &Identity,
         window_config: &WindowConfig,
         tabbing_id: &Option<String>,

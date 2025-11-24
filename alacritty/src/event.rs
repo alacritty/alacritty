@@ -1,7 +1,7 @@
 //! Process window events.
 
 use std::borrow::Cow;
-use std::cell::RefCell;
+use std::cell::Cell;
 use std::cmp::min;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -14,14 +14,17 @@ use std::os::unix::io::RawFd;
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+#[cfg(not(windows))]
+use std::sync::Arc;
+use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
 use ahash::RandomState;
 use crossfont::Size as FontSize;
 use glutin::config::{Config as GlutinConfig, GetGlConfig};
-use glutin::display::GetGlDisplay;
+#[cfg(not(target_os = "macos"))]
+use glutin::display::{Display as GlDisplay, GetGlDisplay};
 use log::{debug, error, info, warn};
 #[cfg(windows)]
 use windows_sys::Win32::System::Console::FreeConsole;
@@ -93,10 +96,10 @@ pub struct Processor {
     clipboard: Clipboard,
     scheduler: Scheduler,
     initial_window_options: Option<WindowOptions>,
-    initial_window_error: Rc<RefCell<Option<Box<dyn Error>>>>,
+    initial_window_error: Rc<Cell<Option<Box<dyn Error>>>>,
     windows: HashMap<WindowId, WindowContext, RandomState>,
     proxy: EventLoopProxy,
-    proxy_event_buffer: Vec<Event>,
+    user_events_rx: Receiver<Event>,
     gl_config: Option<GlutinConfig>,
     #[cfg(unix)]
     global_ipc_options: ParsedOptions,
@@ -111,6 +114,7 @@ impl Processor {
         cli_options: CliOptions,
         event_loop: &EventLoop,
         proxy: EventLoopProxy,
+        user_events_rx: Receiver<Event>,
     ) -> Processor {
         let scheduler = Scheduler::new(proxy.clone());
         let initial_window_options = Some(cli_options.window_options.clone());
@@ -134,7 +138,7 @@ impl Processor {
         Processor {
             initial_window_options,
             initial_window_error: Default::default(),
-            proxy_event_buffer: Default::default(),
+            user_events_rx,
             cli_options,
             proxy,
             scheduler,
@@ -204,7 +208,7 @@ impl Processor {
     pub fn run(self, event_loop: EventLoop) -> Result<(), Box<dyn Error>> {
         let initial_window_error = self.initial_window_error.clone();
         let result = event_loop.run_app(self);
-        match initial_window_error.borrow_mut().take() {
+        match initial_window_error.take() {
             Some(initial_window_error) => Err(initial_window_error),
             _ => result.map_err(Into::into),
         }
@@ -219,7 +223,6 @@ impl Processor {
                 | WindowEvent::DoubleTapGesture { .. }
                 | WindowEvent::TouchpadPressure { .. }
                 | WindowEvent::RotationGesture { .. }
-                | WindowEvent::PointerEntered { .. }
                 | WindowEvent::PinchGesture { .. }
                 | WindowEvent::DragEntered { .. }
                 | WindowEvent::PanGesture { .. }
@@ -234,24 +237,17 @@ impl Processor {
 
 impl Drop for Processor {
     fn drop(&mut self) {
-        if self.config.debug.print_events {
-            info!("Exiting the event loop");
-        }
+        info!("Exiting the event loop");
 
-        match self.gl_config.take().map(|config| config.display()) {
-            #[cfg(not(target_os = "macos"))]
-            Some(glutin::display::Display::Egl(display)) => {
-                // Ensure that all the windows are dropped, so the destructors for
-                // Renderer and contexts ran.
-                self.windows.clear();
+        #[cfg(not(target_os = "macos"))]
+        if let Some(GlDisplay::Egl(display)) = self.gl_config.take().map(|conf| conf.display()) {
+            // Ensure that all the windows are dropped, so the destructors for
+            // renderer and contexts ran.
+            self.windows.clear();
 
-                // SAFETY: the display is being destroyed after destroying all the
-                // windows, thus no attempt to access the EGL state will be made.
-                unsafe {
-                    display.terminate();
-                }
-            },
-            _ => (),
+            // SAFETY: the display is being destroyed after destroying all the
+            // windows, thus no attempt to access the EGL state will be made.
+            unsafe { display.terminate() };
         }
 
         // SAFETY: The clipboard must be dropped before the event loop, so use the nop clipboard
@@ -266,8 +262,8 @@ impl Drop for Processor {
         // Without explicitly detaching the console cmd won't redraw it's prompt.
         #[cfg(windows)]
         unsafe {
-            FreeConsole();
-        }
+            FreeConsole()
+        };
     }
 }
 
@@ -283,7 +279,7 @@ impl ApplicationHandler for Processor {
 
         if let Some(window_options) = self.initial_window_options.take() {
             if let Err(err) = self.create_initial_window(event_loop, window_options) {
-                *self.initial_window_error.borrow_mut() = Some(err);
+                self.initial_window_error.set(Some(err));
                 event_loop.exit();
                 return;
             }
@@ -329,10 +325,7 @@ impl ApplicationHandler for Processor {
     }
 
     fn proxy_wake_up(&mut self, event_loop: &dyn ActiveEventLoop) {
-        mem::swap(&mut *self.proxy.events.lock().unwrap(), &mut self.proxy_event_buffer);
-        let mut events = Vec::new();
-        mem::swap(&mut events, &mut self.proxy_event_buffer);
-        for event in events.drain(..) {
+        while let Ok(event) = self.user_events_rx.try_recv() {
             if self.config.debug.print_events {
                 info!(target: LOG_TARGET_WINIT, "{event:?}");
             }
@@ -432,7 +425,7 @@ impl ApplicationHandler for Processor {
                     if self.gl_config.is_none() {
                         // Handle initial window creation in daemon mode.
                         if let Err(err) = self.create_initial_window(event_loop, options) {
-                            *self.initial_window_error.borrow_mut() = Some(err);
+                            self.initial_window_error.set(Some(err));
                             event_loop.exit();
                         }
                     } else if let Err(err) = self.create_window(event_loop, options) {
@@ -509,8 +502,6 @@ impl ApplicationHandler for Processor {
                 },
             }
         }
-
-        mem::swap(&mut events, &mut self.proxy_event_buffer);
     }
 
     fn about_to_wait(&mut self, event_loop: &dyn ActiveEventLoop) {
@@ -543,16 +534,16 @@ impl ApplicationHandler for Processor {
 #[derive(Debug, Clone)]
 pub struct EventLoopProxy {
     winit_wake_up_proxy: WinitWakeUpProxy,
-    events: Arc<Mutex<Vec<Event>>>,
+    tx: Sender<Event>,
 }
 
 impl EventLoopProxy {
-    pub fn new(winit_wake_up_proxy: WinitWakeUpProxy) -> Self {
-        Self { winit_wake_up_proxy, events: Default::default() }
+    pub fn new(tx: Sender<Event>, winit_wake_up_proxy: WinitWakeUpProxy) -> Self {
+        Self { tx, winit_wake_up_proxy }
     }
 
     pub fn send_event(&self, event: Event) {
-        self.events.lock().unwrap().push(event);
+        let _ = self.tx.send(event);
         self.winit_wake_up_proxy.wake_up();
     }
 }
@@ -1753,8 +1744,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
 #[derive(Debug, Clone, Copy)]
 pub struct TouchEvent {
-    /// Unique identifier of a finger.
-    pub finger_id: FingerId,
+    pub slot_id: FingerId,
     pub position: PhysicalPosition<f64>,
     pub phase: TouchPhase,
 }
@@ -1789,7 +1779,7 @@ impl TouchZoom {
         let old_distance = self.distance();
 
         // Update touch slots.
-        if slot.finger_id == self.slots.0.finger_id {
+        if slot.slot_id == self.slots.0.slot_id {
             self.slots.0 = slot;
         } else {
             self.slots.1 = slot;
@@ -2029,7 +2019,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             } else {
                                 TouchPhase::Ended
                             };
-                            self.touch(TouchEvent { finger_id, position, phase });
+                            self.touch(TouchEvent { slot_id: finger_id, position, phase });
                         } else if let Some(mouse_button) = button.mouse_button() {
                             self.ctx.window().set_mouse_visible(true);
                             self.mouse_input(state, mouse_button);
@@ -2038,7 +2028,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     WindowEvent::PointerMoved { position, source, .. } => {
                         if let PointerSource::Touch { finger_id, .. } = source {
                             let phase = TouchPhase::Moved;
-                            self.touch(TouchEvent { finger_id, position, phase });
+                            self.touch(TouchEvent { slot_id: finger_id, position, phase });
                         } else {
                             self.ctx.window().set_mouse_visible(true);
                             self.mouse_moved(position);
@@ -2076,11 +2066,16 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             self.ctx.paste(&(path + " "), true);
                         }
                     },
+                    WindowEvent::PointerEntered { position, kind, .. } => {
+                        if !matches!(kind, PointerKind::Touch(_)) {
+                            self.mouse_moved(position);
+                        }
+                    },
                     WindowEvent::PointerLeft { kind, position, .. } => {
                         if let PointerKind::Touch(finger_id) = kind {
                             let phase = TouchPhase::Cancelled;
                             let position = position.unwrap_or_default();
-                            self.touch(TouchEvent { finger_id, position, phase });
+                            self.touch(TouchEvent { slot_id: finger_id, position, phase });
                         } else {
                             self.ctx.mouse.inside_text_area = false;
 
@@ -2123,7 +2118,6 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     | WindowEvent::DoubleTapGesture { .. }
                     | WindowEvent::TouchpadPressure { .. }
                     | WindowEvent::RotationGesture { .. }
-                    | WindowEvent::PointerEntered { .. }
                     | WindowEvent::PinchGesture { .. }
                     | WindowEvent::DragEntered { .. }
                     | WindowEvent::PanGesture { .. }
