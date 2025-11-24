@@ -134,7 +134,8 @@ impl Drop for TemporaryFiles {
 fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     // Setup winit event loop.
     let window_event_loop = EventLoop::new()?;
-    let proxy = EventLoopProxy::new(window_event_loop.create_proxy());
+    let (tx, rx) = std::sync::mpsc::channel();
+    let proxy = EventLoopProxy::new(tx, window_event_loop.create_proxy());
 
     // Initialize the logger as soon as possible as to capture output from other subsystems.
     let log_file =
@@ -208,7 +209,7 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     };
 
     // Event processor.
-    let processor = Processor::new(config, options, &window_event_loop, proxy);
+    let processor = Processor::new(config, options, &window_event_loop, proxy, rx);
 
     // Start event loop and block until shutdown.
     let result = processor.run(window_event_loop);

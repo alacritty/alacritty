@@ -615,14 +615,12 @@ impl SequenceBuilder {
                 (NamedKey::Shift, KeyLocation::Left) => "57441",
                 (NamedKey::Control, KeyLocation::Left) => "57442",
                 (NamedKey::Alt, KeyLocation::Left) => "57443",
-                // This is `Super` in kitty's spec.
                 (NamedKey::Meta, KeyLocation::Left) => "57444",
                 #[allow(deprecated)]
                 (NamedKey::Hyper, KeyLocation::Left) => "57445",
                 (NamedKey::Shift, _) => "57447",
                 (NamedKey::Control, _) => "57448",
                 (NamedKey::Alt, _) => "57449",
-                // This is `Super` in kitty's spec.
                 (NamedKey::Meta, _) => "57450",
                 #[allow(deprecated)]
                 (NamedKey::Hyper, _) => "57451",

@@ -1443,8 +1443,7 @@ impl Display {
                 .current_monitor()
                 .and_then(|monitor| monitor.current_video_mode())
                 .and_then(|video_mode| video_mode.refresh_rate_millihertz())
-                .map(|refresh_rate| refresh_rate.get())
-                .unwrap_or(60_000) as f64;
+                .map_or(60_000, |refresh_rate| refresh_rate.get()) as f64;
 
         // Now convert it to micro seconds.
         let monitor_vblank_interval =
