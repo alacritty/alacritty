@@ -20,7 +20,7 @@ use std::{env, fs};
 
 use log::info;
 #[cfg(windows)]
-use windows_sys::Win32::System::Console::{ATTACH_PARENT_PROCESS, AttachConsole, FreeConsole};
+use windows_sys::Win32::System::Console::{ATTACH_PARENT_PROCESS, AttachConsole};
 use winit::event_loop::EventLoop;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use winit::raw_window_handle::{HasDisplayHandle, RawDisplayHandle};
@@ -60,7 +60,7 @@ use crate::cli::SocketMessage;
 use crate::cli::{Options, Subcommands};
 use crate::config::UiConfig;
 use crate::config::monitor::ConfigMonitor;
-use crate::event::{Event, Processor};
+use crate::event::{EventLoopProxy, Processor};
 #[cfg(target_os = "macos")]
 use crate::macos::locale;
 
@@ -133,11 +133,13 @@ impl Drop for TemporaryFiles {
 /// config change monitor, and runs the main display loop.
 fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     // Setup winit event loop.
-    let window_event_loop = EventLoop::<Event>::with_user_event().build()?;
+    let window_event_loop = EventLoop::new()?;
+    let (tx, rx) = std::sync::mpsc::channel();
+    let proxy = EventLoopProxy::new(tx, window_event_loop.create_proxy());
 
     // Initialize the logger as soon as possible as to capture output from other subsystems.
-    let log_file = logging::initialize(&options, window_event_loop.create_proxy())
-        .expect("Unable to initialize logger");
+    let log_file =
+        logging::initialize(&options, proxy.clone()).expect("Unable to initialize logger");
 
     info!("Welcome to Alacritty");
     info!("Version {}", env!("VERSION"));
@@ -186,7 +188,7 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     // Create the IPC socket listener.
     #[cfg(unix)]
     let socket_path = if config.ipc_socket() {
-        match ipc::spawn_ipc_socket(&options, window_event_loop.create_proxy()) {
+        match ipc::spawn_ipc_socket(&options, proxy.clone()) {
             Ok(path) => Some(path),
             Err(err) if options.daemon => return Err(err.into()),
             Err(err) => {
@@ -207,35 +209,10 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     };
 
     // Event processor.
-    let mut processor = Processor::new(config, options, &window_event_loop);
+    let processor = Processor::new(config, options, &window_event_loop, proxy, rx);
 
     // Start event loop and block until shutdown.
     let result = processor.run(window_event_loop);
-
-    // `Processor` must be dropped before calling `FreeConsole`.
-    //
-    // This is needed for ConPTY backend. Otherwise a deadlock can occur.
-    // The cause:
-    //   - Drop for ConPTY will deadlock if the conout pipe has already been dropped
-    //   - ConPTY is dropped when the last of processor and window context are dropped, because both
-    //     of them own an Arc<ConPTY>
-    //
-    // The fix is to ensure that processor is dropped first. That way, when window context (i.e.
-    // PTY) is dropped, it can ensure ConPTY is dropped before the conout pipe in the PTY drop
-    // order.
-    //
-    // FIXME: Change PTY API to enforce the correct drop order with the typesystem.
-
-    // Terminate the config monitor.
-    if let Some(config_monitor) = processor.config_monitor.take() {
-        config_monitor.shutdown();
-    }
-
-    // Without explicitly detaching the console cmd won't redraw it's prompt.
-    #[cfg(windows)]
-    unsafe {
-        FreeConsole();
-    }
 
     info!("Goodbye");
 
