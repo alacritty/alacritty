@@ -1,0 +1,70 @@
+app-id: org.alacritty.Alacritty
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: alacritty
+finish-args:
+  - --allow=devel
+  - --device=dri
+  - --filesystem=host
+  - --share=ipc
+  - --share=network
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --talk-name=org.freedesktop.Flatpak
+  - --env=XDG_CONFIG_DIRS=/app/etc/xdg:/etc/xdg
+modules:
+  - name: host-spawn
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 host-spawn-x86_64 /app/bin/host-spawn
+    sources:
+      - type: file
+        url: https://github.com/1player/host-spawn/releases/download/v1.6.2/host-spawn-x86_64
+        sha256: 077bc09a087292447ba17cfe2156a93f71bf56c4c6be8e38d3abe65c1240f34c
+    only-arches:
+      - x86_64
+
+  - name: host-spawn-aarch64
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 host-spawn-aarch64 /app/bin/host-spawn
+    sources:
+      - type: file
+        url: https://github.com/1player/host-spawn/releases/download/v1.6.2/host-spawn-aarch64
+        sha256: 8b30215b0b6b66c8c34a3e22d372dd39020295cd0904608bc2c5f5ecff829e5f
+    only-arches:
+      - aarch64
+
+  - name: alacritty
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin
+      env:
+        CARGO_HOME: /run/build/alacritty/cargo
+      build-args:
+        - --share=network
+    sources:
+      - type: dir
+        path: ../../
+    build-commands:
+      - cargo build --release
+      - install -Dm755 target/release/alacritty -t /app/bin/
+      - install -Dm644 extra/flatpak/org.alacritty.Alacritty.desktop /app/share/applications/org.alacritty.Alacritty.desktop
+      - install -Dm644 extra/logo/alacritty-term.svg /app/share/icons/hicolor/scalable/apps/org.alacritty.Alacritty.svg
+      - install -Dm644 extra/flatpak/org.alacritty.Alacritty.metainfo.xml /app/share/metainfo/org.alacritty.Alacritty.metainfo.xml
+      - mkdir -p /app/share/terminfo
+      - tic -o /app/share/terminfo extra/alacritty.info
+      - install -Dm644 extra/completions/_alacritty /app/share/zsh/site-functions/_alacritty
+      - install -Dm644 extra/completions/alacritty.bash /app/share/bash-completion/completions/alacritty
+      - install -Dm644 extra/completions/alacritty.fish /app/share/fish/vendor_completions.d/alacritty.fish
+      - mkdir -p /app/etc/xdg/alacritty
+      - |
+        cat > /app/etc/xdg/alacritty/alacritty.toml << 'EOF'
+        # Flatpak default configuration
+        # Uses host-spawn to run shell on the host system
+        [terminal]
+        shell = { program = "/app/bin/host-spawn" }
+        EOF

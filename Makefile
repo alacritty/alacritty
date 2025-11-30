@@ -77,7 +77,21 @@ install-universal: $(INSTALL)-native ## Mount universal disk image
 $(INSTALL)-%: $(DMG_NAME)-%
 	@open $(DMG_DIR)/$(DMG_NAME)
 
-.PHONY: app binary clean dmg install $(TARGET) $(TARGET)-universal
+.PHONY: app binary clean dmg install $(TARGET) $(TARGET)-universal flatpak flatpak-bundle
 
 clean: ## Remove all build artifacts
 	@cargo clean
+	@rm -rf .flatpak-builder flatpak-build-dir repo
+
+# Flatpak targets (Linux)
+FLATPAK_MANIFEST = $(ASSETS_DIR)/flatpak/org.alacritty.Alacritty.yml
+FLATPAK_BUILD_DIR = flatpak-build-dir
+FLATPAK_REPO = repo
+
+flatpak: ## Build and install Flatpak (Linux)
+	flatpak-builder --user --install --force-clean $(FLATPAK_BUILD_DIR) $(FLATPAK_MANIFEST)
+
+flatpak-bundle: ## Create a Flatpak bundle file (Linux)
+	flatpak-builder --force-clean --repo=$(FLATPAK_REPO) $(FLATPAK_BUILD_DIR) $(FLATPAK_MANIFEST)
+	flatpak build-bundle $(FLATPAK_REPO) Alacritty.flatpak org.alacritty.Alacritty
+	@echo "Created 'Alacritty.flatpak'"

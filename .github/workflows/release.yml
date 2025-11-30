@@ -89,3 +89,26 @@ jobs:
           ./.github/workflows/upload_asset.sh ./extra/completions/_alacritty $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./extra/linux/Alacritty.desktop $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./extra/alacritty.info $GITHUB_TOKEN
+
+  flatpak:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Flatpak and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+      - name: Add Flathub repository
+        run: |
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+      - name: Install Flatpak SDK and runtime
+        run: |
+          flatpak install --user -y flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
+          flatpak install --user -y flathub org.freedesktop.Sdk.Extension.rust-stable//25.08
+      - name: Build Flatpak bundle
+        run: make flatpak-bundle
+      - name: Upload Flatpak bundle
+        run: |
+          mv ./Alacritty.flatpak ./Alacritty-${GITHUB_REF##*/}.flatpak
+          ./.github/workflows/upload_asset.sh ./Alacritty-${GITHUB_REF##*/}.flatpak $GITHUB_TOKEN

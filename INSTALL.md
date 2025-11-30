@@ -12,6 +12,34 @@ cargo install alacritty
 Note that you will still need to install the dependencies for your OS of choice.
 Please refer to the [Dependencies](#dependencies) section.
 
+# Flatpak Installation
+
+On Linux, Alacritty can be installed as a Flatpak. If a pre-built bundle is
+available from the releases page, you can install it with:
+
+```sh
+flatpak install Alacritty-v0.x.x.flatpak
+```
+
+Or build from source:
+
+```sh
+# Install Flatpak SDK and runtime
+flatpak install flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
+flatpak install flathub org.freedesktop.Sdk.Extension.rust-stable//25.08
+
+# Build and install
+make flatpak
+```
+
+To create a distributable bundle:
+
+```sh
+make flatpak-bundle
+```
+
+For more details, see [extra/flatpak/README.md](extra/flatpak/README.md).
+
 # Manual Installation
 
 1. [Prerequisites](#prerequisites)
