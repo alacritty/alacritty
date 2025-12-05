@@ -720,6 +720,22 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
     }
 
+    pub fn mouse_wheel_zoom(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
+        let vertical = match delta {
+            MouseScrollDelta::LineDelta(_, lines) => lines,
+            MouseScrollDelta::PixelDelta(lpos) => {
+                if phase == TouchPhase::Moved {
+                    lpos.y as f32
+                } else {
+                    0.0
+                }
+            },
+        };
+        if vertical.abs() > f32::MIN_POSITIVE {
+            self.ctx.change_font_size(FONT_SIZE_STEP.copysign(vertical));
+        }
+    }
+
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
         let multiplier = self.ctx.config().scrolling.multiplier;
         match delta {

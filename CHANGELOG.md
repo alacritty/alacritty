@@ -14,6 +14,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 - Fixed invalid logo SVG attributes
 
+### Added
+
+- Config option `mouse.zoom_using_wheel` to change font size using `ctrl+wheel`
+
 ### Changed
 
 - Don't highlight hints on hover when the mouse cursor is hidden

@@ -635,6 +635,11 @@ This section documents the *[mouse]* table of the configuration file.
 
 	Default: _false_
 
+*zoom_using_wheel* = _true_ | _false_
+
+	When this is _true_, the font size can be changed by holding the `Control`
+	modifier and turning the mouse wheel.
+
 *bindings* = [{ *<mouse>*, *<mods>*, *<mode>*, *<command>* | *<chars>* | *<action>* },]
 
 	See _keyboard.bindings_ for full documentation on _mods_, _mode_, _command_,
