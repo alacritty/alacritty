@@ -19,6 +19,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Don't highlight hints on hover when the mouse cursor is hidden
 - IME is disabled in Vi mode on X11
 - Require explicit tap to enable IME with touch input
+- Use built-in font for block elements symbols from `U+1FB82` to `U+1FB8B`
 
 ### Fixed
 
