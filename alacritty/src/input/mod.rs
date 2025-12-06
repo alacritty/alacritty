@@ -722,25 +722,6 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
     }
 
-    pub fn mouse_wheel_action(&mut self, delta: MouseScrollDelta, phase: TouchPhase) -> bool {
-        let vertical = match delta {
-            MouseScrollDelta::LineDelta(_, lines) => lines,
-            MouseScrollDelta::PixelDelta(lpos) => {
-                if phase == TouchPhase::Moved {
-                    lpos.y as f32
-                } else {
-                    0.0
-                }
-            },
-        };
-        vertical.is_normal()
-            && self.process_mouse_bindings(if vertical.is_sign_positive() {
-                MOUSE_WHEEL_UP
-            } else {
-                MOUSE_WHEEL_DOWN
-            })
-    }
-
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
         let multiplier = self.ctx.config().scrolling.multiplier;
         match delta {
@@ -840,7 +821,16 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             let lines = (self.ctx.mouse().accumulated_scroll.y / height) as i32;
 
             if lines != 0 {
-                self.ctx.scroll(Scroll::Delta(lines));
+                let event = if lines > 0 { MouseEvent::WheelUp } else { MouseEvent::WheelDown };
+                if self.process_mouse_bindings(event) {
+                    // Repeat for remaining number of lines
+                    for _ in 1..lines.unsigned_abs() {
+                        self.process_mouse_bindings(event);
+                    }
+                } else {
+                    // Only scroll if no wheel binding was found
+                    self.ctx.scroll(Scroll::Delta(lines));
+                }
             }
         }
 
@@ -1065,28 +1055,27 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // If mouse mode is active, also look for bindings without shift.
         let fallback_allowed = mouse_mode && mods.contains(ModifiersState::SHIFT);
-        let mut exact_match_found = false;
-        let mut fallback_match_found: bool = false;
+        let mut match_found: bool = false;
 
         for binding in &mouse_bindings {
             // Don't trigger normal bindings in mouse mode unless Shift is pressed.
             if binding.is_triggered_by(mode, mods, &event) && (fallback_allowed || !mouse_mode) {
                 binding.action.execute(&mut self.ctx);
-                exact_match_found = true;
+                match_found = true;
             }
         }
 
-        if fallback_allowed && !exact_match_found {
+        if fallback_allowed && !match_found {
             let fallback_mods = mods & !ModifiersState::SHIFT;
             for binding in &mouse_bindings {
                 if binding.is_triggered_by(mode, fallback_mods, &event) {
                     binding.action.execute(&mut self.ctx);
-                    fallback_match_found = true;
+                    match_found = true;
                 }
             }
         }
 
-        exact_match_found || fallback_match_found
+        match_found
     }
 
     /// Check mouse icon state in relation to the message bar.
