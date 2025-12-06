@@ -38,7 +38,9 @@ use alacritty_terminal::vte::ansi::{ClearMode, Handler};
 use crate::clipboard::Clipboard;
 #[cfg(target_os = "macos")]
 use crate::config::window::Decorations;
-use crate::config::{Action, BindingMode, MouseAction, SearchAction, UiConfig, ViAction};
+use crate::config::{
+    Action, BindingMode, MouseAction, MouseEvent, SearchAction, UiConfig, ViAction,
+};
 use crate::display::hint::HintMatch;
 use crate::display::window::{ImeInhibitor, Window};
 use crate::display::{Display, SizeInfo};
@@ -52,12 +54,6 @@ pub mod keyboard;
 
 /// Font size change interval in px.
 pub const FONT_SIZE_STEP: f32 = 1.;
-
-/// Pseudo mouse button for wheel-up event
-pub const MOUSE_WHEEL_UP: MouseButton = MouseButton::Other(0x8000);
-
-/// Pseudo mouse button for wheel-down event
-pub const MOUSE_WHEEL_DOWN: MouseButton = MouseButton::Other(0x8001);
 
 /// Interval for mouse scrolling during selection outside of the boundaries.
 const SELECTION_SCROLLING_INTERVAL: Duration = Duration::from_millis(15);
@@ -1050,7 +1046,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 ElementState::Pressed => {
                     // Process mouse press before bindings to update the `click_state`.
                     self.on_mouse_press(button);
-                    self.process_mouse_bindings(button);
+                    self.process_mouse_bindings(MouseEvent::Button(button));
                 },
                 ElementState::Released => self.on_mouse_release(button),
             }
@@ -1061,7 +1057,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     ///
     /// The provided mode, mods, and key must match what is allowed by a binding
     /// for its action to be executed.
-    fn process_mouse_bindings(&mut self, button: MouseButton) -> bool {
+    fn process_mouse_bindings(&mut self, event: MouseEvent) -> bool {
         let mode = BindingMode::new(self.ctx.terminal().mode(), self.ctx.search_active());
         let mouse_mode = self.ctx.mouse_mode();
         let mods = self.ctx.modifiers().state();
@@ -1074,7 +1070,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         for binding in &mouse_bindings {
             // Don't trigger normal bindings in mouse mode unless Shift is pressed.
-            if binding.is_triggered_by(mode, mods, &button) && (fallback_allowed || !mouse_mode) {
+            if binding.is_triggered_by(mode, mods, &event) && (fallback_allowed || !mouse_mode) {
                 binding.action.execute(&mut self.ctx);
                 exact_match_found = true;
             }
@@ -1083,7 +1079,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         if fallback_allowed && !exact_match_found {
             let fallback_mods = mods & !ModifiersState::SHIFT;
             for binding in &mouse_bindings {
-                if binding.is_triggered_by(mode, fallback_mods, &button) {
+                if binding.is_triggered_by(mode, fallback_mods, &event) {
                     binding.action.execute(&mut self.ctx);
                     fallback_match_found = true;
                 }
