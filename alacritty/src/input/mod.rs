@@ -53,6 +53,12 @@ pub mod keyboard;
 /// Font size change interval in px.
 pub const FONT_SIZE_STEP: f32 = 1.;
 
+/// Pseudo mouse button for wheel-up event
+pub const MOUSE_WHEEL_UP: MouseButton = MouseButton::Other(0x8000);
+
+/// Pseudo mouse button for wheel-down event
+pub const MOUSE_WHEEL_DOWN: MouseButton = MouseButton::Other(0x8001);
+
 /// Interval for mouse scrolling during selection outside of the boundaries.
 const SELECTION_SCROLLING_INTERVAL: Duration = Duration::from_millis(15);
 
@@ -720,7 +726,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
     }
 
-    pub fn mouse_wheel_zoom(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
+    pub fn mouse_wheel_action(&mut self, delta: MouseScrollDelta, phase: TouchPhase) -> bool {
         let vertical = match delta {
             MouseScrollDelta::LineDelta(_, lines) => lines,
             MouseScrollDelta::PixelDelta(lpos) => {
@@ -731,9 +737,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 }
             },
         };
-        if vertical.abs() > f32::MIN_POSITIVE {
-            self.ctx.change_font_size(FONT_SIZE_STEP.copysign(vertical));
-        }
+        vertical.is_normal()
+            && self.process_mouse_bindings(if vertical.is_sign_positive() {
+                MOUSE_WHEEL_UP
+            } else {
+                MOUSE_WHEEL_DOWN
+            })
     }
 
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
@@ -1052,7 +1061,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     ///
     /// The provided mode, mods, and key must match what is allowed by a binding
     /// for its action to be executed.
-    fn process_mouse_bindings(&mut self, button: MouseButton) {
+    fn process_mouse_bindings(&mut self, button: MouseButton) -> bool {
         let mode = BindingMode::new(self.ctx.terminal().mode(), self.ctx.search_active());
         let mouse_mode = self.ctx.mouse_mode();
         let mods = self.ctx.modifiers().state();
@@ -1061,6 +1070,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         // If mouse mode is active, also look for bindings without shift.
         let fallback_allowed = mouse_mode && mods.contains(ModifiersState::SHIFT);
         let mut exact_match_found = false;
+        let mut fallback_match_found: bool = false;
 
         for binding in &mouse_bindings {
             // Don't trigger normal bindings in mouse mode unless Shift is pressed.
@@ -1075,9 +1085,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             for binding in &mouse_bindings {
                 if binding.is_triggered_by(mode, fallback_mods, &button) {
                     binding.action.execute(&mut self.ctx);
+                    fallback_match_found = true;
                 }
             }
         }
+
+        exact_match_found || fallback_match_found
     }
 
     /// Check mouse icon state in relation to the message bar.

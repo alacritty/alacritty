@@ -1974,11 +1974,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     WindowEvent::MouseWheel { delta, phase, .. } => {
                         self.ctx.window().set_mouse_visible(true);
-                        if self.ctx.config.mouse.zoom_using_wheel
-                            && self.ctx.modifiers().state().control_key()
-                        {
-                            self.mouse_wheel_zoom(delta, phase);
-                        } else {
+                        if !self.mouse_wheel_action(delta, phase) {
                             self.mouse_wheel_input(delta, phase);
                         }
                     },

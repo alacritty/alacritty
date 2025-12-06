@@ -635,11 +635,6 @@ This section documents the *[mouse]* table of the configuration file.
 
 	Default: _false_
 
-*zoom_using_wheel* = _true_ | _false_
-
-	When this is _true_, the font size can be changed by holding the `Control`
-	modifier and turning the mouse wheel.
-
 *bindings* = [{ *<mouse>*, *<mods>*, *<mode>*, *<command>* | *<chars>* | *<action>* },]
 
 	See _keyboard.bindings_ for full documentation on _mods_, _mode_, _command_,
@@ -650,7 +645,7 @@ This section documents the *[mouse]* table of the configuration file.
 	the event, actions for the event without the `Shift` modifier are triggered
 	instead.
 
-	*mouse* = _"Middle"_ | _"Left"_ | _"Right"_ | _"Back"_ | _"Forward"_ | _<integer>_
+	*mouse* = _"Middle"_ | _"Left"_ | _"Right"_ | _"Back"_ | _"Forward"_ | _"WheelUp"_ | _"WheelDown"_ | _<integer>_
 
 		Mouse button which needs to be pressed to trigger this binding.
 

@@ -16,7 +16,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ### Added
 
-- Config option `mouse.zoom_using_wheel` to change font size using `ctrl+wheel`
+- Ability to bind `WheelUp` and `WheelDown` in `mouse.bindings`
 
 ### Changed
 

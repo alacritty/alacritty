@@ -19,6 +19,7 @@ use alacritty_terminal::term::TermMode;
 use alacritty_terminal::vi_mode::ViMotion;
 
 use crate::config::ui_config::{Hint, Program, StringVisitor};
+use crate::input::{MOUSE_WHEEL_DOWN, MOUSE_WHEEL_UP};
 
 /// Describes a state and action to take in that state.
 ///
@@ -851,7 +852,10 @@ impl<'a> Deserialize<'a> for MouseButtonWrapper {
             type Value = MouseButtonWrapper;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("Left, Right, Middle, Back, Forward, or a number from 0 to 65536")
+                f.write_str(
+                    "Left, Right, Middle, Back, Forward, WheelUp, WheelDown, or a number from 0 \
+                     to 65536",
+                )
             }
 
             fn visit_i64<E>(self, value: i64) -> Result<MouseButtonWrapper, E>
@@ -884,6 +888,8 @@ impl<'a> Deserialize<'a> for MouseButtonWrapper {
                     "Middle" => Ok(MouseButtonWrapper(MouseButton::Middle)),
                     "Back" => Ok(MouseButtonWrapper(MouseButton::Back)),
                     "Forward" => Ok(MouseButtonWrapper(MouseButton::Forward)),
+                    "WheelUp" => Ok(MouseButtonWrapper(MOUSE_WHEEL_UP)),
+                    "WheelDown" => Ok(MouseButtonWrapper(MOUSE_WHEEL_DOWN)),
                     _ => Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }
             }
