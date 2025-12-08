@@ -823,12 +823,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             if lines != 0 {
                 let event = if lines > 0 { MouseEvent::WheelUp } else { MouseEvent::WheelDown };
                 if self.process_mouse_bindings(event) {
-                    // Repeat for remaining number of lines
+                    // Repeat for remaining number of lines.
                     for _ in 1..lines.unsigned_abs() {
                         self.process_mouse_bindings(event);
                     }
                 } else {
-                    // Only scroll if no wheel binding was found
+                    // Only scroll if no wheel binding was found.
                     self.ctx.scroll(Scroll::Delta(lines));
                 }
             }
