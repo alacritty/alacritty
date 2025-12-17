@@ -183,6 +183,9 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     #[cfg(target_os = "macos")]
     macos::disable_autofill();
 
+    #[cfg(target_os = "macos")]
+    macos::setup_dock_menu();
+
     // Create the IPC socket listener.
     #[cfg(unix)]
     let socket_path = if config.ipc_socket() {

@@ -69,6 +69,9 @@ objc2-app-kit = { version = "0.3.1", default-features = false, features = [
     "NSResponder",
     "NSView",
     "NSWindow",
+    "NSApplication",
+    "NSMenu",
+    "NSMenuItem",
 ] }
 
 [target.'cfg(windows)'.dependencies]

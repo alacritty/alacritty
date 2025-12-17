@@ -14,6 +14,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 - Fixed invalid logo SVG attributes
 
+### Added
+
+- macOS dock menu showing all open windows for quick switching
+
 ### Changed
 
 - Don't highlight hints on hover when the mouse cursor is hidden
