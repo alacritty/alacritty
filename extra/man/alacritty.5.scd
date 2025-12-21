@@ -645,7 +645,7 @@ This section documents the *[mouse]* table of the configuration file.
 	the event, actions for the event without the `Shift` modifier are triggered
 	instead.
 
-	*mouse* = _"Middle"_ | _"Left"_ | _"Right"_ | _"Back"_ | _"Forward"_ | _<integer>_
+	*mouse* = _"Middle"_ | _"Left"_ | _"Right"_ | _"Back"_ | _"Forward"_ | _"WheelUp"_ | _"WheelDown"_ | _<integer>_
 
 		Mouse button which needs to be pressed to trigger this binding.
 

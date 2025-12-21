@@ -14,6 +14,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 - Fixed invalid logo SVG attributes
 
+### Added
+
+- Ability to bind `WheelUp` and `WheelDown` in `mouse.bindings`
+
 ### Changed
 
 - Don't highlight hints on hover when the mouse cursor is hidden

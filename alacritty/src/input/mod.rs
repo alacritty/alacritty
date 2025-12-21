@@ -38,7 +38,9 @@ use alacritty_terminal::vte::ansi::{ClearMode, Handler};
 use crate::clipboard::Clipboard;
 #[cfg(target_os = "macos")]
 use crate::config::window::Decorations;
-use crate::config::{Action, BindingMode, MouseAction, SearchAction, UiConfig, ViAction};
+use crate::config::{
+    Action, BindingMode, MouseAction, MouseEvent, SearchAction, UiConfig, ViAction,
+};
 use crate::display::hint::HintMatch;
 use crate::display::window::{ImeInhibitor, Window};
 use crate::display::{Display, SizeInfo};
@@ -819,7 +821,16 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             let lines = (self.ctx.mouse().accumulated_scroll.y / height) as i32;
 
             if lines != 0 {
-                self.ctx.scroll(Scroll::Delta(lines));
+                let event = if lines > 0 { MouseEvent::WheelUp } else { MouseEvent::WheelDown };
+                if self.process_mouse_bindings(event) {
+                    // Repeat for remaining number of lines.
+                    for _ in 1..lines.unsigned_abs() {
+                        self.process_mouse_bindings(event);
+                    }
+                } else {
+                    // Only scroll if no wheel binding was found.
+                    self.ctx.scroll(Scroll::Delta(lines));
+                }
             }
         }
 
@@ -1025,7 +1036,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 ElementState::Pressed => {
                     // Process mouse press before bindings to update the `click_state`.
                     self.on_mouse_press(button);
-                    self.process_mouse_bindings(button);
+                    self.process_mouse_bindings(MouseEvent::Button(button));
                 },
                 ElementState::Released => self.on_mouse_release(button),
             }
@@ -1036,7 +1047,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     ///
     /// The provided mode, mods, and key must match what is allowed by a binding
     /// for its action to be executed.
-    fn process_mouse_bindings(&mut self, button: MouseButton) {
+    fn process_mouse_bindings(&mut self, event: MouseEvent) -> bool {
         let mode = BindingMode::new(self.ctx.terminal().mode(), self.ctx.search_active());
         let mouse_mode = self.ctx.mouse_mode();
         let mods = self.ctx.modifiers().state();
@@ -1044,24 +1055,27 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // If mouse mode is active, also look for bindings without shift.
         let fallback_allowed = mouse_mode && mods.contains(ModifiersState::SHIFT);
-        let mut exact_match_found = false;
+        let mut match_found: bool = false;
 
         for binding in &mouse_bindings {
             // Don't trigger normal bindings in mouse mode unless Shift is pressed.
-            if binding.is_triggered_by(mode, mods, &button) && (fallback_allowed || !mouse_mode) {
+            if binding.is_triggered_by(mode, mods, &event) && (fallback_allowed || !mouse_mode) {
                 binding.action.execute(&mut self.ctx);
-                exact_match_found = true;
+                match_found = true;
             }
         }
 
-        if fallback_allowed && !exact_match_found {
+        if fallback_allowed && !match_found {
             let fallback_mods = mods & !ModifiersState::SHIFT;
             for binding in &mouse_bindings {
-                if binding.is_triggered_by(mode, fallback_mods, &button) {
+                if binding.is_triggered_by(mode, fallback_mods, &event) {
                     binding.action.execute(&mut self.ctx);
+                    match_found = true;
                 }
             }
         }
+
+        match_found
     }
 
     /// Check mouse icon state in relation to the message bar.

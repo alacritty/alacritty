@@ -46,8 +46,8 @@ pub struct Binding<T> {
 /// Bindings that are triggered by a keyboard key.
 pub type KeyBinding = Binding<BindingKey>;
 
-/// Bindings that are triggered by a mouse button.
-pub type MouseBinding = Binding<MouseButton>;
+/// Bindings that are triggered by a mouse event.
+pub type MouseBinding = Binding<MouseEvent>;
 
 impl<T: Eq> Binding<T> {
     #[inline]
@@ -363,6 +363,14 @@ pub enum MouseAction {
     ExpandSelection,
 }
 
+/// Mouse binding specific events.
+#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub enum MouseEvent {
+    Button(MouseButton),
+    WheelUp,
+    WheelDown,
+}
+
 macro_rules! bindings {
     (
         $ty:ident;
@@ -404,7 +412,8 @@ macro_rules! trigger {
     (KeyBinding, $key:literal,) => {{ BindingKey::Keycode { key: Key::Character($key.into()), location: KeyLocation::Any } }};
     (KeyBinding, $key:ident, $location:expr) => {{ BindingKey::Keycode { key: Key::Named(NamedKey::$key), location: $location } }};
     (KeyBinding, $key:ident,) => {{ BindingKey::Keycode { key: Key::Named(NamedKey::$key), location: KeyLocation::Any } }};
-    (MouseBinding, $base:ident::$button:ident,) => {{ $base::$button }};
+    (MouseBinding, MouseButton::$button:ident,) => {{ MouseEvent::Button(MouseButton::$button) }};
+    (MouseBinding, MouseEvent::$event:ident,) => {{ MouseEvent::$event }};
 }
 
 pub fn default_mouse_bindings() -> Vec<MouseBinding> {
@@ -832,15 +841,7 @@ impl<'a> Deserialize<'a> for ModeWrapper {
     }
 }
 
-struct MouseButtonWrapper(MouseButton);
-
-impl MouseButtonWrapper {
-    fn into_inner(self) -> MouseButton {
-        self.0
-    }
-}
-
-impl<'a> Deserialize<'a> for MouseButtonWrapper {
+impl<'a> Deserialize<'a> for MouseEvent {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'a>,
@@ -848,42 +849,47 @@ impl<'a> Deserialize<'a> for MouseButtonWrapper {
         struct MouseButtonVisitor;
 
         impl Visitor<'_> for MouseButtonVisitor {
-            type Value = MouseButtonWrapper;
+            type Value = MouseEvent;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("Left, Right, Middle, Back, Forward, or a number from 0 to 65536")
+                f.write_str(
+                    "Left, Right, Middle, Back, Forward, WheelUp, WheelDown, or a number from 0 \
+                     to 65536",
+                )
             }
 
-            fn visit_i64<E>(self, value: i64) -> Result<MouseButtonWrapper, E>
+            fn visit_i64<E>(self, value: i64) -> Result<MouseEvent, E>
             where
                 E: de::Error,
             {
                 match value {
-                    0..=65536 => Ok(MouseButtonWrapper(MouseButton::Other(value as u16))),
+                    0..=65536 => Ok(MouseEvent::Button(MouseButton::Other(value as u16))),
                     _ => Err(E::invalid_value(Unexpected::Signed(value), &self)),
                 }
             }
 
-            fn visit_u64<E>(self, value: u64) -> Result<MouseButtonWrapper, E>
+            fn visit_u64<E>(self, value: u64) -> Result<MouseEvent, E>
             where
                 E: de::Error,
             {
                 match value {
-                    0..=65536 => Ok(MouseButtonWrapper(MouseButton::Other(value as u16))),
+                    0..=65536 => Ok(MouseEvent::Button(MouseButton::Other(value as u16))),
                     _ => Err(E::invalid_value(Unexpected::Unsigned(value), &self)),
                 }
             }
 
-            fn visit_str<E>(self, value: &str) -> Result<MouseButtonWrapper, E>
+            fn visit_str<E>(self, value: &str) -> Result<MouseEvent, E>
             where
                 E: de::Error,
             {
                 match value {
-                    "Left" => Ok(MouseButtonWrapper(MouseButton::Left)),
-                    "Right" => Ok(MouseButtonWrapper(MouseButton::Right)),
-                    "Middle" => Ok(MouseButtonWrapper(MouseButton::Middle)),
-                    "Back" => Ok(MouseButtonWrapper(MouseButton::Back)),
-                    "Forward" => Ok(MouseButtonWrapper(MouseButton::Forward)),
+                    "Left" => Ok(MouseEvent::Button(MouseButton::Left)),
+                    "Right" => Ok(MouseEvent::Button(MouseButton::Right)),
+                    "Middle" => Ok(MouseEvent::Button(MouseButton::Middle)),
+                    "Back" => Ok(MouseEvent::Button(MouseButton::Back)),
+                    "Forward" => Ok(MouseEvent::Button(MouseButton::Forward)),
+                    "WheelUp" => Ok(MouseEvent::WheelUp),
+                    "WheelDown" => Ok(MouseEvent::WheelDown),
                     _ => Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }
             }
@@ -898,7 +904,7 @@ impl<'a> Deserialize<'a> for MouseButtonWrapper {
 #[derive(PartialEq, Eq)]
 struct RawBinding {
     key: Option<BindingKey>,
-    mouse: Option<MouseButton>,
+    mouse: Option<MouseEvent>,
     mods: ModifiersState,
     mode: BindingMode,
     notmode: BindingMode,
@@ -1005,7 +1011,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                 let mut action: Option<Action> = None;
                 let mut mode: Option<BindingMode> = None;
                 let mut not_mode: Option<BindingMode> = None;
-                let mut mouse: Option<MouseButton> = None;
+                let mut mouse: Option<MouseEvent> = None;
                 let mut command: Option<Program> = None;
 
                 use de::Error;
@@ -1100,7 +1106,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                                 return Err(<V::Error as Error>::duplicate_field("mouse"));
                             }
 
-                            mouse = Some(map.next_value::<MouseButtonWrapper>()?.into_inner());
+                            mouse = Some(map.next_value::<MouseEvent>()?);
                         },
                         Field::Command => {
                             if command.is_some() {
