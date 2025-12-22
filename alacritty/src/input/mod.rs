@@ -774,8 +774,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let lines = (self.ctx.mouse().accumulated_scroll.y / height).abs() as usize;
         let columns = (self.ctx.mouse().accumulated_scroll.x / width).abs() as usize;
 
-        let scroll_up = new_scroll_y_px > 0.;
-        let event = if scroll_up { MouseEvent::WheelUp } else { MouseEvent::WheelDown };
+        let is_scroll_up = new_scroll_y_px > 0.;
+        let event = if is_scroll_up { MouseEvent::WheelUp } else { MouseEvent::WheelDown };
 
         if lines != 0 && self.process_mouse_bindings(event) {
             // Repeat for remaining number of lines.
@@ -783,7 +783,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 self.process_mouse_bindings(event);
             }
         } else if self.ctx.mouse_mode() {
-            let code = if scroll_up { MOUSE_WHEEL_UP } else { MOUSE_WHEEL_DOWN };
+            let code = if is_scroll_up { MOUSE_WHEEL_UP } else { MOUSE_WHEEL_DOWN };
             for _ in 0..lines {
                 self.mouse_report(code, ElementState::Pressed);
             }
@@ -800,7 +800,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             && !self.ctx.modifiers().state().shift_key()
         {
             // The chars here are the same as for the respective arrow keys.
-            let line_cmd = if scroll_up { b'A' } else { b'B' };
+            let line_cmd = if is_scroll_up { b'A' } else { b'B' };
             let column_cmd = if new_scroll_x_px > 0. { b'D' } else { b'C' };
 
             let mut content = Vec::with_capacity(3 * (lines + columns));
@@ -819,8 +819,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
             self.ctx.write_to_pty(content);
         } else if lines != 0 {
-            let lines = if scroll_up { lines as i32 } else { -(lines as i32) };
-            // Only scroll if no wheel binding was found.
+            let lines = if is_scroll_up { lines as i32 } else { -(lines as i32) };
             self.ctx.scroll(Scroll::Delta(lines));
         }
 
