@@ -766,20 +766,29 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let width = f64::from(self.ctx.size_info().cell_width());
         let height = f64::from(self.ctx.size_info().cell_height());
 
-        if self.ctx.mouse_mode() {
-            self.ctx.mouse_mut().accumulated_scroll.x += new_scroll_x_px;
-            self.ctx.mouse_mut().accumulated_scroll.y += new_scroll_y_px;
+        let multiplier = if self.ctx.mouse_mode() { 1. } else { multiplier };
 
-            let code = if new_scroll_y_px > 0. { MOUSE_WHEEL_UP } else { MOUSE_WHEEL_DOWN };
-            let lines = (self.ctx.mouse().accumulated_scroll.y / height).abs() as i32;
+        self.ctx.mouse_mut().accumulated_scroll.x += new_scroll_x_px * multiplier;
+        self.ctx.mouse_mut().accumulated_scroll.y += new_scroll_y_px * multiplier;
 
+        let lines = (self.ctx.mouse().accumulated_scroll.y / height).abs() as usize;
+        let columns = (self.ctx.mouse().accumulated_scroll.x / width).abs() as usize;
+
+        let is_scroll_up = new_scroll_y_px > 0.;
+        let event = if is_scroll_up { MouseEvent::WheelUp } else { MouseEvent::WheelDown };
+
+        if lines != 0 && self.process_mouse_bindings(event) {
+            // Repeat for remaining number of lines.
+            for _ in 1..lines {
+                self.process_mouse_bindings(event);
+            }
+        } else if self.ctx.mouse_mode() {
+            let code = if is_scroll_up { MOUSE_WHEEL_UP } else { MOUSE_WHEEL_DOWN };
             for _ in 0..lines {
                 self.mouse_report(code, ElementState::Pressed);
             }
 
             let code = if new_scroll_x_px > 0. { MOUSE_WHEEL_LEFT } else { MOUSE_WHEEL_RIGHT };
-            let columns = (self.ctx.mouse().accumulated_scroll.x / width).abs() as i32;
-
             for _ in 0..columns {
                 self.mouse_report(code, ElementState::Pressed);
             }
@@ -790,15 +799,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             .contains(TermMode::ALT_SCREEN | TermMode::ALTERNATE_SCROLL)
             && !self.ctx.modifiers().state().shift_key()
         {
-            self.ctx.mouse_mut().accumulated_scroll.x += new_scroll_x_px * multiplier;
-            self.ctx.mouse_mut().accumulated_scroll.y += new_scroll_y_px * multiplier;
-
             // The chars here are the same as for the respective arrow keys.
-            let line_cmd = if new_scroll_y_px > 0. { b'A' } else { b'B' };
+            let line_cmd = if is_scroll_up { b'A' } else { b'B' };
             let column_cmd = if new_scroll_x_px > 0. { b'D' } else { b'C' };
-
-            let lines = (self.ctx.mouse().accumulated_scroll.y / height).abs() as usize;
-            let columns = (self.ctx.mouse().accumulated_scroll.x / width).abs() as usize;
 
             let mut content = Vec::with_capacity(3 * (lines + columns));
 
@@ -815,23 +818,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             }
 
             self.ctx.write_to_pty(content);
-        } else {
-            self.ctx.mouse_mut().accumulated_scroll.y += new_scroll_y_px * multiplier;
-
-            let lines = (self.ctx.mouse().accumulated_scroll.y / height) as i32;
-
-            if lines != 0 {
-                let event = if lines > 0 { MouseEvent::WheelUp } else { MouseEvent::WheelDown };
-                if self.process_mouse_bindings(event) {
-                    // Repeat for remaining number of lines.
-                    for _ in 1..lines.unsigned_abs() {
-                        self.process_mouse_bindings(event);
-                    }
-                } else {
-                    // Only scroll if no wheel binding was found.
-                    self.ctx.scroll(Scroll::Delta(lines));
-                }
-            }
+        } else if lines != 0 {
+            let lines = if is_scroll_up { lines as i32 } else { -(lines as i32) };
+            self.ctx.scroll(Scroll::Delta(lines));
         }
 
         self.ctx.mouse_mut().accumulated_scroll.x %= width;
