@@ -459,8 +459,8 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         Backspace, ModifiersState::SHIFT,   ~BindingMode::VI, ~BindingMode::SEARCH, ~BindingMode::REPORT_ALL_KEYS_AS_ESC, ~BindingMode::DISAMBIGUATE_ESC_CODES; Action::Esc("\x7f".into());
         Enter => KeyLocation::Numpad, ~BindingMode::VI, ~BindingMode::SEARCH, ~BindingMode::REPORT_ALL_KEYS_AS_ESC, ~BindingMode::DISAMBIGUATE_ESC_CODES; Action::Esc("\n".into());
         // Vi mode.
-        Space, ModifiersState::SHIFT | ModifiersState::CONTROL, ~BindingMode::SEARCH; Action::ToggleViMode;
-        Space, ModifiersState::SHIFT | ModifiersState::CONTROL, +BindingMode::VI, ~BindingMode::SEARCH; Action::ScrollToBottom;
+        " ", ModifiersState::SHIFT | ModifiersState::CONTROL, ~BindingMode::SEARCH; Action::ToggleViMode;
+        " ", ModifiersState::SHIFT | ModifiersState::CONTROL, +BindingMode::VI, ~BindingMode::SEARCH; Action::ScrollToBottom;
         Escape,                             +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
         "i",                                +BindingMode::VI, ~BindingMode::SEARCH; Action::ToggleViMode;
         "i",                                +BindingMode::VI, ~BindingMode::SEARCH; Action::ScrollToBottom;
@@ -582,41 +582,41 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         KeyBinding;
         Insert, ModifiersState::SHIFT, ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x1b[2;2~".into());
         // Tabbing api.
-        "t",    ModifiersState::SUPER;                                         Action::CreateNewTab;
-        "]",    ModifiersState::SUPER | ModifiersState::SHIFT;                 Action::SelectNextTab;
-        "[",    ModifiersState::SUPER | ModifiersState::SHIFT;                 Action::SelectPreviousTab;
-        Tab,    ModifiersState::SUPER;                                         Action::SelectNextTab;
-        Tab,    ModifiersState::SUPER | ModifiersState::SHIFT;                 Action::SelectPreviousTab;
-        "1",    ModifiersState::SUPER;                                         Action::SelectTab1;
-        "2",    ModifiersState::SUPER;                                         Action::SelectTab2;
-        "3",    ModifiersState::SUPER;                                         Action::SelectTab3;
-        "4",    ModifiersState::SUPER;                                         Action::SelectTab4;
-        "5",    ModifiersState::SUPER;                                         Action::SelectTab5;
-        "6",    ModifiersState::SUPER;                                         Action::SelectTab6;
-        "7",    ModifiersState::SUPER;                                         Action::SelectTab7;
-        "8",    ModifiersState::SUPER;                                         Action::SelectTab8;
-        "9",    ModifiersState::SUPER;                                         Action::SelectLastTab;
-        "0",    ModifiersState::SUPER;                                         Action::ResetFontSize;
-        "=",    ModifiersState::SUPER;                                         Action::IncreaseFontSize;
-        "+",    ModifiersState::SUPER;                                         Action::IncreaseFontSize;
-        "-",    ModifiersState::SUPER;                                         Action::DecreaseFontSize;
-        "k",    ModifiersState::SUPER, ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x0c".into());
-        "k",    ModifiersState::SUPER, ~BindingMode::VI, ~BindingMode::SEARCH; Action::ClearHistory;
-        "v",    ModifiersState::SUPER, ~BindingMode::VI;                       Action::Paste;
-        "v",    ModifiersState::SUPER, +BindingMode::VI, +BindingMode::SEARCH; Action::Paste;
-        "n",    ModifiersState::SUPER;                                         Action::CreateNewWindow;
-        "f",    ModifiersState::CONTROL | ModifiersState::SUPER;               Action::ToggleFullscreen;
-        "c",    ModifiersState::SUPER;                                         Action::Copy;
-        "c",    ModifiersState::SUPER, +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
-        "h",    ModifiersState::SUPER;                                         Action::Hide;
-        "h",    ModifiersState::SUPER   | ModifiersState::ALT;                 Action::HideOtherApplications;
-        "m",    ModifiersState::SUPER;                                         Action::Minimize;
-        "q",    ModifiersState::SUPER;                                         Action::Quit;
-        "w",    ModifiersState::SUPER;                                         Action::Quit;
-        "f",    ModifiersState::SUPER, ~BindingMode::SEARCH;                   Action::SearchForward;
-        "b",    ModifiersState::SUPER, ~BindingMode::SEARCH;                   Action::SearchBackward;
-        "+" => KeyLocation::Numpad, ModifiersState::SUPER;                     Action::IncreaseFontSize;
-        "-" => KeyLocation::Numpad, ModifiersState::SUPER;                     Action::DecreaseFontSize;
+        "t",    ModifiersState::META;                                         Action::CreateNewTab;
+        "]",    ModifiersState::META | ModifiersState::SHIFT;                 Action::SelectNextTab;
+        "[",    ModifiersState::META | ModifiersState::SHIFT;                 Action::SelectPreviousTab;
+        Tab,    ModifiersState::META;                                         Action::SelectNextTab;
+        Tab,    ModifiersState::META | ModifiersState::SHIFT;                 Action::SelectPreviousTab;
+        "1",    ModifiersState::META;                                         Action::SelectTab1;
+        "2",    ModifiersState::META;                                         Action::SelectTab2;
+        "3",    ModifiersState::META;                                         Action::SelectTab3;
+        "4",    ModifiersState::META;                                         Action::SelectTab4;
+        "5",    ModifiersState::META;                                         Action::SelectTab5;
+        "6",    ModifiersState::META;                                         Action::SelectTab6;
+        "7",    ModifiersState::META;                                         Action::SelectTab7;
+        "8",    ModifiersState::META;                                         Action::SelectTab8;
+        "9",    ModifiersState::META;                                         Action::SelectLastTab;
+        "0",    ModifiersState::META;                                         Action::ResetFontSize;
+        "=",    ModifiersState::META;                                         Action::IncreaseFontSize;
+        "+",    ModifiersState::META;                                         Action::IncreaseFontSize;
+        "-",    ModifiersState::META;                                         Action::DecreaseFontSize;
+        "k",    ModifiersState::META, ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x0c".into());
+        "k",    ModifiersState::META, ~BindingMode::VI, ~BindingMode::SEARCH; Action::ClearHistory;
+        "v",    ModifiersState::META, ~BindingMode::VI;                       Action::Paste;
+        "v",    ModifiersState::META, +BindingMode::VI, +BindingMode::SEARCH; Action::Paste;
+        "n",    ModifiersState::META;                                         Action::CreateNewWindow;
+        "f",    ModifiersState::CONTROL | ModifiersState::META;               Action::ToggleFullscreen;
+        "c",    ModifiersState::META;                                         Action::Copy;
+        "c",    ModifiersState::META, +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
+        "h",    ModifiersState::META;                                         Action::Hide;
+        "h",    ModifiersState::META   | ModifiersState::ALT;                 Action::HideOtherApplications;
+        "m",    ModifiersState::META;                                         Action::Minimize;
+        "q",    ModifiersState::META;                                         Action::Quit;
+        "w",    ModifiersState::META;                                         Action::Quit;
+        "f",    ModifiersState::META, ~BindingMode::SEARCH;                   Action::SearchForward;
+        "b",    ModifiersState::META, ~BindingMode::SEARCH;                   Action::SearchBackward;
+        "+" => KeyLocation::Numpad, ModifiersState::META;                     Action::IncreaseFontSize;
+        "-" => KeyLocation::Numpad, ModifiersState::META;                     Action::DecreaseFontSize;
     )
 }
 
@@ -687,6 +687,7 @@ impl<'a> Deserialize<'a> for BindingKey {
                         "Left" => (Key::Named(NamedKey::ArrowLeft), KeyLocation::Any),
                         "Right" => (Key::Named(NamedKey::ArrowRight), KeyLocation::Any),
                         "At" => (Key::Character("@".into()), KeyLocation::Any),
+                        "Space" => (Key::Character(" ".into()), KeyLocation::Any),
                         "Colon" => (Key::Character(":".into()), KeyLocation::Any),
                         "Period" => (Key::Character(".".into()), KeyLocation::Any),
                         "LBracket" => (Key::Character("[".into()), KeyLocation::Any),
@@ -863,7 +864,9 @@ impl<'a> Deserialize<'a> for MouseEvent {
                 E: de::Error,
             {
                 match value {
-                    0..=65536 => Ok(MouseEvent::Button(MouseButton::Other(value as u16))),
+                    0..=31 => {
+                        Ok(MouseEvent::Button(MouseButton::try_from_u8(value as u8).unwrap()))
+                    },
                     _ => Err(E::invalid_value(Unexpected::Signed(value), &self)),
                 }
             }
@@ -873,7 +876,9 @@ impl<'a> Deserialize<'a> for MouseEvent {
                 E: de::Error,
             {
                 match value {
-                    0..=65536 => Ok(MouseEvent::Button(MouseButton::Other(value as u16))),
+                    0..=31 => {
+                        Ok(MouseEvent::Button(MouseButton::try_from_u8(value as u8).unwrap()))
+                    },
                     _ => Err(E::invalid_value(Unexpected::Unsigned(value), &self)),
                 }
             }
@@ -1227,7 +1232,7 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
                 let mut res = ModifiersState::empty();
                 for modifier in value.split('|') {
                     match modifier.trim().to_lowercase().as_str() {
-                        "command" | "super" => res.insert(ModifiersState::SUPER),
+                        "command" | "super" => res.insert(ModifiersState::META),
                         "shift" => res.insert(ModifiersState::SHIFT),
                         "alt" | "option" => res.insert(ModifiersState::ALT),
                         "control" => res.insert(ModifiersState::CONTROL),
@@ -1411,7 +1416,7 @@ mod tests {
     #[test]
     fn binding_trigger_mods() {
         let binding = MockBinding {
-            mods: ModifiersState::ALT | ModifiersState::SUPER,
+            mods: ModifiersState::ALT | ModifiersState::META,
             ..MockBinding::default()
         };
 
