@@ -240,6 +240,8 @@ sudo apk add cmake pkgconf freetype-dev fontconfig-dev python3 libxcb-dev
 On windows you will need to have the `{architecture}-pc-windows-msvc` toolchain
 installed as well as [Clang 3.9 or greater](http://releases.llvm.org/download.html).
 
+**Note**: If you plan to run alacritty in a RDP session, you will need to download `Mesa` from its [release page](https://github.com/pal1000/mesa-dist-win/releases) and unzip the `x64` sub-folder in the `.7z` file to the folder contains your `alacritty.exe`. Otherwise, alacritty will not be able to launch. The root cause is the OpenGL on RDP session is a very old version or partially functionality version. Above solution will be able to workaround it.
+
 #### Other
 
 If you build Alacritty on another distribution, we would love some help
