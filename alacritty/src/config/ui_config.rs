@@ -123,7 +123,7 @@ impl UiConfig {
             vi_mode_cursor_style: self.cursor.vi_mode_style(),
             default_cursor_style: self.cursor.style(),
             osc52: self.terminal.osc52.0,
-            kitty_keyboard: true,
+            kitty_keyboard: self.keyboard.kitty_keyboard.unwrap_or(true),
         }
     }
 
@@ -175,6 +175,8 @@ struct Keyboard {
     /// Keybindings.
     #[serde(skip_serializing)]
     bindings: KeyBindings,
+
+    kitty_keyboard: Option<bool>,
 }
 
 #[derive(SerdeReplace, Clone, Debug, PartialEq, Eq)]
