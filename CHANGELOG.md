@@ -17,6 +17,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Added
 
 - Ability to bind `WheelUp` and `WheelDown` in `mouse.bindings`
+- Support TOML 1.1 syntax
 
 ### Changed
 
