@@ -5,6 +5,11 @@ Exec=alacritty
 Icon=Alacritty
 Terminal=false
 Categories=System;TerminalEmulator;
+X-TerminalArgExec=-e
+X-TerminalArgAppID=--class
+X-TerminalArgTitle=-T
+X-TerminalArgDir=--working-directory
+X-TerminalArgHold=--hold
 
 Name=Alacritty
 GenericName=Terminal
