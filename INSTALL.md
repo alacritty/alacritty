@@ -1,3 +1,14 @@
+# Automated AI Agent Installation
+
+For AI agents (such as Claude, ChatGPT, or other LLM-based agents), you can use the
+[`agent-instructions.md`](agent-instructions.md) file to automatically install Alacritty
+using a three-phase execution model (Research → Plan → Execute). This provides a
+structured approach for AI agents to detect system requirements, plan installation
+steps, and execute with verification.
+
+To use: Simply share the `agent-instructions.md` file with your AI agent and ask it to
+follow the instructions to install Alacritty.
+
 # Cargo Installation
 
 If you're just interested in the Alacritty binary and you don't need the
