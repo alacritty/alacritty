@@ -42,7 +42,7 @@ pub const MIN_SCREEN_LINES: usize = 1;
 const TITLE_STACK_MAX_DEPTH: usize = 4096;
 
 /// Default semantic escape characters.
-pub const SEMANTIC_ESCAPE_CHARS: &str = ",│`|:\"' ()[]{}<>\t";
+pub const SEMANTIC_ESCAPE_CHARS: &str = ",│║`|:\"' ()[]{}<>\t";
 
 /// Max size of the keyboard modes.
 const KEYBOARD_MODE_STACK_MAX_DEPTH: usize = TITLE_STACK_MAX_DEPTH;
