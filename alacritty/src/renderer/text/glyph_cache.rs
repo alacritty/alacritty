@@ -255,12 +255,15 @@ impl GlyphCache {
         glyph.top += i32::from(self.glyph_offset.y);
         glyph.top -= self.metrics.descent as i32;
 
-        // The metrics of zero-width characters are based on rendering
-        // the character after the current cell, with the anchor at the
-        // right side of the preceding character. Since we render the
-        // zero-width characters inside the preceding character, the
-        // anchor has been moved to the right by one cell.
-        if glyph.character.width() == Some(0) {
+        // The metrics of most zero-width characters are based on
+        // rendering the character after the current cell, with the
+        // anchor at the right side of the preceding character. Since
+        // we render the zero-width characters inside the preceding
+        // character, the anchor has been moved to the right by one
+        // cell. Chars that don't adhere to this are excluded.
+        if glyph.character.width() == Some(0)
+            && !('\u{590}'..'\u{900}').contains(&glyph.character)
+        {
             glyph.left += self.metrics.average_advance as i32;
         }
 
