@@ -81,8 +81,9 @@ pub trait EventedReadWrite {
 pub enum ChildEvent {
     /// Indicates the child has exited.
     ///
-    /// On Unix, this is the raw wait status from `waitpid()`. Use `std::os::unix::process::ExitStatusExt::from_raw()` to decode.
-    /// On Windows, this is the process exit code.
+    /// On Unix, this is the raw wait status from `waitpid()`. Use
+    /// `std::os::unix::process::ExitStatusExt::from_raw()` to decode. On Windows, this is the
+    /// process exit code.
     Exited(Option<i32>),
 }
 
