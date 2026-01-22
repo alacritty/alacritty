@@ -53,7 +53,10 @@ pub enum Event {
     /// Shutdown request.
     Exit,
 
-    /// Child process exited with an error code.
+    /// Child process exited.
+    ///
+    /// On Unix, this is the raw wait status from `waitpid()`. Use `std::os::unix::process::ExitStatusExt::from_raw()` to decode.
+    /// On Windows, this is the process exit code.
     ChildExit(i32),
 }
 

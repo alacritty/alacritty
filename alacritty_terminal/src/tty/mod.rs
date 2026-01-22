@@ -79,7 +79,10 @@ pub trait EventedReadWrite {
 /// Events concerning TTY child processes.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ChildEvent {
-    /// Indicates the child has exited, with an error code if available.
+    /// Indicates the child has exited.
+    ///
+    /// On Unix, this is the raw wait status from `waitpid()`. Use `std::os::unix::process::ExitStatusExt::from_raw()` to decode.
+    /// On Windows, this is the process exit code.
     Exited(Option<i32>),
 }
 
