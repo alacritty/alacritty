@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
+use std::process::ExitStatus;
 use std::sync::Arc;
 
 use crate::term::ClipboardType;
@@ -54,11 +55,7 @@ pub enum Event {
     Exit,
 
     /// Child process exited.
-    ///
-    /// On Unix, this is the raw wait status from `waitpid()`. Use
-    /// `std::os::unix::process::ExitStatusExt::from_raw()` to decode. On Windows, this is the
-    /// process exit code.
-    ChildExit(i32),
+    ChildExit(ExitStatus),
 }
 
 impl Debug for Event {
@@ -76,7 +73,7 @@ impl Debug for Event {
             Event::Wakeup => write!(f, "Wakeup"),
             Event::Bell => write!(f, "Bell"),
             Event::Exit => write!(f, "Exit"),
-            Event::ChildExit(code) => write!(f, "ChildExit({code})"),
+            Event::ChildExit(status) => write!(f, "ChildExit({status:?})"),
         }
     }
 }

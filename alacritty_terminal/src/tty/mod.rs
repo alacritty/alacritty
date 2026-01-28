@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::process::ExitStatus;
 use std::sync::Arc;
 use std::{env, io};
 
@@ -77,14 +78,10 @@ pub trait EventedReadWrite {
 }
 
 /// Events concerning TTY child processes.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum ChildEvent {
     /// Indicates the child has exited.
-    ///
-    /// On Unix, this is the raw wait status from `waitpid()`. Use
-    /// `std::os::unix::process::ExitStatusExt::from_raw()` to decode. On Windows, this is the
-    /// process exit code.
-    Exited(Option<i32>),
+    Exited(Option<ExitStatus>),
 }
 
 /// A pseudoterminal (or PTY).

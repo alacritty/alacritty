@@ -8,7 +8,7 @@ use std::os::fd::OwnedFd;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::io::AsRawFd;
 use std::os::unix::net::UnixStream;
-use std::os::unix::process::{CommandExt, ExitStatusExt};
+use std::os::unix::process::CommandExt;
 #[cfg(target_os = "macos")]
 use std::path::Path;
 use std::process::{Child, Command};
@@ -398,7 +398,7 @@ impl EventedPty for Pty {
                 None
             },
             Ok(None) => None,
-            Ok(exit_status) => Some(ChildEvent::Exited(exit_status.map(|e| e.into_raw()))),
+            Ok(exit_status) => Some(ChildEvent::Exited(exit_status)),
         }
     }
 }

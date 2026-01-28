@@ -1,6 +1,8 @@
 use std::ffi::c_void;
 use std::io::Error;
 use std::num::NonZeroU32;
+use std::os::windows::process::ExitStatusExt;
+use std::process::ExitStatus;
 use std::ptr;
 use std::sync::atomic::{AtomicPtr, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
@@ -38,8 +40,8 @@ extern "system" fn child_exit_callback(ctx: *mut c_void, timed_out: BOOLEAN) {
     let mut exit_code = 0_u32;
     let child_handle = event_tx.child_handle.load(Ordering::Relaxed) as HANDLE;
     let status = unsafe { GetExitCodeProcess(child_handle, &mut exit_code) };
-    let exit_code = if status == FALSE { None } else { Some(exit_code as i32) };
-    event_tx.sender.send(ChildEvent::Exited(exit_code)).ok();
+    let exit_status = if status == FALSE { None } else { Some(ExitStatus::from_raw(exit_code)) };
+    event_tx.sender.send(ChildEvent::Exited(exit_status)).ok();
 
     let interest = event_tx.interest.lock().unwrap();
     if let Some(interest) = interest.as_ref() {
@@ -157,6 +159,10 @@ mod tests {
         poller.wait(&mut events, Some(WAIT_TIMEOUT)).unwrap();
         assert_eq!(events.iter().next().unwrap().key, PTY_CHILD_EVENT_TOKEN);
         // Verify that at least one `ChildEvent::Exited` was received.
-        assert_eq!(child_exit_watcher.event_rx().try_recv(), Ok(ChildEvent::Exited(Some(1))));
+        let expected_status = ExitStatus::from_raw(1);
+        assert_eq!(
+            child_exit_watcher.event_rx().try_recv(),
+            Ok(ChildEvent::Exited(Some(expected_status)))
+        );
     }
 }
