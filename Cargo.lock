@@ -59,6 +59,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "smallvec",
  "tempfile",
  "toml",
  "toml_edit 0.24.0+spec-1.1.0",
@@ -110,8 +111,9 @@ dependencies = [
  "serde",
  "serde_json",
  "signal-hook",
+ "smallvec",
  "unicode-width",
- "vte",
+ "vte-graphics",
  "windows-sys 0.59.0",
 ]
 
@@ -1831,6 +1833,9 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "smithay-client-toolkit"
@@ -2115,10 +2120,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "vte"
+name = "vte-graphics"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5924018406ce0063cd67f8e008104968b74b563ee1b85dde3ed1f7cb87d3dbd"
+checksum = "6a7d926313d94a0ef0d992fe9ab507451cdb4a7977e653155c8e4fa9b69c178f"
 dependencies = [
  "arrayvec",
  "bitflags 2.9.4",
