@@ -28,9 +28,10 @@ pub fn builtin_glyph(
 ) -> Option<RasterizedGlyph> {
     let mut glyph = match character {
         // Box drawing characters and block elements.
-        '\u{2500}'..='\u{259f}' | '\u{1fb00}'..='\u{1fb3b}' | '\u{1fb82}'..='\u{1fb8b}' => {
-            box_drawing(character, metrics, offset)
-        },
+        '\u{2500}'..='\u{259f}'
+        | '\u{1fb00}'..='\u{1fb3b}'
+        | '\u{1fb70}'..='\u{1fb7b}'
+        | '\u{1fb82}'..='\u{1fb8b}' => box_drawing(character, metrics, offset),
         // Powerline symbols: '','','',''
         POWERLINE_TRIANGLE_LTR..=POWERLINE_ARROW_RTL => {
             powerline_drawing(character, metrics, offset)?
@@ -392,11 +393,13 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
             }
         },
         // Parts of full block: '▀', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '▔', '▉', '▊', '▋', '▌',
-        // '▍', '▎', '▏', '▐', '▕', '🮂', '🮃', '🮄', '🮅', '🮆', '🮇', '🮈', '🮉', '🮊', '🮋'.
+        // '▍', '▎', '▏', '▐', '▕', '🭰', '🭱', '🭲', '🭳', '🭴', '🭵', '🭶', '🭷', '🭸', '🭹', '🭺', '🭻',
+        // '🮂', '🮃', '🮄', '🮅', '🮆', '🮇', '🮈', '🮉', '🮊', '🮋',
         '\u{2580}'..='\u{2587}'
         | '\u{2589}'..='\u{2590}'
         | '\u{2594}'
         | '\u{2595}'
+        | '\u{1fb70}'..='\u{1fb7b}'
         | '\u{1fb82}'..='\u{1fb8b}' => {
             let width = width as f32;
             let height = height as f32;
@@ -410,6 +413,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
                 '\u{258f}' => width * 1. / 8.,
                 '\u{2590}' => width * 4. / 8.,
                 '\u{2595}' => width * 1. / 8.,
+                '\u{1fb70}'..='\u{1fb75}' => width * 1. / 8.,
                 _ => width,
             };
 
@@ -423,6 +427,12 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
                 '\u{2586}' => (height * 6. / 8., height * 6. / 8.),
                 '\u{2587}' => (height * 7. / 8., height * 7. / 8.),
                 '\u{2594}' => (height * 1. / 8., height * 8. / 8.),
+                '\u{1fb76}' => (height * 1. / 8., height * 7. / 8.),
+                '\u{1fb77}' => (height * 1. / 8., height * 6. / 8.),
+                '\u{1fb78}' => (height * 1. / 8., height * 5. / 8.),
+                '\u{1fb79}' => (height * 1. / 8., height * 4. / 8.),
+                '\u{1fb7a}' => (height * 1. / 8., height * 3. / 8.),
+                '\u{1fb7b}' => (height * 1. / 8., height * 2. / 8.),
                 '\u{1fb82}' => (height * 2. / 8., height * 8. / 8.),
                 '\u{1fb83}' => (height * 3. / 8., height * 8. / 8.),
                 '\u{1fb84}' => (height * 5. / 8., height * 8. / 8.),
@@ -442,8 +452,17 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
             let x = match character {
                 '\u{2590}' => canvas.x_center(),
                 '\u{2595}' | '\u{1fb87}'..='\u{1fb8b}' => width - rect_width,
+                '\u{1fb70}' => 1. * rect_width,
+                '\u{1fb71}' => 2. * rect_width,
+                '\u{1fb72}' => 3. * rect_width,
+                '\u{1fb73}' => 4. * rect_width,
+                '\u{1fb74}' => 5. * rect_width,
+                '\u{1fb75}' => 6. * rect_width,
                 _ => 0.,
             };
+
+            // Ensure that we actually fit.
+            let x = (width - rect_width).min(x).round();
 
             canvas.draw_rect(x, y, rect_width, rect_height, COLOR_FILL);
         },
