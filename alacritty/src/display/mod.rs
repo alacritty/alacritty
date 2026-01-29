@@ -18,10 +18,10 @@ use glutin::surface::{Surface, SwapInterval, WindowSurface};
 use log::{debug, info};
 use parking_lot::MutexGuard;
 use serde::{Deserialize, Serialize};
+use winit::cursor::CursorIcon;
 use winit::dpi::PhysicalSize;
 use winit::keyboard::ModifiersState;
 use winit::raw_window_handle::RawWindowHandle;
-use winit::window::CursorIcon;
 
 use crossfont::{Rasterize, Rasterizer, Size as FontSize};
 use unicode_width::UnicodeWidthChar;
@@ -1441,8 +1441,9 @@ impl Display {
             / self
                 .window
                 .current_monitor()
-                .and_then(|monitor| monitor.refresh_rate_millihertz())
-                .unwrap_or(60_000) as f64;
+                .and_then(|monitor| monitor.current_video_mode())
+                .and_then(|video_mode| video_mode.refresh_rate_millihertz())
+                .map_or(60_000, |refresh_rate| refresh_rate.get()) as f64;
 
         // Now convert it to micro seconds.
         let monitor_vblank_interval =
