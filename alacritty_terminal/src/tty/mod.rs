@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::process::ExitStatus;
 use std::sync::Arc;
 use std::{env, io};
 
@@ -79,8 +80,8 @@ pub trait EventedReadWrite {
 /// Events concerning TTY child processes.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ChildEvent {
-    /// Indicates the child has exited, with an error code if available.
-    Exited(Option<i32>),
+    /// Indicates the child has exited.
+    Exited(Option<ExitStatus>),
 }
 
 /// A pseudoterminal (or PTY).

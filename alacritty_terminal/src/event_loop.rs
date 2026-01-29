@@ -256,10 +256,11 @@ where
                 for event in events.iter() {
                     match event.key {
                         tty::PTY_CHILD_EVENT_TOKEN => {
-                            if let Some(tty::ChildEvent::Exited(code)) = self.pty.next_child_event()
+                            if let Some(tty::ChildEvent::Exited(status)) =
+                                self.pty.next_child_event()
                             {
-                                if let Some(code) = code {
-                                    self.event_proxy.send_event(Event::ChildExit(code));
+                                if let Some(status) = status {
+                                    self.event_proxy.send_event(Event::ChildExit(status));
                                 }
                                 if self.drain_on_exit {
                                     let _ = self.pty_read(&mut state, &mut buf, pipe.as_mut());
