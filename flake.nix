@@ -189,8 +189,9 @@
         alacrittyProfileInstall = pkgs.writeShellScriptBin "alacritty-profile-install" ''
           set -euo pipefail
 
+          default_ref="path:${self.outPath}"
           if [ "$#" -eq 0 ]; then
-            set -- .
+            set -- "$default_ref"
           fi
 
           profile_dir="''${NIX_PROFILE:-$HOME/.nix-profile}"

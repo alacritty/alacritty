@@ -12,6 +12,14 @@ cargo install alacritty
 Note that you will still need to install the dependencies for your OS of choice.
 Please refer to the [Dependencies](#dependencies) section.
 
+# Nix (flakes)
+
+To install Alacritty from the flake with Nix:
+
+```sh
+nix profile install github:alacritty/alacritty
+```
+
 # Manual Installation
 
 1. [Prerequisites](#prerequisites)
