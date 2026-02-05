@@ -79,7 +79,7 @@
         alacrittyApp = pkgs.runCommand "alacritty-app" { } ''
           app="$out/Applications/Alacritty.app/Contents"
           mkdir -p "$app/MacOS" "$app/Resources"
-          ln -s ${alacritty}/bin/alacritty "$app/MacOS/alacritty"
+          install -m 0555 ${alacritty}/bin/alacritty "$app/MacOS/alacritty"
           cp ${./extra/osx/Alacritty.app/Contents/Info.plist} "$app/Info.plist"
           cp ${./extra/osx/Alacritty.app/Contents/Resources/alacritty.icns} "$app/Resources/alacritty.icns"
         '';
@@ -118,11 +118,14 @@
           if command -v mdimport >/dev/null 2>&1; then
             mdimport "$app_target" >/dev/null 2>&1 || true
           fi
+          if [ -x "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister" ]; then
+            "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister" -f "$app_target" >/dev/null 2>&1 || true
+          fi
 
           echo "Linked $app_target"
           echo "If Spotlight does not pick it up, run:"
           echo "  mdimport \"$app_target\""
-          echo "  open -a \"Alacritty\""
+          echo "  open \"$app_target\""
         '';
         alacrittyDesktop = pkgs.runCommand "alacritty-desktop" { } ''
           mkdir -p "$out/share/applications" "$out/share/icons/hicolor/scalable/apps"
