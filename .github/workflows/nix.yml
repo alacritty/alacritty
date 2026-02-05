@@ -1,0 +1,31 @@
+name: Nix CI
+
+on: [push, pull_request]
+
+jobs:
+  nix-smoke:
+    env:
+      NIX_CONFIG: "experimental-features = nix-command flakes"
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Nix
+        run: |
+          if command -v nix >/dev/null 2>&1; then
+            nix --version
+            exit 0
+          fi
+          curl -L https://nixos.org/nix/install -o /tmp/install-nix
+          sh /tmp/install-nix --daemon --yes || yes | sh /tmp/install-nix --daemon
+          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+          echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"
+          nix --version
+      - name: Check Nix evaluation
+        run: nix flake check
+      - name: Test Nix packages
+        run: nix build .#smoke

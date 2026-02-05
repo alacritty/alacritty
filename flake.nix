@@ -86,7 +86,7 @@
         alacrittyLinkApp = pkgs.writeShellScriptBin "alacritty-link-app" ''
           set -euo pipefail
 
-          profile_dir="${NIX_PROFILE:-$HOME/.nix-profile}"
+          profile_dir="''${NIX_PROFILE:-$HOME/.nix-profile}"
           app_source="$profile_dir/Applications/Alacritty.app"
           app_target="$HOME/Applications/Alacritty.app"
 
@@ -135,7 +135,7 @@
         alacrittyLinkDesktop = pkgs.writeShellScriptBin "alacritty-link-desktop" ''
           set -euo pipefail
 
-          profile_dir="${NIX_PROFILE:-$HOME/.nix-profile}"
+          profile_dir="''${NIX_PROFILE:-$HOME/.nix-profile}"
           desktop_source="$profile_dir/share/applications/Alacritty.desktop"
           icon_source="$profile_dir/share/icons/hicolor/scalable/apps/Alacritty.svg"
           desktop_target="$HOME/.local/share/applications/Alacritty.desktop"
@@ -190,17 +190,17 @@
             set -- .
           fi
 
-          profile_dir="${NIX_PROFILE:-$HOME/.nix-profile}"
+          profile_dir="''${NIX_PROFILE:-$HOME/.nix-profile}"
           args=("$@")
-          for ((i=0; i<${#args[@]}; i++)); do
-            case "${args[$i]}" in
+          for ((i=0; i<''${#args[@]}; i++)); do
+            case "''${args[$i]}" in
               --profile)
-                if [ $((i+1)) -lt ${#args[@]} ]; then
-                  profile_dir="${args[$((i+1))]}"
+                if [ $((i+1)) -lt ''${#args[@]} ]; then
+                  profile_dir="''${args[$((i+1))]}"
                 fi
                 ;;
               --profile=*)
-                profile_dir="${args[$i]#--profile=}"
+                profile_dir="''${args[$i]#--profile=}"
                 ;;
             esac
           done
@@ -225,6 +225,18 @@
             "$profile_bin/alacritty-link-desktop"
           fi
         '';
+        smoke = pkgs.runCommand "smoke" { } (
+          ''
+            mkdir -p "$out"
+            ln -s ${alacrittyProfileInstall} "$out/profile-install"
+          ''
+          + lib.optionalString stdenv.hostPlatform.isDarwin ''
+            ln -s ${alacrittyLinkApp} "$out/link-app"
+          ''
+          + lib.optionalString stdenv.hostPlatform.isLinux ''
+            ln -s ${alacrittyLinkDesktop} "$out/link-desktop"
+          ''
+        );
       in
       {
         packages = {
@@ -253,6 +265,8 @@
               alacritty;
           alacritty = alacritty;
           profile-install = alacrittyProfileInstall;
+          install = alacrittyProfileInstall;
+          smoke = smoke;
         }
         // lib.optionalAttrs stdenv.hostPlatform.isDarwin {
           app = alacrittyApp;
@@ -266,9 +280,17 @@
         apps = {
           default = {
             type = "app";
+            program = "${alacrittyProfileInstall}/bin/alacritty-profile-install";
+          };
+          alacritty = {
+            type = "app";
             program = "${alacritty}/bin/alacritty";
           };
           profile-install = {
+            type = "app";
+            program = "${alacrittyProfileInstall}/bin/alacritty-profile-install";
+          };
+          install = {
             type = "app";
             program = "${alacrittyProfileInstall}/bin/alacritty-profile-install";
           };
