@@ -32,6 +32,9 @@ rustix-openpty = "0.2.0"
 rustix = { version = "1.0.0", default-features = false, features = ["std"] }
 signal-hook = "0.3.10"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+mach2 = "0.5"
+
 [target.'cfg(windows)'.dependencies]
 piper = "0.2.1"
 miow = "0.6.0"

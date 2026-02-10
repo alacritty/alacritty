@@ -17,6 +17,20 @@ use std::{env, ptr};
 
 use libc::{F_GETFL, F_SETFL, O_NONBLOCK, TIOCSCTTY, c_int, fcntl};
 use log::error;
+#[cfg(target_os = "macos")]
+use mach2::exception_types::{
+    EXC_MASK_ALL, EXCEPTION_DEFAULT, exception_behavior_t, exception_mask_t,
+};
+#[cfg(target_os = "macos")]
+use mach2::kern_return::kern_return_t;
+#[cfg(target_os = "macos")]
+use mach2::mach_types::task_t;
+#[cfg(target_os = "macos")]
+use mach2::port::{MACH_PORT_NULL, mach_port_t};
+#[cfg(target_os = "macos")]
+use mach2::thread_status::{THREAD_STATE_NONE, thread_state_flavor_t};
+#[cfg(target_os = "macos")]
+use mach2::traps::mach_task_self;
 use polling::{Event, PollMode, Poller};
 use rustix_openpty::openpty;
 use rustix_openpty::rustix::termios::Winsize;
@@ -53,6 +67,29 @@ fn set_controlling_terminal(fd: c_int) -> Result<()> {
     };
 
     if res == 0 { Ok(()) } else { Err(Error::last_os_error()) }
+}
+
+#[cfg(target_os = "macos")]
+fn reset_exception_ports() {
+    unsafe extern "C" {
+        fn task_set_exception_ports(
+            task: task_t,
+            exception_mask: exception_mask_t,
+            new_port: mach_port_t,
+            behavior: exception_behavior_t,
+            new_flavor: thread_state_flavor_t,
+        ) -> kern_return_t;
+    }
+
+    unsafe {
+        let _kern_return = task_set_exception_ports(
+            mach_task_self(),
+            EXC_MASK_ALL,
+            MACH_PORT_NULL,
+            EXCEPTION_DEFAULT as exception_behavior_t,
+            THREAD_STATE_NONE,
+        );
+    }
 }
 
 #[derive(Debug)]
@@ -252,6 +289,9 @@ pub fn from_fd(config: &Options, window_id: u64, master: OwnedFd, slave: OwnedFd
             if err == -1 {
                 return Err(Error::last_os_error());
             }
+
+            #[cfg(target_os = "macos")]
+            reset_exception_ports();
 
             // Set working directory, ignoring invalid paths.
             if let Some(working_directory) = working_directory.as_ref() {

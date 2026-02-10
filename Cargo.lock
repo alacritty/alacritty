@@ -100,6 +100,7 @@ dependencies = [
  "home",
  "libc",
  "log",
+ "mach2",
  "miow",
  "parking_lot",
  "piper",
@@ -1037,6 +1038,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "mach2"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a1b95cd5421ec55b445b5ae102f5ea0e768de1f82bd3001e11f426c269c3aea"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
