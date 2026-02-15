@@ -124,7 +124,17 @@ impl<R: Read + Send + 'static> UnblockedReader<R> {
 
         match self.pipe.poll_drain_bytes(&mut Context::from_waker(&waker), buf) {
             Poll::Pending => 0,
-            Poll::Ready(n) => n,
+            Poll::Ready(n) => {
+                // Keep level-trigger behavior by waking again after a successful read.
+                //
+                // This prevents stalls when the event loop intentionally processes
+                // only part of the buffered output and goes back to `wait`.
+                if n > 0 {
+                    Wake::wake_by_ref(&self.interest);
+                }
+
+                n
+            },
         }
     }
 }
@@ -272,5 +282,53 @@ impl Wake for Registration {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::marker::PhantomData;
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
+
+    use piper::pipe;
+    use polling::{Event, Events, PollMode, Poller};
+
+    use super::{Interest, PipeEnd, Registration, UnblockedReader};
+
+    #[test]
+    fn reader_reposts_event_after_partial_read() {
+        const TOKEN: usize = 7;
+        const WAIT_TIMEOUT: Duration = Duration::from_millis(200);
+
+        let (reader_pipe, mut writer) = pipe(16);
+        assert_eq!(writer.try_fill(b"abcdef"), 6);
+
+        let mut reader = UnblockedReader::<std::io::Cursor<Vec<u8>>> {
+            interest: Arc::new(Registration {
+                interest: Mutex::<Option<Interest>>::new(None),
+                end: PipeEnd::Reader,
+            }),
+            pipe: reader_pipe,
+            first_register: false,
+            _reader: PhantomData,
+        };
+
+        let poller = Arc::new(Poller::new().unwrap());
+        reader.register(&poller, Event::readable(TOKEN), PollMode::Level);
+
+        let mut events = Events::new();
+        poller.wait(&mut events, Some(WAIT_TIMEOUT)).unwrap();
+        assert!(events.iter().any(|event| event.key == TOKEN));
+        events.clear();
+
+        let mut buf = [0u8; 1];
+        assert_eq!(reader.try_read(&mut buf), 1);
+
+        poller.wait(&mut events, Some(WAIT_TIMEOUT)).unwrap();
+        assert!(
+            events.iter().any(|event| event.key == TOKEN),
+            "expected another readable event after partial read"
+        );
     }
 }
