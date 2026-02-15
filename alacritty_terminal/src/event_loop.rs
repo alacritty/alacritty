@@ -112,7 +112,10 @@ where
     {
         let mut unprocessed = 0;
         let mut processed = 0;
+        #[cfg(windows)]
         let mut force_reregister = false;
+        #[cfg(not(windows))]
+        let force_reregister = false;
 
         // Reserve the next terminal lock for PTY reading.
         let _terminal_lease = Some(self.terminal.lease());
