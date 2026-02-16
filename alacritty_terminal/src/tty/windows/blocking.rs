@@ -45,6 +45,12 @@ pub struct UnblockedReader<R> {
     /// Is this the first time registering?
     first_register: bool,
 
+    /// Whether the next registration should repost readability even if empty.
+    ///
+    /// This keeps wakeups alive if the event loop stops after a successful read
+    /// before polling the reader to `Pending` again.
+    needs_repost: bool,
+
     /// We logically own the reader, but we don't actually use it.
     _reader: PhantomData<R>,
 }
@@ -97,7 +103,13 @@ impl<R: Read + Send + 'static> UnblockedReader<R> {
             }
         });
 
-        Self { interest, pipe: reader, first_register: true, _reader: PhantomData }
+        Self {
+            interest,
+            pipe: reader,
+            first_register: true,
+            needs_repost: false,
+            _reader: PhantomData,
+        }
     }
 
     /// Register interest in the reader.
@@ -105,9 +117,10 @@ impl<R: Read + Send + 'static> UnblockedReader<R> {
         let mut interest = self.interest.interest.lock().unwrap();
         *interest = Some(Interest { event, poller: poller.clone(), mode });
 
-        // Send the event to start off with if we have any data.
-        if (!self.pipe.is_empty() && event.readable) || self.first_register {
+        // Repost readability after a successful read even if the pipe is currently empty.
+        if event.readable && (!self.pipe.is_empty() || self.first_register || self.needs_repost) {
             self.first_register = false;
+            self.needs_repost = false;
             poller.post(CompletionPacket::new(event)).ok();
         }
     }
@@ -123,8 +136,14 @@ impl<R: Read + Send + 'static> UnblockedReader<R> {
         let waker = Waker::from(self.interest.clone());
 
         match self.pipe.poll_drain_bytes(&mut Context::from_waker(&waker), buf) {
-            Poll::Pending => 0,
-            Poll::Ready(n) => n,
+            Poll::Pending => {
+                self.needs_repost = false;
+                0
+            },
+            Poll::Ready(n) => {
+                self.needs_repost = n > 0;
+                n
+            },
         }
     }
 }
@@ -301,6 +320,7 @@ mod tests {
             }),
             pipe: reader_pipe,
             first_register: false,
+            needs_repost: false,
             _reader: PhantomData,
         };
 
@@ -322,6 +342,47 @@ mod tests {
         assert!(
             events.iter().any(|event| event.key == TOKEN),
             "expected another readable event after partial read and reregister"
+        );
+    }
+
+    #[test]
+    fn reader_reposts_event_after_read_even_if_pipe_is_empty() {
+        const TOKEN: usize = 8;
+        const WAIT_TIMEOUT: Duration = Duration::from_millis(200);
+
+        let (reader_pipe, mut writer) = pipe(16);
+        assert_eq!(writer.try_fill(b"a"), 1);
+
+        let mut reader = UnblockedReader::<std::io::Cursor<Vec<u8>>> {
+            interest: Arc::new(Registration {
+                interest: Mutex::<Option<Interest>>::new(None),
+                end: PipeEnd::Reader,
+            }),
+            pipe: reader_pipe,
+            first_register: false,
+            needs_repost: false,
+            _reader: PhantomData,
+        };
+
+        let poller = Arc::new(Poller::new().unwrap());
+        reader.register(&poller, Event::readable(TOKEN), PollMode::Level);
+
+        let mut events = Events::new();
+        poller.wait(&mut events, Some(WAIT_TIMEOUT)).unwrap();
+        assert!(events.iter().any(|event| event.key == TOKEN));
+        events.clear();
+
+        let mut buf = [0u8; 1];
+        assert_eq!(reader.try_read(&mut buf), 1);
+        assert_eq!(buf[0], b'a');
+
+        // The internal pipe is now empty, but we still need one repost to re-arm wakeups.
+        reader.register(&poller, Event::readable(TOKEN), PollMode::Level);
+
+        poller.wait(&mut events, Some(WAIT_TIMEOUT)).unwrap();
+        assert!(
+            events.iter().any(|event| event.key == TOKEN),
+            "expected repost after successful read, even when the pipe is empty"
         );
     }
 }
