@@ -164,6 +164,9 @@ where
             if processed >= MAX_LOCKED_READ {
                 #[cfg(windows)]
                 {
+                    // Windows PTY readiness is delivered through custom IOCP packets posted by
+                    // `tty::windows::blocking`, not through a kernel-polled source. If we stop
+                    // early with buffered bytes still available, we must force a repost.
                     force_reregister = true;
                 }
                 break;
@@ -262,7 +265,7 @@ where
                 }
 
                 // Re-register readable interest when we intentionally stop processing early.
-                // This guarantees another wakeup on Windows if bytes remain buffered.
+                // On Windows this reposts a custom IOCP readiness packet for buffered PTY data.
                 let mut force_reregister = false;
                 for event in events.iter() {
                     match event.key {
