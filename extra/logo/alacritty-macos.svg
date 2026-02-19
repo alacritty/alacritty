@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#14232b"/>
+  <svg x="102.4" y="102.4" width="819.2" height="819.2" viewBox="0 0 64 64">
+    <defs>
+      <linearGradient id="red-orange"
+        gradientUnits="userSpaceOnUse"
+        gradientTransform="matrix(0,473.895,-473.895,0,547.884,192.222)">
+        <stop offset="0" style="stop-color:#ec2802;stop-opacity:1"/>
+        <stop offset="1" style="stop-color:#fcb200;stop-opacity:1"/>
+      </linearGradient>
+      <linearGradient id="linearGradient11006"
+        xlink:href="#red-orange"
+        x1="19.0625" y1="0" x2="19" y2="43.25"
+        gradientUnits="userSpaceOnUse"
+        gradientTransform="matrix(1.4018804,0,0,1.3482131,21.364273,-32.960592)"/>
+      <clipPath clipPathUnits="userSpaceOnUse" id="clipPath3639">
+        <path d="M 14.813062,26.75 19,15.945 23.186938,26.75 19,43.25 Z"/>
+      </clipPath>
+      <filter style="color-interpolation-filters:sRGB" id="filter1378"
+        x="-0.096199476" width="1.192399" y="-0.074239448" height="1.1484789">
+        <feGaussianBlur stdDeviation="1.0020779"/>
+      </filter>
+    </defs>
+    <g transform="translate(-16,35.820639)">
+      <!-- Blue flame tip -->
+      <path d="M 43.566236,2.9721345 42.175119,6.3426951 C 45.913195,17.853356 45.913195,17.853356 48,27.894557 50.086805,17.853356 50.086805,17.853356 53.824881,6.3426951 L 52.433764,2.9721345 48,-7.7705098 Z"
+        style="fill:#069efe;fill-opacity:1;stroke:none"/>
+      <!-- Red-orange "A" shape -->
+      <path d="m 43.09342,-32.960595 h 9.81316 l 21.729148,53.92852 H 65.523505 L 48,-20.221038 30.476495,20.967925 h -9.112223 z"
+        style="fill:url(#linearGradient11006);fill-opacity:1;stroke:none"/>
+      <!-- White inner glow -->
+      <path transform="matrix(1.3912031,0,0,1.3379446,21.567141,-29.104025)"
+        clip-path="url(#clipPath3639)"
+        style="fill:#ffffff;fill-opacity:1;stroke:none;filter:url(#filter1378)"
+        d="M 19,32.395 31.5,0 6.5,0.13313911 Z"/>
+    </g>
+  </svg>
+</svg>
