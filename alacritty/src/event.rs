@@ -2,6 +2,10 @@
 
 use crate::ConfigMonitor;
 use glutin::config::GetGlConfig;
+#[cfg(unix)]
+use signal_hook::consts::signal::{SIGINT, SIGTERM};
+#[cfg(unix)]
+use signal_hook::iterator::Signals;
 use std::borrow::Cow;
 use std::cmp::min;
 use std::collections::hash_map::Entry;
@@ -42,6 +46,8 @@ use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, ClipboardType, Term, TermMode};
+#[cfg(unix)]
+use alacritty_terminal::thread;
 use alacritty_terminal::vte::ansi::NamedColor;
 
 #[cfg(unix)]
@@ -127,6 +133,10 @@ impl Processor {
             config_monitor =
                 ConfigMonitor::new(config.config_paths.clone(), event_loop.create_proxy());
         }
+
+        // Start signal termination handler.
+        #[cfg(unix)]
+        Self::spawn_signal_handler(proxy.clone());
 
         Processor {
             initial_window_options,
@@ -224,6 +234,28 @@ impl Processor {
                 | WindowEvent::HoveredFile(_)
                 | WindowEvent::Moved(_)
         )
+    }
+
+    /// Spawn a thread for handling termination signals.
+    #[cfg(unix)]
+    fn spawn_signal_handler(proxy: EventLoopProxy<Event>) {
+        thread::spawn_named("signals", move || {
+            // Register termination signals.
+            let mut signals = match Signals::new([SIGINT, SIGTERM]) {
+                Ok(signals) => signals,
+                Err(err) => {
+                    error!("Failed to install signal handler: {err}");
+                    return;
+                },
+            };
+
+            // Wait for any signal to arrive.
+            signals.wait();
+
+            // Send instance shutdown event.
+            let event = Event::new(EventType::Shutdown, None);
+            proxy.send_event(event).unwrap();
+        });
     }
 }
 
@@ -389,6 +421,9 @@ impl ApplicationHandler<Event> for Processor {
                     error!("Could not open window: {err:?}");
                 }
             },
+            // Shutdown all windows.
+            #[cfg(unix)]
+            (EventType::Shutdown, _) => event_loop.exit(),
             // Process events affecting all windows.
             (payload, None) => {
                 let event = WinitEvent::UserEvent(Event::new(payload, None));
@@ -550,6 +585,8 @@ pub enum EventType {
     BlinkCursor,
     BlinkCursorTimeout,
     SearchNext,
+    #[cfg(unix)]
+    Shutdown,
     Frame,
 }
 
@@ -1924,7 +1961,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     TerminalEvent::Exit | TerminalEvent::ChildExit(_) | TerminalEvent::Wakeup => (),
                 },
                 #[cfg(unix)]
-                EventType::IpcConfig(_) | EventType::IpcGetConfig(..) => (),
+                EventType::IpcConfig(_) | EventType::IpcGetConfig(..) | EventType::Shutdown => (),
                 EventType::Message(_)
                 | EventType::ConfigReload(_)
                 | EventType::CreateWindow(_)

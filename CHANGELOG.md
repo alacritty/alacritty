@@ -35,6 +35,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Subprocesses on OpenBSD now run with their CWD set to that of the shell's foreground process.
 - Crash when OpenGL context resets
 - Crash when committing text with some IMEs on macOS
+- Signal termination skipping resource cleanup
 
 ## 0.16.1
 
