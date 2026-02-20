@@ -1063,7 +1063,7 @@ relied upon.
 
 # SEE ALSO
 
-*alacritty*(1), *alacritty-msg*(1), *alacritty-bindings*(5)
+*alacritty*(1), *alacritty-msg*(1), *alacritty-bindings*(5), *alacritty-escapes*(7)
 
 # BUGS
 

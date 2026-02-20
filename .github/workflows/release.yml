@@ -76,6 +76,7 @@ jobs:
           scdoc < extra/man/alacritty-msg.1.scd | gzip -c > "./alacritty-msg.1.gz"
           scdoc < extra/man/alacritty.5.scd | gzip -c > "./alacritty.5.gz"
           scdoc < extra/man/alacritty-bindings.5.scd | gzip -c > "./alacritty-bindings.5.gz"
+          scdoc < extra/man/alacritty-escapes.7.scd | gzip -c > "./alacritty-escapes.7.gz"
       - name: Upload Assets
         run: |
           mv ./extra/logo/alacritty-term.svg ./Alacritty.svg
@@ -84,6 +85,7 @@ jobs:
           ./.github/workflows/upload_asset.sh ./alacritty-msg.1.gz $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./alacritty.5.gz $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./alacritty-bindings.5.gz $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./alacritty-escapes.7.gz $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./extra/completions/alacritty.bash $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./extra/completions/alacritty.fish $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./extra/completions/_alacritty $GITHUB_TOKEN

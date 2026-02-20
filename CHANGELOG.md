@@ -13,6 +13,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Packaging
 
 - Fixed invalid logo SVG attributes
+- New `alacritty-escapes(7)` manpage
 
 ### Added
 

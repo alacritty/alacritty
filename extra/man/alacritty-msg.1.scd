@@ -93,7 +93,7 @@ making it possible to control Alacritty without directly accessing it.
 
 # SEE ALSO
 
-*alacritty*(1), *alacritty*(5), *alacritty-bindings*(5)
+*alacritty*(1), *alacritty*(5), *alacritty-bindings*(5), *alacritty-escapes*(7)
 
 # BUGS
 
