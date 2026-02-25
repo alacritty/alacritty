@@ -10,6 +10,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.17.0-dev
 
+### Added
+
+- Tablet input support.
+
 ### Packaging
 
 - Fixed invalid logo SVG attributes

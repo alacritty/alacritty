@@ -4,9 +4,10 @@ use log::{error, warn};
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
+use winit::monitor::Fullscreen;
 #[cfg(target_os = "macos")]
 use winit::platform::macos::OptionAsAlt as WinitOptionAsAlt;
-use winit::window::{Fullscreen, Theme as WinitTheme, WindowLevel as WinitWindowLevel};
+use winit::window::{Theme as WinitTheme, WindowLevel as WinitWindowLevel};
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 
