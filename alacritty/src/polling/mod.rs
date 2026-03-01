@@ -73,6 +73,7 @@ impl IoListener {
     /// Process the next I/O event.
     fn poll(&mut self) -> Result<(), IoError> {
         // Ensure interests are present for the next poll.
+        self.poller.modify(&self.signal_listener.pipe, PollEvent::readable(SIGNAL_READ_KEY))?;
         self.poller.modify(&self.ipc_listener.socket, PollEvent::readable(IPC_READ_KEY))?;
 
         // Wait for the next event to be ready.
