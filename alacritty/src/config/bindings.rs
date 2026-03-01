@@ -371,6 +371,18 @@ pub enum MouseEvent {
     WheelDown,
 }
 
+/// Parse a mouse button name to a `MouseButton` value.
+pub fn parse_mouse_button(name: &str) -> Option<MouseButton> {
+    match name {
+        "Left" => Some(MouseButton::Left),
+        "Right" => Some(MouseButton::Right),
+        "Middle" => Some(MouseButton::Middle),
+        "Back" => Some(MouseButton::Back),
+        "Forward" => Some(MouseButton::Forward),
+        _ => None,
+    }
+}
+
 macro_rules! bindings {
     (
         $ty:ident;
@@ -883,14 +895,11 @@ impl<'a> Deserialize<'a> for MouseEvent {
                 E: de::Error,
             {
                 match value {
-                    "Left" => Ok(MouseEvent::Button(MouseButton::Left)),
-                    "Right" => Ok(MouseEvent::Button(MouseButton::Right)),
-                    "Middle" => Ok(MouseEvent::Button(MouseButton::Middle)),
-                    "Back" => Ok(MouseEvent::Button(MouseButton::Back)),
-                    "Forward" => Ok(MouseEvent::Button(MouseButton::Forward)),
                     "WheelUp" => Ok(MouseEvent::WheelUp),
                     "WheelDown" => Ok(MouseEvent::WheelDown),
-                    _ => Err(E::invalid_value(Unexpected::Str(value), &self)),
+                    name => parse_mouse_button(name)
+                        .map(MouseEvent::Button)
+                        .ok_or_else(|| E::invalid_value(Unexpected::Str(value), &self)),
                 }
             }
         }

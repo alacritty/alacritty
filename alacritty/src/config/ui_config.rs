@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use log::{error, warn};
-use serde::de::{self, Error as SerdeError, MapAccess, Unexpected, Visitor};
+use serde::de::{Error as SerdeError, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use unicode_width::UnicodeWidthChar;
 use winit::event::MouseButton;
@@ -22,8 +22,8 @@ use alacritty_terminal::tty::{Options as PtyOptions, Shell};
 use crate::config::LOG_TARGET_CONFIG;
 use crate::config::bell::BellConfig;
 use crate::config::bindings::{
-    self, Action, Binding, BindingKey, KeyBinding, KeyLocation, ModeWrapper, ModsWrapper,
-    MouseBinding,
+    self, parse_mouse_button, Action, Binding, BindingKey, KeyBinding, KeyLocation, ModeWrapper,
+    ModsWrapper, MouseBinding,
 };
 use crate::config::color::Colors;
 use crate::config::cursor::Cursor;
@@ -491,123 +491,103 @@ impl fmt::Debug for HintBinding {
 }
 
 /// Hint mouse highlighting.
-#[derive(ConfigDeserialize, Serialize, Default, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct HintMouse {
     /// Required mouse modifiers for hint highlighting.
     #[serde(skip_serializing)]
     pub mods: ModsWrapper,
 
-    /// Mouse button which triggers the hint action.
-    #[config(alias = "enabled")]
-    pub button: HintMouseButton,
+    /// Mouse button which triggers the hint action. `None` means disabled.
+    #[serde(skip_serializing)]
+    pub button: Option<MouseButton>,
+}
+
+impl Default for HintMouse {
+    fn default() -> Self {
+        Self { mods: Default::default(), button: Some(MouseButton::Left) }
+    }
 }
 
 impl HintMouse {
     /// Whether mouse hint highlighting is enabled.
     pub fn enabled(self) -> bool {
-        self.button.0.is_some()
+        self.button.is_some()
     }
 }
 
-/// Mouse button for hint triggering.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct HintMouseButton(pub Option<MouseButton>);
-
-impl Serialize for HintMouseButton {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self.0 {
-            None => serializer.serialize_str("None"),
-            Some(MouseButton::Left) => serializer.serialize_str("Left"),
-            Some(MouseButton::Right) => serializer.serialize_str("Right"),
-            Some(MouseButton::Middle) => serializer.serialize_str("Middle"),
-            Some(MouseButton::Back) => serializer.serialize_str("Back"),
-            Some(MouseButton::Forward) => serializer.serialize_str("Forward"),
-            Some(MouseButton::Other(n)) => serializer.serialize_u16(n),
-        }
-    }
-}
-
-impl Default for HintMouseButton {
-    fn default() -> Self {
-        Self(Some(MouseButton::Left))
-    }
-}
-
-impl<'a> Deserialize<'a> for HintMouseButton {
+impl<'de> Deserialize<'de> for HintMouse {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: Deserializer<'a>,
+        D: Deserializer<'de>,
     {
-        struct HintMouseButtonVisitor;
+        struct HintMouseVisitor;
 
-        impl Visitor<'_> for HintMouseButtonVisitor {
-            type Value = HintMouseButton;
+        impl<'a> Visitor<'a> for HintMouseVisitor {
+            type Value = HintMouse;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str(
-                    "true, false, \"Left\", \"Right\", \"Middle\", \"Back\", \"Forward\", \
-                     \"None\", or a number 0-65535",
-                )
+                f.write_str("hint mouse configuration")
             }
 
-            fn visit_bool<E>(self, value: bool) -> Result<HintMouseButton, E>
+            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
             where
-                E: de::Error,
+                M: MapAccess<'a>,
             {
-                Ok(if value {
-                    HintMouseButton(Some(MouseButton::Left))
-                } else {
-                    HintMouseButton(None)
-                })
-            }
+                let mut result = HintMouse::default();
 
-            fn visit_str<E>(self, value: &str) -> Result<HintMouseButton, E>
-            where
-                E: de::Error,
-            {
-                match value {
-                    "None" => Ok(HintMouseButton(None)),
-                    "Left" => Ok(HintMouseButton(Some(MouseButton::Left))),
-                    "Right" => Ok(HintMouseButton(Some(MouseButton::Right))),
-                    "Middle" => Ok(HintMouseButton(Some(MouseButton::Middle))),
-                    "Back" => Ok(HintMouseButton(Some(MouseButton::Back))),
-                    "Forward" => Ok(HintMouseButton(Some(MouseButton::Forward))),
-                    _ => Err(E::invalid_value(Unexpected::Str(value), &self)),
+                while let Some((key, value)) = map.next_entry::<String, toml::Value>()? {
+                    match key.as_str() {
+                        "mods" => match ModsWrapper::deserialize(value) {
+                            Ok(mods) => result.mods = mods,
+                            Err(err) => {
+                                error!(
+                                    target: LOG_TARGET_CONFIG,
+                                    "Config error: hint mouse mods: {err}"
+                                );
+                            },
+                        },
+                        "button" | "enabled" => {
+                            match parse_hint_button(value) {
+                                Ok(button) => result.button = button,
+                                Err(err) => {
+                                    error!(
+                                        target: LOG_TARGET_CONFIG,
+                                        "Config error: hint mouse button: {err}"
+                                    );
+                                },
+                            }
+                        },
+                        key => warn!(
+                            target: LOG_TARGET_CONFIG,
+                            "Unrecognized hint mouse field: {key}"
+                        ),
+                    }
                 }
-            }
 
-            fn visit_i64<E>(self, value: i64) -> Result<HintMouseButton, E>
-            where
-                E: de::Error,
-            {
-                match u16::try_from(value) {
-                    Ok(v) => Ok(HintMouseButton(Some(MouseButton::Other(v)))),
-                    Err(_) => Err(E::invalid_value(Unexpected::Signed(value), &self)),
-                }
-            }
-
-            fn visit_u64<E>(self, value: u64) -> Result<HintMouseButton, E>
-            where
-                E: de::Error,
-            {
-                match u16::try_from(value) {
-                    Ok(v) => Ok(HintMouseButton(Some(MouseButton::Other(v)))),
-                    Err(_) => Err(E::invalid_value(Unexpected::Unsigned(value), &self)),
-                }
+                Ok(result)
             }
         }
 
-        deserializer.deserialize_any(HintMouseButtonVisitor)
+        deserializer.deserialize_map(HintMouseVisitor)
     }
 }
 
-impl SerdeReplace for HintMouseButton {
-    fn replace(&mut self, value: toml::Value) -> Result<(), Box<dyn Error>> {
-        *self = Self::deserialize(value)?;
-        Ok(())
+/// Parse a hint mouse button from a TOML value.
+///
+/// Accepts boolean (`true` → Left, `false` → disabled), string
+/// (`"Left"`, `"Right"`, `"None"`, etc.), or integer (for `Other` buttons).
+fn parse_hint_button(value: toml::Value) -> Result<Option<MouseButton>, String> {
+    match value {
+        toml::Value::Boolean(true) => Ok(Some(MouseButton::Left)),
+        toml::Value::Boolean(false) => Ok(None),
+        toml::Value::String(ref s) if s == "None" => Ok(None),
+        toml::Value::String(ref s) => parse_mouse_button(s)
+            .map(Some)
+            .ok_or_else(|| format!("unknown mouse button \"{s}\"")),
+        toml::Value::Integer(n) => u16::try_from(n)
+            .map(|v| Some(MouseButton::Other(v)))
+            .map_err(|_| format!("mouse button number out of range: {n}")),
+        other => Err(format!("expected bool, string, or number, got {}", other.type_str())),
     }
 }
 
