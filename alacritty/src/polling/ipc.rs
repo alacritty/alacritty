@@ -22,9 +22,10 @@ const ALACRITTY_SOCKET_ENV: &str = "ALACRITTY_SOCKET";
 
 /// IPC socket listener.
 pub struct IpcListener {
-    pub event_proxy: EventLoopProxy<Event>,
     pub socket: UnixListener,
-    pub data: String,
+
+    event_proxy: EventLoopProxy<Event>,
+    data: String,
 }
 
 impl IpcListener {

@@ -2,10 +2,6 @@
 
 use crate::ConfigMonitor;
 use glutin::config::GetGlConfig;
-#[cfg(unix)]
-use signal_hook::consts::signal::{SIGINT, SIGTERM};
-#[cfg(unix)]
-use signal_hook::iterator::Signals;
 use std::borrow::Cow;
 use std::cmp::min;
 use std::collections::hash_map::Entry;
@@ -46,8 +42,6 @@ use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, ClipboardType, Term, TermMode};
-#[cfg(unix)]
-use alacritty_terminal::thread;
 use alacritty_terminal::vte::ansi::NamedColor;
 
 #[cfg(unix)]
@@ -64,10 +58,10 @@ use crate::display::hint::HintMatch;
 use crate::display::window::{ImeInhibitor, Window};
 use crate::display::{Display, Preedit, SizeInfo};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
-#[cfg(unix)]
-use crate::polling::ipc::{self, SocketReply};
 use crate::logging::{LOG_TARGET_CONFIG, LOG_TARGET_WINIT};
 use crate::message_bar::{Message, MessageBuffer};
+#[cfg(unix)]
+use crate::polling::ipc::{self, SocketReply};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::window_context::WindowContext;
 
@@ -133,10 +127,6 @@ impl Processor {
             config_monitor =
                 ConfigMonitor::new(config.config_paths.clone(), event_loop.create_proxy());
         }
-
-        // Start signal termination handler.
-        #[cfg(unix)]
-        Self::spawn_signal_handler(proxy.clone());
 
         Processor {
             initial_window_options,
@@ -234,28 +224,6 @@ impl Processor {
                 | WindowEvent::HoveredFile(_)
                 | WindowEvent::Moved(_)
         )
-    }
-
-    /// Spawn a thread for handling termination signals.
-    #[cfg(unix)]
-    fn spawn_signal_handler(proxy: EventLoopProxy<Event>) {
-        thread::spawn_named("signals", move || {
-            // Register termination signals.
-            let mut signals = match Signals::new([SIGINT, SIGTERM]) {
-                Ok(signals) => signals,
-                Err(err) => {
-                    error!("Failed to install signal handler: {err}");
-                    return;
-                },
-            };
-
-            // Wait for any signal to arrive.
-            signals.wait();
-
-            // Send instance shutdown event.
-            let event = Event::new(EventType::Shutdown, None);
-            proxy.send_event(event).unwrap();
-        });
     }
 }
 

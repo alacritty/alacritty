@@ -14,14 +14,20 @@ use alacritty_terminal::thread;
 use crate::cli::Options;
 use crate::event::Event;
 use crate::polling::ipc::IpcListener;
+use crate::polling::signal::SignalListener;
 
 pub mod ipc;
+mod signal;
+
+/// Polling key for signal read events.
+const SIGNAL_READ_KEY: usize = 1;
 
 /// Polling key for IPC read events.
 const IPC_READ_KEY: usize = 0;
 
 /// Unix I/O event listener.
 pub struct IoListener {
+    signal_listener: SignalListener,
     ipc_listener: IpcListener,
     events: Events,
     poller: Poller,
@@ -42,12 +48,16 @@ impl IoListener {
             path.push(format!("{}-{}.sock", ipc::socket_prefix(), process::id()));
             path
         });
-        let ipc_listener = IpcListener::new(options, event_proxy, &ipc_socket_path)?;
+        let ipc_listener = IpcListener::new(options, event_proxy.clone(), &ipc_socket_path)?;
+
+        // Create listener for Unix signals.
+        let signal_listener = SignalListener::new(event_proxy)?;
 
         // SAFETY: Correct drop order is taken care of by `Drop` implementation.
+        unsafe { poller.add(&signal_listener.pipe, PollEvent::readable(SIGNAL_READ_KEY))? };
         unsafe { poller.add(&ipc_listener.socket, PollEvent::readable(IPC_READ_KEY))? };
 
-        let mut listener = Self { ipc_listener, events, poller };
+        let mut listener = Self { signal_listener, ipc_listener, events, poller };
 
         thread::spawn_named("io event listener", move || {
             loop {
@@ -72,6 +82,8 @@ impl IoListener {
         for event in self.events.iter() {
             if event.key == IPC_READ_KEY {
                 self.ipc_listener.process_message()?;
+            } else if event.key == SIGNAL_READ_KEY {
+                self.signal_listener.process_signal()?;
             }
         }
 
@@ -81,6 +93,9 @@ impl IoListener {
 
 impl Drop for IoListener {
     fn drop(&mut self) {
+        if let Err(err) = self.poller.delete(&self.signal_listener.pipe) {
+            error!("Failed to remove signal listener interest: {err}");
+        }
         if let Err(err) = self.poller.delete(&self.ipc_listener.socket) {
             error!("Failed to remove IPC listener interest: {err}");
         }
