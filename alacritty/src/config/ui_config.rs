@@ -7,9 +7,10 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use log::{error, warn};
-use serde::de::{Error as SerdeError, MapAccess, Visitor};
+use serde::de::{self, Error as SerdeError, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use unicode_width::UnicodeWidthChar;
+use winit::event::MouseButton;
 use winit::keyboard::{Key, ModifiersState};
 
 use alacritty_config::SerdeReplace;
@@ -269,7 +270,7 @@ impl Default for Hints {
                 action,
                 persist: false,
                 post_processing: true,
-                mouse: Some(HintMouse { enabled: true, mods: Default::default() }),
+                mouse: Some(Default::default()),
                 binding: Some(HintBinding {
                     key: BindingKey::Keycode {
                         key: Key::Character("o".into()),
@@ -492,12 +493,122 @@ impl fmt::Debug for HintBinding {
 /// Hint mouse highlighting.
 #[derive(ConfigDeserialize, Serialize, Default, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct HintMouse {
-    /// Hint mouse highlighting availability.
-    pub enabled: bool,
-
     /// Required mouse modifiers for hint highlighting.
     #[serde(skip_serializing)]
     pub mods: ModsWrapper,
+
+    /// Mouse button which triggers the hint action.
+    #[config(alias = "enabled")]
+    pub button: HintMouseButton,
+}
+
+impl HintMouse {
+    /// Whether mouse hint highlighting is enabled.
+    pub fn enabled(self) -> bool {
+        self.button.0.is_some()
+    }
+}
+
+/// Mouse button for hint triggering.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct HintMouseButton(pub Option<MouseButton>);
+
+impl Serialize for HintMouseButton {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self.0 {
+            None => serializer.serialize_str("None"),
+            Some(MouseButton::Left) => serializer.serialize_str("Left"),
+            Some(MouseButton::Right) => serializer.serialize_str("Right"),
+            Some(MouseButton::Middle) => serializer.serialize_str("Middle"),
+            Some(MouseButton::Back) => serializer.serialize_str("Back"),
+            Some(MouseButton::Forward) => serializer.serialize_str("Forward"),
+            Some(MouseButton::Other(n)) => serializer.serialize_u16(n),
+        }
+    }
+}
+
+impl Default for HintMouseButton {
+    fn default() -> Self {
+        Self(Some(MouseButton::Left))
+    }
+}
+
+impl<'a> Deserialize<'a> for HintMouseButton {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'a>,
+    {
+        struct HintMouseButtonVisitor;
+
+        impl Visitor<'_> for HintMouseButtonVisitor {
+            type Value = HintMouseButton;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(
+                    "true, false, \"Left\", \"Right\", \"Middle\", \"Back\", \"Forward\", \
+                     \"None\", or a number 0-65535",
+                )
+            }
+
+            fn visit_bool<E>(self, value: bool) -> Result<HintMouseButton, E>
+            where
+                E: de::Error,
+            {
+                Ok(if value {
+                    HintMouseButton(Some(MouseButton::Left))
+                } else {
+                    HintMouseButton(None)
+                })
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<HintMouseButton, E>
+            where
+                E: de::Error,
+            {
+                match value {
+                    "None" => Ok(HintMouseButton(None)),
+                    "Left" => Ok(HintMouseButton(Some(MouseButton::Left))),
+                    "Right" => Ok(HintMouseButton(Some(MouseButton::Right))),
+                    "Middle" => Ok(HintMouseButton(Some(MouseButton::Middle))),
+                    "Back" => Ok(HintMouseButton(Some(MouseButton::Back))),
+                    "Forward" => Ok(HintMouseButton(Some(MouseButton::Forward))),
+                    _ => Err(E::invalid_value(Unexpected::Str(value), &self)),
+                }
+            }
+
+            fn visit_i64<E>(self, value: i64) -> Result<HintMouseButton, E>
+            where
+                E: de::Error,
+            {
+                match u16::try_from(value) {
+                    Ok(v) => Ok(HintMouseButton(Some(MouseButton::Other(v)))),
+                    Err(_) => Err(E::invalid_value(Unexpected::Signed(value), &self)),
+                }
+            }
+
+            fn visit_u64<E>(self, value: u64) -> Result<HintMouseButton, E>
+            where
+                E: de::Error,
+            {
+                match u16::try_from(value) {
+                    Ok(v) => Ok(HintMouseButton(Some(MouseButton::Other(v)))),
+                    Err(_) => Err(E::invalid_value(Unexpected::Unsigned(value), &self)),
+                }
+            }
+        }
+
+        deserializer.deserialize_any(HintMouseButtonVisitor)
+    }
+}
+
+impl SerdeReplace for HintMouseButton {
+    fn replace(&mut self, value: toml::Value) -> Result<(), Box<dyn Error>> {
+        *self = Self::deserialize(value)?;
+        Ok(())
+    }
 }
 
 /// Lazy regex with interior mutability.

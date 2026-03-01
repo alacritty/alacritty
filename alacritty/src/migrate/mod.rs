@@ -123,7 +123,63 @@ fn migrate_toml(toml: String) -> Result<DocumentMut, String> {
     move_value(&mut document, &["import"], &["general", "import"])?;
     move_value(&mut document, &["shell"], &["terminal", "shell"])?;
 
+    migrate_mouse_hints(&mut document)?;
+
     Ok(document)
+}
+
+/// Migrate `hints.enabled.mouse.enabled` to `hints.enabled.mouse.button`.
+fn migrate_mouse_hints(document: &mut DocumentMut) -> Result<(), String> {
+    let table = document
+        .as_item_mut()
+        .as_table_like_mut()
+        .expect("Moving from unsupported TOML structure");
+
+    let hints_table = match table.get_key_value_mut("hints") {
+        Some((_, item)) => match item.as_table_like_mut() {
+            Some(t) => t,
+            None => return Ok(()),
+        },
+        None => return Ok(()),
+    };
+
+    let enabled_hints = match hints_table.get_key_value_mut("enabled") {
+        Some((_, item)) => match item.as_array_of_tables_mut() {
+            Some(a) => a,
+            None => return Ok(()),
+        },
+        None => return Ok(()),
+    };
+
+    for hint in enabled_hints.iter_mut() {
+        let mouse_table = match hint.get_key_value_mut("mouse") {
+            Some((_, mouse)) => match mouse.as_table_like_mut() {
+                Some(t) => t,
+                None => continue,
+            },
+            None => continue,
+        };
+
+        let enabled_value = match mouse_table.remove("enabled") {
+            Some(value) => value,
+            None => continue,
+        };
+
+        // Map boolean `enabled` to string `button`.
+        let button_value = match &enabled_value {
+            Item::Value(v) if v.as_bool() == Some(true) => {
+                Item::Value(toml_edit::Value::from("Left"))
+            },
+            Item::Value(v) if v.as_bool() == Some(false) => {
+                Item::Value(toml_edit::Value::from("None"))
+            },
+            other => other.clone(),
+        };
+
+        mouse_table.insert("button", button_value);
+    }
+
+    Ok(())
 }
 
 /// Migrate TOML imports to the latest version.
@@ -330,5 +386,49 @@ root_value = 3
     #[test]
     fn migrate_empty() {
         assert!(migrate_toml(String::new()).unwrap().to_string().is_empty());
+    }
+
+    #[test]
+    fn migrate_mouse_hints_enabled_true() {
+        let input = r#"
+[[hints.enabled]]
+mouse.enabled = true
+        "#;
+
+        let mut document = input.parse::<DocumentMut>().unwrap();
+        migrate_mouse_hints(&mut document).unwrap();
+        let output = document.to_string();
+
+        assert!(output.contains(r#"button = "Left""#));
+        assert!(!output.contains("mouse.enabled"));
+    }
+
+    #[test]
+    fn migrate_mouse_hints_enabled_false() {
+        let input = r#"
+[[hints.enabled]]
+mouse.enabled = false
+        "#;
+
+        let mut document = input.parse::<DocumentMut>().unwrap();
+        migrate_mouse_hints(&mut document).unwrap();
+        let output = document.to_string();
+
+        assert!(output.contains(r#"button = "None""#));
+        assert!(!output.contains("mouse.enabled"));
+    }
+
+    #[test]
+    fn migrate_mouse_hints_no_mouse() {
+        let input = r#"
+[[hints.enabled]]
+persist = true
+        "#;
+
+        let mut document = input.parse::<DocumentMut>().unwrap();
+        migrate_mouse_hints(&mut document).unwrap();
+        let output = document.to_string();
+
+        assert!(!output.contains("button"));
     }
 }

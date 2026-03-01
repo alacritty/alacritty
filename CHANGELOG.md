@@ -19,6 +19,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 - Ability to bind `WheelUp` and `WheelDown` in `mouse.bindings`
 - Support TOML 1.1 syntax
+- Option to specify mouse button for hint triggering via `hints.enabled.mouse.button`
 
 ### Changed
 
