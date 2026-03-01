@@ -56,6 +56,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "parking_lot",
  "png",
+ "polling",
  "serde",
  "serde_json",
  "serde_yaml",

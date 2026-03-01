@@ -5,16 +5,14 @@ use std::ffi::OsStr;
 use std::io::{BufRead, BufReader, Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::net::Shutdown;
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::{env, fs, process};
+use std::{env, fs};
 
 use log::{error, warn};
 use std::result::Result;
 use winit::event_loop::EventLoopProxy;
 use winit::window::WindowId;
-
-use alacritty_terminal::thread;
 
 use crate::cli::{Options, SocketMessage};
 use crate::event::{Event, EventType};
@@ -22,72 +20,74 @@ use crate::event::{Event, EventType};
 /// Environment variable name for the IPC socket path.
 const ALACRITTY_SOCKET_ENV: &str = "ALACRITTY_SOCKET";
 
-/// Create an IPC socket.
-pub fn spawn_ipc_socket(
-    options: &Options,
-    event_proxy: EventLoopProxy<Event>,
-) -> IoResult<PathBuf> {
-    // Create the IPC socket and export its path as env.
+/// IPC socket listener.
+pub struct IpcListener {
+    pub event_proxy: EventLoopProxy<Event>,
+    pub socket: UnixListener,
+    pub data: String,
+}
 
-    let socket_path = options.socket.clone().unwrap_or_else(|| {
-        let mut path = socket_dir();
-        path.push(format!("{}-{}.sock", socket_prefix(), process::id()));
-        path
-    });
+impl IpcListener {
+    pub fn new(
+        options: &Options,
+        event_proxy: EventLoopProxy<Event>,
+        path: &Path,
+    ) -> Result<Self, IoError> {
+        // Create unix socket in nonblocking mode.
+        let socket = UnixListener::bind(path)?;
+        socket.set_nonblocking(true)?;
 
-    let listener = UnixListener::bind(&socket_path)?;
+        // Register socket path as environment variable for `alacritty msg`.
+        unsafe { env::set_var(ALACRITTY_SOCKET_ENV, path.as_os_str()) };
+        if options.daemon {
+            println!("ALACRITTY_SOCKET={}; export ALACRITTY_SOCKET", path.display());
+        }
 
-    unsafe { env::set_var(ALACRITTY_SOCKET_ENV, socket_path.as_os_str()) };
-    if options.daemon {
-        println!("ALACRITTY_SOCKET={}; export ALACRITTY_SOCKET", socket_path.display());
+        Ok(Self { event_proxy, socket, data: Default::default() })
     }
 
-    // Spawn a thread to listen on the IPC socket.
-    thread::spawn_named("socket listener", move || {
-        let mut data = String::new();
-        for stream in listener.incoming().filter_map(Result::ok) {
-            data.clear();
-            let mut reader = BufReader::new(&stream);
+    /// Process the next IPC message.
+    pub fn process_message(&mut self) -> Result<(), IoError> {
+        let (stream, _) = self.socket.accept()?;
 
-            match reader.read_line(&mut data) {
-                Ok(0) | Err(_) => continue,
-                Ok(_) => (),
-            };
+        self.data.clear();
+        let mut reader = BufReader::new(&stream);
 
-            // Read pending events on socket.
-            let message: SocketMessage = match serde_json::from_str(&data) {
-                Ok(message) => message,
-                Err(err) => {
-                    warn!("Failed to convert data from socket: {err}");
-                    continue;
-                },
-            };
+        match reader.read_line(&mut self.data) {
+            Ok(0) | Err(_) => return Ok(()),
+            Ok(_) => (),
+        };
 
-            // Handle IPC events.
-            match message {
-                SocketMessage::CreateWindow(options) => {
-                    let event = Event::new(EventType::CreateWindow(options), None);
-                    let _ = event_proxy.send_event(event);
-                },
-                SocketMessage::Config(ipc_config) => {
-                    let window_id = ipc_config
-                        .window_id
-                        .and_then(|id| u64::try_from(id).ok())
-                        .map(WindowId::from);
-                    let event = Event::new(EventType::IpcConfig(ipc_config), window_id);
-                    let _ = event_proxy.send_event(event);
-                },
-                SocketMessage::GetConfig(config) => {
-                    let window_id =
-                        config.window_id.and_then(|id| u64::try_from(id).ok()).map(WindowId::from);
-                    let event = Event::new(EventType::IpcGetConfig(Arc::new(stream)), window_id);
-                    let _ = event_proxy.send_event(event);
-                },
-            }
+        let message: SocketMessage = match serde_json::from_str(&self.data) {
+            Ok(message) => message,
+            Err(err) => {
+                warn!("Failed to parse IPC message: {err}");
+                return Ok(());
+            },
+        };
+
+        // Handle IPC events.
+        match message {
+            SocketMessage::CreateWindow(options) => {
+                let event = Event::new(EventType::CreateWindow(options), None);
+                let _ = self.event_proxy.send_event(event);
+            },
+            SocketMessage::Config(ipc_config) => {
+                let window_id =
+                    ipc_config.window_id.and_then(|id| u64::try_from(id).ok()).map(WindowId::from);
+                let event = Event::new(EventType::IpcConfig(ipc_config), window_id);
+                let _ = self.event_proxy.send_event(event);
+            },
+            SocketMessage::GetConfig(config) => {
+                let window_id =
+                    config.window_id.and_then(|id| u64::try_from(id).ok()).map(WindowId::from);
+                let event = Event::new(EventType::IpcGetConfig(Arc::new(stream)), window_id);
+                let _ = self.event_proxy.send_event(event);
+            },
         }
-    });
 
-    Ok(socket_path)
+        Ok(())
+    }
 }
 
 /// Send a message to the active Alacritty socket.
@@ -150,7 +150,7 @@ fn send_reply_fallible(stream: &mut UnixStream, message: SocketReply) -> IoResul
 
 /// Directory for the IPC socket file.
 #[cfg(not(target_os = "macos"))]
-fn socket_dir() -> PathBuf {
+pub fn socket_dir() -> PathBuf {
     xdg::BaseDirectories::with_prefix("alacritty")
         .get_runtime_directory()
         .map(ToOwned::to_owned)
@@ -161,7 +161,7 @@ fn socket_dir() -> PathBuf {
 
 /// Directory for the IPC socket file.
 #[cfg(target_os = "macos")]
-fn socket_dir() -> PathBuf {
+pub fn socket_dir() -> PathBuf {
     env::temp_dir()
 }
 
@@ -219,14 +219,14 @@ fn find_socket(socket_path: Option<PathBuf>) -> IoResult<UnixStream> {
 /// This prefix will include display server information to allow for environments with multiple
 /// display servers running for the same user.
 #[cfg(not(target_os = "macos"))]
-fn socket_prefix() -> String {
+pub fn socket_prefix() -> String {
     let display = env::var("WAYLAND_DISPLAY").or_else(|_| env::var("DISPLAY")).unwrap_or_default();
     format!("Alacritty-{}", display.replace('/', "-"))
 }
 
 /// File prefix matching all available sockets.
 #[cfg(target_os = "macos")]
-fn socket_prefix() -> String {
+pub fn socket_prefix() -> String {
     String::from("Alacritty")
 }
 

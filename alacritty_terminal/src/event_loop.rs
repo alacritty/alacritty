@@ -12,7 +12,7 @@ use std::thread::JoinHandle;
 use std::time::Instant;
 
 use log::error;
-use polling::{Event as PollingEvent, Events, PollMode};
+use polling::{Event as PollingEvent, Events, PollMode, Poller};
 
 use crate::event::{self, Event, EventListener, WindowSize};
 use crate::sync::FairMutex;
@@ -44,7 +44,7 @@ pub enum Msg {
 /// Handles all the PTY I/O and runs the PTY parser which updates terminal
 /// state.
 pub struct EventLoop<T: tty::EventedPty, U: EventListener> {
-    poll: Arc<polling::Poller>,
+    poll: Arc<Poller>,
     pty: T,
     rx: PeekableReceiver<Msg>,
     tx: Sender<Msg>,
@@ -68,7 +68,7 @@ where
         ref_test: bool,
     ) -> io::Result<EventLoop<T, U>> {
         let (tx, rx) = mpsc::channel();
-        let poll = polling::Poller::new()?.into();
+        let poll = Poller::new()?.into();
         Ok(EventLoop {
             poll,
             pty,
@@ -383,7 +383,7 @@ impl std::error::Error for EventLoopSendError {
 #[derive(Clone)]
 pub struct EventLoopSender {
     sender: Sender<Msg>,
-    poller: Arc<polling::Poller>,
+    poller: Arc<Poller>,
 }
 
 impl EventLoopSender {
