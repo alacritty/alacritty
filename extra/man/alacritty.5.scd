@@ -184,7 +184,7 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: _"None"_
 
-*resize_increments* = _true_ | _false_ # _(works on macOS/X11)_
+*resize_increments* = _true_ | _false_ # _(works on macOS/X11/Wayland)_
 
 	Prefer resizing window by discrete steps equal to cell dimensions.
 

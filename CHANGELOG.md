@@ -19,6 +19,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 - Ability to bind `WheelUp` and `WheelDown` in `mouse.bindings`
 - Support TOML 1.1 syntax
+- `window.resize_increments` support on Wayland
 
 ### Changed
 
@@ -32,6 +33,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Brief error popup when saving the config file with some editors
 - Subprocesses on OpenBSD now run with their CWD set to that of the shell's foreground process.
 - Crash when OpenGL context resets
+- Crash when committing text with some IMEs on macOS
 
 ## 0.16.1
 
