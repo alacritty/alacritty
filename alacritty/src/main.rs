@@ -64,9 +64,7 @@ use crate::event::{Event, Processor};
 #[cfg(target_os = "macos")]
 use crate::macos::locale;
 #[cfg(unix)]
-use crate::polling::IoListener;
-#[cfg(unix)]
-use crate::polling::ipc;
+use crate::polling::{IoListener, ipc};
 
 fn main() -> Result<(), Box<dyn Error>> {
     #[cfg(windows)]
