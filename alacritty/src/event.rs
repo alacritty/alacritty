@@ -58,10 +58,10 @@ use crate::display::hint::HintMatch;
 use crate::display::window::{ImeInhibitor, Window};
 use crate::display::{Display, Preedit, SizeInfo};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
-#[cfg(unix)]
-use crate::ipc::{self, SocketReply};
 use crate::logging::{LOG_TARGET_CONFIG, LOG_TARGET_WINIT};
 use crate::message_bar::{Message, MessageBuffer};
+#[cfg(unix)]
+use crate::polling::ipc::{self, SocketReply};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::window_context::WindowContext;
 
@@ -389,6 +389,9 @@ impl ApplicationHandler<Event> for Processor {
                     error!("Could not open window: {err:?}");
                 }
             },
+            // Shutdown all windows.
+            #[cfg(unix)]
+            (EventType::Shutdown, _) => event_loop.exit(),
             // Process events affecting all windows.
             (payload, None) => {
                 let event = WinitEvent::UserEvent(Event::new(payload, None));
@@ -550,6 +553,8 @@ pub enum EventType {
     BlinkCursor,
     BlinkCursorTimeout,
     SearchNext,
+    #[cfg(unix)]
+    Shutdown,
     Frame,
 }
 
@@ -1924,7 +1929,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     TerminalEvent::Exit | TerminalEvent::ChildExit(_) | TerminalEvent::Wakeup => (),
                 },
                 #[cfg(unix)]
-                EventType::IpcConfig(_) | EventType::IpcGetConfig(..) => (),
+                EventType::IpcConfig(_) | EventType::IpcGetConfig(..) | EventType::Shutdown => (),
                 EventType::Message(_)
                 | EventType::ConfigReload(_)
                 | EventType::CreateWindow(_)

@@ -34,8 +34,6 @@ mod daemon;
 mod display;
 mod event;
 mod input;
-#[cfg(unix)]
-mod ipc;
 mod logging;
 #[cfg(target_os = "macos")]
 mod macos;
@@ -43,6 +41,8 @@ mod message_bar;
 mod migrate;
 #[cfg(windows)]
 mod panic;
+#[cfg(unix)]
+mod polling;
 mod renderer;
 mod scheduler;
 mod string;
@@ -63,6 +63,8 @@ use crate::config::monitor::ConfigMonitor;
 use crate::event::{Event, Processor};
 #[cfg(target_os = "macos")]
 use crate::macos::locale;
+#[cfg(unix)]
+use crate::polling::{IoListener, ipc};
 
 fn main() -> Result<(), Box<dyn Error>> {
     #[cfg(windows)]
@@ -114,7 +116,7 @@ impl Drop for TemporaryFiles {
     fn drop(&mut self) {
         // Clean up the IPC socket file.
         #[cfg(unix)]
-        if let Some(socket_path) = &self.socket_path {
+        if let Some(socket_path) = self.socket_path.as_deref() {
             let _ = fs::remove_file(socket_path);
         }
 
@@ -186,8 +188,8 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     // Create the IPC socket listener.
     #[cfg(unix)]
     let socket_path = if config.ipc_socket() {
-        match ipc::spawn_ipc_socket(&options, window_event_loop.create_proxy()) {
-            Ok(path) => Some(path),
+        match IoListener::spawn(&options, window_event_loop.create_proxy()) {
+            Ok(handle) => Some(handle.ipc_socket_path),
             Err(err) if options.daemon => return Err(err.into()),
             Err(err) => {
                 log::warn!("Unable to create socket: {err:?}");

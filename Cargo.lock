@@ -56,9 +56,11 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "parking_lot",
  "png",
+ "polling",
  "serde",
  "serde_json",
  "serde_yaml",
+ "signal-hook",
  "tempfile",
  "toml",
  "toml_edit 0.24.0+spec-1.1.0",
@@ -1797,9 +1799,9 @@ checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
 name = "signal-hook"
-version = "0.3.18"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d881a16cf4426aa584979d30bd82cb33429027e42122b169753d6ef1085ed6e2"
+checksum = "3b57709da74f9ff9f4a27dce9526eec25ca8407c45a7887243b031a58935fb8e"
 dependencies = [
  "libc",
  "signal-hook-registry",
