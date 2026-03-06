@@ -1,6 +1,6 @@
 //! Unix signal listener.
 
-use std::io::Error as IoError;
+use std::io::{Error as IoError, Read};
 use std::os::unix::net::UnixStream;
 
 use signal_hook::consts::{SIGINT, SIGTERM};
@@ -25,8 +25,13 @@ impl SignalListener {
 
     /// Process the next signal.
     pub fn process_signal(&mut self) -> Result<(), IoError> {
+        // Submit shutdown request to the main event loop.
         let event = Event::new(EventType::Shutdown, None);
         let _ = self.event_proxy.send_event(event);
+
+        // Ensure signal is drained from pipe.
+        self.pipe.read_exact(&mut [0])?;
+
         Ok(())
     }
 }

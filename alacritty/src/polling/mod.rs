@@ -11,6 +11,7 @@ use winit::event_loop::EventLoopProxy;
 
 use alacritty_terminal::thread;
 
+use crate::UiConfig;
 use crate::cli::Options;
 use crate::event::Event;
 use crate::polling::ipc::IpcListener;
@@ -27,8 +28,8 @@ const IPC_READ_KEY: usize = 0;
 
 /// Unix I/O event listener.
 pub struct IoListener {
+    ipc_listener: Option<IpcListener>,
     signal_listener: SignalListener,
-    ipc_listener: IpcListener,
     events: Events,
     poller: Poller,
 }
@@ -36,6 +37,7 @@ pub struct IoListener {
 impl IoListener {
     /// Create background thread to listen for I/O events.
     pub fn spawn(
+        config: &UiConfig,
         options: &Options,
         event_proxy: EventLoopProxy<Event>,
     ) -> Result<IoListenerHandle, IoError> {
@@ -43,19 +45,26 @@ impl IoListener {
         let events = Events::new();
 
         // Create socket listener for IPC messages.
-        let ipc_socket_path = options.socket.clone().unwrap_or_else(|| {
-            let mut path = ipc::socket_dir();
-            path.push(format!("{}-{}.sock", ipc::socket_prefix(), process::id()));
-            path
-        });
-        let ipc_listener = IpcListener::new(options, event_proxy.clone(), &ipc_socket_path)?;
+        let (ipc_socket_path, ipc_listener) = if config.ipc_socket() {
+            let ipc_socket_path = options.socket.clone().unwrap_or_else(|| {
+                let mut path = ipc::socket_dir();
+                path.push(format!("{}-{}.sock", ipc::socket_prefix(), process::id()));
+                path
+            });
+            let ipc_listener = IpcListener::new(options, event_proxy.clone(), &ipc_socket_path)?;
+            (Some(ipc_socket_path), Some(ipc_listener))
+        } else {
+            (None, None)
+        };
 
         // Create listener for Unix signals.
         let signal_listener = SignalListener::new(event_proxy)?;
 
         // SAFETY: Correct drop order is taken care of by `Drop` implementation.
         unsafe { poller.add(&signal_listener.pipe, PollEvent::readable(SIGNAL_READ_KEY))? };
-        unsafe { poller.add(&ipc_listener.socket, PollEvent::readable(IPC_READ_KEY))? };
+        if let Some(ipc_listener) = &ipc_listener {
+            unsafe { poller.add(&ipc_listener.socket, PollEvent::readable(IPC_READ_KEY))? };
+        }
 
         let mut listener = Self { signal_listener, ipc_listener, events, poller };
 
@@ -74,15 +83,19 @@ impl IoListener {
     fn poll(&mut self) -> Result<(), IoError> {
         // Ensure interests are present for the next poll.
         self.poller.modify(&self.signal_listener.pipe, PollEvent::readable(SIGNAL_READ_KEY))?;
-        self.poller.modify(&self.ipc_listener.socket, PollEvent::readable(IPC_READ_KEY))?;
+        if let Some(ipc_listener) = &self.ipc_listener {
+            self.poller.modify(&ipc_listener.socket, PollEvent::readable(IPC_READ_KEY))?;
+        }
 
         // Wait for the next event to be ready.
         self.events.clear();
         self.poller.wait(&mut self.events, None)?;
 
         for event in self.events.iter() {
-            if event.key == IPC_READ_KEY {
-                self.ipc_listener.process_message()?;
+            if event.key == IPC_READ_KEY
+                && let Some(ipc_listener) = &mut self.ipc_listener
+            {
+                ipc_listener.process_message()?;
             } else if event.key == SIGNAL_READ_KEY {
                 self.signal_listener.process_signal()?;
             }
@@ -97,7 +110,9 @@ impl Drop for IoListener {
         if let Err(err) = self.poller.delete(&self.signal_listener.pipe) {
             error!("Failed to remove signal listener interest: {err}");
         }
-        if let Err(err) = self.poller.delete(&self.ipc_listener.socket) {
+        if let Some(ipc_listener) = &self.ipc_listener
+            && let Err(err) = self.poller.delete(&ipc_listener.socket)
+        {
             error!("Failed to remove IPC listener interest: {err}");
         }
     }
@@ -105,5 +120,5 @@ impl Drop for IoListener {
 
 /// Public I/O event listener state.
 pub struct IoListenerHandle {
-    pub ipc_socket_path: PathBuf,
+    pub ipc_socket_path: Option<PathBuf>,
 }
