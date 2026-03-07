@@ -19,6 +19,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Pass `-q` to `login` on macOS if `~/.hushlogin` is present
 - **`ChildEvent::Exited` and `Event::ChildExit` now contain `ExitStatus` instead of `i32`**
 
+### Fixed
+
+- Windows PTY read readiness is reposted after partial processing in the event loop
+
 ## 0.25.0
 
 ### Changed

@@ -106,12 +106,16 @@ where
         state: &mut State,
         buf: &mut [u8],
         mut writer: Option<&mut X>,
-    ) -> io::Result<()>
+    ) -> io::Result<bool>
     where
         X: Write,
     {
         let mut unprocessed = 0;
         let mut processed = 0;
+        #[cfg(windows)]
+        let mut force_reregister = false;
+        #[cfg(not(windows))]
+        let force_reregister = false;
 
         // Reserve the next terminal lock for PTY reading.
         let _terminal_lease = Some(self.terminal.lease());
@@ -158,6 +162,13 @@ where
 
             // Assure we're not blocking the terminal too long unnecessarily.
             if processed >= MAX_LOCKED_READ {
+                #[cfg(windows)]
+                {
+                    // Windows PTY readiness is delivered through custom IOCP packets posted by
+                    // `tty::windows::blocking`, not through a kernel-polled source. If we stop
+                    // early with buffered bytes still available, we must force a repost.
+                    force_reregister = true;
+                }
                 break;
             }
         }
@@ -167,7 +178,7 @@ where
             self.event_proxy.send_event(Event::Wakeup);
         }
 
-        Ok(())
+        Ok(force_reregister)
     }
 
     #[inline]
@@ -253,6 +264,9 @@ where
                     break;
                 }
 
+                // Re-register readable interest when we intentionally stop processing early.
+                // On Windows this reposts a custom IOCP readiness packet for buffered PTY data.
+                let mut force_reregister = false;
                 for event in events.iter() {
                     match event.key {
                         tty::PTY_CHILD_EVENT_TOKEN => {
@@ -278,20 +292,24 @@ where
                             }
 
                             if event.readable {
-                                if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut())
-                                {
-                                    // On Linux, a `read` on the master side of a PTY can fail
-                                    // with `EIO` if the client side hangs up.  In that case,
-                                    // just loop back round for the inevitable `Exited` event.
-                                    // This sucks, but checking the process is either racy or
-                                    // blocking.
-                                    #[cfg(target_os = "linux")]
-                                    if err.raw_os_error() == Some(libc::EIO) {
-                                        continue;
-                                    }
+                                match self.pty_read(&mut state, &mut buf, pipe.as_mut()) {
+                                    Ok(should_reregister) => {
+                                        force_reregister |= should_reregister;
+                                    },
+                                    Err(err) => {
+                                        // On Linux, a `read` on the master side of a PTY can fail
+                                        // with `EIO` if the client side hangs up.  In that case,
+                                        // just loop back round for the inevitable `Exited` event.
+                                        // This sucks, but checking the process is either racy or
+                                        // blocking.
+                                        #[cfg(target_os = "linux")]
+                                        if err.raw_os_error() == Some(libc::EIO) {
+                                            continue;
+                                        }
 
-                                    error!("Error reading from PTY in event loop: {err}");
-                                    break 'event_loop;
+                                        error!("Error reading from PTY in event loop: {err}");
+                                        break 'event_loop;
+                                    },
                                 }
                             }
 
@@ -306,12 +324,12 @@ where
                     }
                 }
 
-                // Register write interest if necessary.
+                // Re-register when write interest changes or readable should be reposted.
                 let needs_write = state.needs_write();
-                if needs_write != interest.writable {
+                if force_reregister || needs_write != interest.writable {
                     interest.writable = needs_write;
 
-                    // Re-register with new interest.
+                    // Apply updated interest and/or force a readable repost.
                     self.pty.reregister(&self.poll, interest, poll_opts).unwrap();
                 }
             }
