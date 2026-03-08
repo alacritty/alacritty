@@ -92,10 +92,10 @@ impl IoListener {
         self.poller.wait(&mut self.events, None)?;
 
         for event in self.events.iter() {
-            if event.key == IPC_READ_KEY
-                && let Some(ipc_listener) = &mut self.ipc_listener
-            {
-                ipc_listener.process_message()?;
+            if event.key == IPC_READ_KEY {
+                if let Some(ipc_listener) = &mut self.ipc_listener {
+                    ipc_listener.process_message()?;
+                }
             } else if event.key == SIGNAL_READ_KEY {
                 self.signal_listener.process_signal()?;
             }
@@ -110,10 +110,10 @@ impl Drop for IoListener {
         if let Err(err) = self.poller.delete(&self.signal_listener.pipe) {
             error!("Failed to remove signal listener interest: {err}");
         }
-        if let Some(ipc_listener) = &self.ipc_listener
-            && let Err(err) = self.poller.delete(&ipc_listener.socket)
-        {
-            error!("Failed to remove IPC listener interest: {err}");
+        if let Some(ipc_listener) = &self.ipc_listener {
+            if let Err(err) = self.poller.delete(&ipc_listener.socket) {
+                error!("Failed to remove IPC listener interest: {err}");
+            }
         }
     }
 }
