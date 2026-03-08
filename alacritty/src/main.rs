@@ -189,7 +189,11 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     #[cfg(unix)]
     let socket_path = match IoListener::spawn(&config, &options, window_event_loop.create_proxy()) {
         Ok(handle) => handle.ipc_socket_path,
-        Err(err) => return Err(err.into()),
+        Err(err) if options.daemon => return Err(err.into()),
+        Err(err) => {
+            log::warn!("Unable to create socket: {err:?}");
+            None
+        },
     };
 
     // Setup automatic RAII cleanup for our files.
