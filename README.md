@@ -95,7 +95,7 @@ resources, which might be preferred by some users.
 
 If you have doubts about Alacritty's performance or usability, the best way to
 quantify terminal emulators is always to test them with **your** specific
-usecases.
+use cases.
 
 **_Why isn't feature X implemented?_**
 
