@@ -185,19 +185,15 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     #[cfg(target_os = "macos")]
     macos::disable_autofill();
 
-    // Create the IPC socket listener.
+    // Spawn the Unix I/O event polling thread.
     #[cfg(unix)]
-    let socket_path = if config.ipc_socket() {
-        match IoListener::spawn(&options, window_event_loop.create_proxy()) {
-            Ok(handle) => Some(handle.ipc_socket_path),
-            Err(err) if options.daemon => return Err(err.into()),
-            Err(err) => {
-                log::warn!("Unable to create socket: {err:?}");
-                None
-            },
-        }
-    } else {
-        None
+    let socket_path = match IoListener::spawn(&config, &options, window_event_loop.create_proxy()) {
+        Ok(handle) => handle.ipc_socket_path,
+        Err(err) if options.daemon => return Err(err.into()),
+        Err(err) => {
+            log::warn!("Unable to create socket: {err:?}");
+            None
+        },
     };
 
     // Setup automatic RAII cleanup for our files.
