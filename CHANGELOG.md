@@ -13,16 +13,29 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Packaging
 
 - Fixed invalid logo SVG attributes
+- New `alacritty-escapes(7)` manpage
+- Removed broken flash capability from terminfo
+
+### Added
+
+- Ability to bind `WheelUp` and `WheelDown` in `mouse.bindings`
+- Support TOML 1.1 syntax
+- `window.resize_increments` support on Wayland
 
 ### Changed
 
 - Don't highlight hints on hover when the mouse cursor is hidden
+- IME is disabled in Vi mode on X11
 - Require explicit tap to enable IME with touch input
+- Use built-in font for block elements symbols from `U+1FB82` to `U+1FB8B`
 
 ### Fixed
 
 - Brief error popup when saving the config file with some editors
 - Subprocesses on OpenBSD now run with their CWD set to that of the shell's foreground process.
+- Crash when OpenGL context resets
+- Crash when committing text with some IMEs on macOS
+- Signal termination skipping resource cleanup
 
 ## 0.16.1
 

@@ -55,13 +55,13 @@ use crate::daemon::foreground_process_path;
 use crate::daemon::spawn_daemon;
 use crate::display::color::Rgb;
 use crate::display::hint::HintMatch;
-use crate::display::window::Window;
+use crate::display::window::{ImeInhibitor, Window};
 use crate::display::{Display, Preedit, SizeInfo};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
-#[cfg(unix)]
-use crate::ipc::{self, SocketReply};
 use crate::logging::{LOG_TARGET_CONFIG, LOG_TARGET_WINIT};
 use crate::message_bar::{Message, MessageBuffer};
+#[cfg(unix)]
+use crate::polling::ipc::{self, SocketReply};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::window_context::WindowContext;
 
@@ -214,6 +214,7 @@ impl Processor {
                 | WindowEvent::DoubleTapGesture { .. }
                 | WindowEvent::TouchpadPressure { .. }
                 | WindowEvent::RotationGesture { .. }
+                | WindowEvent::CursorEntered { .. }
                 | WindowEvent::PinchGesture { .. }
                 | WindowEvent::AxisMotion { .. }
                 | WindowEvent::PanGesture { .. }
@@ -388,6 +389,9 @@ impl ApplicationHandler<Event> for Processor {
                     error!("Could not open window: {err:?}");
                 }
             },
+            // Shutdown all windows.
+            #[cfg(unix)]
+            (EventType::Shutdown, _) => event_loop.exit(),
             // Process events affecting all windows.
             (payload, None) => {
                 let event = WinitEvent::UserEvent(Event::new(payload, None));
@@ -549,6 +553,8 @@ pub enum EventType {
     BlinkCursor,
     BlinkCursorTimeout,
     SearchNext,
+    #[cfg(unix)]
+    Shutdown,
     Frame,
 }
 
@@ -967,8 +973,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             };
         }
 
-        // Enable IME so we can input into the search bar with it if we were in Vi mode.
-        self.window().set_text_input_active(true);
+        // Remove vi mode IME inhibitor, so the user can input the target character.
+        self.window().set_ime_inhibitor(ImeInhibitor::VI, false);
 
         self.display.damage_tracker.frame().mark_fully_damaged();
         self.display.pending_update.dirty = true;
@@ -1423,7 +1429,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         // We don't want IME in Vi mode.
-        self.window().set_text_input_active(was_in_vi_mode);
+        self.window().set_ime_inhibitor(ImeInhibitor::VI, !was_in_vi_mode);
 
         self.terminal.toggle_vi_mode();
 
@@ -1465,7 +1471,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         self.inline_search_state.char_pending = false;
         self.inline_search_state.character = Some(c);
-        self.window().set_text_input_active(false);
+        self.window().set_ime_inhibitor(ImeInhibitor::VI, true);
 
         // Immediately move to the captured character.
         self.inline_search_next();
@@ -1601,7 +1607,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     /// Cleanup the search state.
     fn exit_search(&mut self) {
         let vi_mode = self.terminal.mode().contains(TermMode::VI);
-        self.window().set_text_input_active(!vi_mode);
+        self.window().set_ime_inhibitor(ImeInhibitor::VI, vi_mode);
 
         self.display.damage_tracker.frame().mark_fully_damaged();
         self.display.pending_update.dirty = true;
@@ -1923,7 +1929,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     TerminalEvent::Exit | TerminalEvent::ChildExit(_) | TerminalEvent::Wakeup => (),
                 },
                 #[cfg(unix)]
-                EventType::IpcConfig(_) | EventType::IpcGetConfig(..) => (),
+                EventType::IpcConfig(_) | EventType::IpcGetConfig(..) | EventType::Shutdown => (),
                 EventType::Message(_)
                 | EventType::ConfigReload(_)
                 | EventType::CreateWindow(_)
@@ -1984,16 +1990,16 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             *self.ctx.dirty = true;
                         }
 
+                        // Reset the urgency hint when gaining focus.
                         if is_focused {
-                            // Reset the urgency hint when gaining focus.
                             self.ctx.window().set_urgent(false);
-                        } else {
-                            // Clear touch focus when window loses focus.
-                            self.ctx.window().set_touch_focus(false);
                         }
 
                         self.ctx.update_cursor_blinking();
                         self.on_focus_change(is_focused);
+
+                        // Ensure IME is disabled while unfocused.
+                        self.ctx.window().set_ime_inhibitor(ImeInhibitor::FOCUS, !is_focused);
                     },
                     WindowEvent::Occluded(occluded) => {
                         *self.ctx.occluded = occluded;
@@ -2002,9 +2008,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         let path: String = path.to_string_lossy().into();
                         self.ctx.paste(&(path + " "), true);
                     },
-                    WindowEvent::CursorEntered { .. } => self.ctx.window().set_pointer_focus(true),
                     WindowEvent::CursorLeft { .. } => {
-                        self.ctx.window().set_pointer_focus(false);
                         self.ctx.mouse.inside_text_area = false;
 
                         if self.ctx.display().highlighted_hint.is_some() {
@@ -2042,6 +2046,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     | WindowEvent::DoubleTapGesture { .. }
                     | WindowEvent::TouchpadPressure { .. }
                     | WindowEvent::RotationGesture { .. }
+                    | WindowEvent::CursorEntered { .. }
                     | WindowEvent::PinchGesture { .. }
                     | WindowEvent::AxisMotion { .. }
                     | WindowEvent::PanGesture { .. }

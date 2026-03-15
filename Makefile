@@ -35,10 +35,10 @@ help: ## Print this help message
 binary: $(TARGET)-native ## Build a release binary
 binary-universal: $(TARGET)-universal ## Build a universal release binary
 $(TARGET)-native:
-	MACOSX_DEPLOYMENT_TARGET="10.11" cargo build --release
+	MACOSX_DEPLOYMENT_TARGET="10.12" cargo build --release
 $(TARGET)-universal:
-	MACOSX_DEPLOYMENT_TARGET="10.11" cargo build --release --target=x86_64-apple-darwin
-	MACOSX_DEPLOYMENT_TARGET="10.11" cargo build --release --target=aarch64-apple-darwin
+	MACOSX_DEPLOYMENT_TARGET="10.12" cargo build --release --target=x86_64-apple-darwin
+	MACOSX_DEPLOYMENT_TARGET="10.12" cargo build --release --target=aarch64-apple-darwin
 	@lipo target/{x86_64,aarch64}-apple-darwin/release/$(TARGET) -create -output $(APP_BINARY)
 
 app: $(APP_NAME)-native ## Create an Alacritty.app

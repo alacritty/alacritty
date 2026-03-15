@@ -27,6 +27,7 @@ use {
     winit::platform::macos::{OptionAsAlt, WindowAttributesExtMacOS, WindowExtMacOS},
 };
 
+use bitflags::bitflags;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 use winit::monitor::MonitorHandle;
@@ -119,10 +120,8 @@ pub struct Window {
 
     is_x11: bool,
     current_mouse_cursor: CursorIcon,
-    text_input_active: bool,
-    pointer_focused: bool,
-    touch_focused: bool,
     mouse_visible: bool,
+    ime_inhibitor: ImeInhibitor,
 }
 
 impl Window {
@@ -205,18 +204,16 @@ impl Window {
         let is_x11 = matches!(window.window_handle().unwrap().as_raw(), RawWindowHandle::Xlib(_));
 
         Ok(Self {
-            current_mouse_cursor,
-            scale_factor,
-            is_x11,
-            window,
             hold: options.terminal_options.hold,
             requested_redraw: false,
-            text_input_active: true,
             title: identity.title,
+            current_mouse_cursor,
             mouse_visible: true,
             has_frame: true,
-            pointer_focused: Default::default(),
-            touch_focused: Default::default(),
+            scale_factor,
+            window,
+            is_x11,
+            ime_inhibitor: Default::default(),
         })
     }
 
@@ -439,39 +436,14 @@ impl Window {
         self.window.set_simple_fullscreen(simple_fullscreen);
     }
 
-    /// Set whether plain-text input is currently possible.
-    pub fn set_text_input_active(&mut self, active: bool) {
-        if self.text_input_active != active {
-            self.text_input_active = active;
-            self.update_ime_allowed();
+    /// Set IME inhibitor state and disable IME while any are present.
+    ///
+    /// IME is re-enabled once all inhibitors are unset.
+    pub fn set_ime_inhibitor(&mut self, inhibitor: ImeInhibitor, inhibit: bool) {
+        if self.ime_inhibitor.contains(inhibitor) != inhibit {
+            self.ime_inhibitor.set(inhibitor, inhibit);
+            self.window.set_ime_allowed(self.ime_inhibitor.is_empty());
         }
-    }
-
-    /// Set whether the pointer is currently within the window.
-    pub fn set_pointer_focus(&mut self, focused: bool) {
-        if self.touch_focused != focused {
-            self.touch_focused = focused;
-            self.update_ime_allowed();
-        }
-    }
-
-    /// Set whether a touch action has focused the window.
-    pub fn set_touch_focus(&mut self, focused: bool) {
-        if self.touch_focused != focused {
-            self.touch_focused = focused;
-            self.update_ime_allowed();
-        }
-    }
-
-    /// Update whether IME should be offered.
-    fn update_ime_allowed(&mut self) {
-        // Skip runtime IME manipulation on X11 since it breaks some IMEs.
-        if self.is_x11 {
-            return;
-        }
-
-        let allowed = self.text_input_active && (self.touch_focused || self.pointer_focused);
-        self.window.set_ime_allowed(allowed);
     }
 
     /// Adjust the IME editor position according to the new location of the cursor.
@@ -538,6 +510,16 @@ impl Window {
     #[cfg(target_os = "macos")]
     pub fn tabbing_id(&self) -> String {
         self.window.tabbing_identifier()
+    }
+}
+
+bitflags! {
+    /// IME inhibition sources.
+    #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct ImeInhibitor: u8 {
+        const FOCUS = 1;
+        const TOUCH = 1 << 1;
+        const VI    = 1 << 2;
     }
 }
 

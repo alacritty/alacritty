@@ -31,7 +31,7 @@ smallvec = { version = "1.13.1", features = ["serde"] }
 [target.'cfg(unix)'.dependencies]
 rustix-openpty = "0.2.0"
 rustix = { version = "1.0.0", default-features = false, features = ["std"] }
-signal-hook = "0.3.10"
+signal-hook = "0.4.3"
 
 [target.'cfg(windows)'.dependencies]
 piper = "0.2.1"

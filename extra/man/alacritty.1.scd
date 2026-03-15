@@ -138,7 +138,7 @@ set of features with high performance.
 
 # SEE ALSO
 
-*alacritty-msg*(1), *alacritty*(5), *alacritty-bindings*(5)
+*alacritty-msg*(1), *alacritty*(5), *alacritty-bindings*(5), *alacritty-escapes*(7)
 
 # BUGS
 

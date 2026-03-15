@@ -597,7 +597,7 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 
 # SEE ALSO
 
-*alacritty*(1), *alacritty-msg*(1), *alacritty*(5)
+*alacritty*(1), *alacritty-msg*(1), *alacritty*(5), *alacritty-escapes*(7)
 
 # BUGS
 
