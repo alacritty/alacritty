@@ -1,5 +1,6 @@
 #![allow(clippy::enum_glob_use)]
 
+use std::any::Any;
 use std::fmt::{self, Debug, Display};
 
 use bitflags::bitflags;
@@ -49,18 +50,20 @@ pub type KeyBinding = Binding<BindingKey>;
 /// Bindings that are triggered by a mouse event.
 pub type MouseBinding = Binding<MouseEvent>;
 
-impl<T: Eq> Binding<T> {
+impl<T: Eq + Any> Binding<T> {
     #[inline]
     pub fn is_triggered_by(&self, mode: BindingMode, mods: ModifiersState, input: &T) -> bool {
         // Check input first since bindings are stored in one big list. This is
         // the most likely item to fail so prioritizing it here allows more
         // checks to be short circuited.
         self.trigger == *input
-            && self.mods == mods
+            && mods_match(&self.trigger, input, self.mods, mods)
             && mode.contains(self.mode)
             && !mode.intersects(self.notmode)
     }
+}
 
+impl<T: Eq> Binding<T> {
     #[inline]
     pub fn triggers_match(&self, binding: &Binding<T>) -> bool {
         // Check the binding's key and modifiers.
@@ -83,6 +86,32 @@ impl<T: Eq> Binding<T> {
 
         true
     }
+}
+
+fn mods_match<T: Eq + Any>(
+    trigger: &T,
+    input: &T,
+    binding_mods: ModifiersState,
+    mods: ModifiersState,
+) -> bool {
+    if binding_mods == mods {
+        return true;
+    }
+
+    let Some(trigger) = (trigger as &dyn Any).downcast_ref::<BindingKey>() else {
+        return false;
+    };
+    let Some(input) = (input as &dyn Any).downcast_ref::<BindingKey>() else {
+        return false;
+    };
+
+    matches!(
+        (trigger, input),
+        (
+            BindingKey::Keycode { key: Key::Character(_), .. },
+            BindingKey::Keycode { key: Key::Character(_), .. },
+        )
+    ) && binding_mods == (mods & !ModifiersState::SHIFT)
 }
 
 #[derive(ConfigDeserialize, Debug, Clone, PartialEq, Eq)]
@@ -408,12 +437,24 @@ macro_rules! bindings {
 }
 
 macro_rules! trigger {
-    (KeyBinding, $key:literal, $location:expr) => {{ BindingKey::Keycode { key: Key::Character($key.into()), location: $location } }};
-    (KeyBinding, $key:literal,) => {{ BindingKey::Keycode { key: Key::Character($key.into()), location: KeyLocation::Any } }};
-    (KeyBinding, $key:ident, $location:expr) => {{ BindingKey::Keycode { key: Key::Named(NamedKey::$key), location: $location } }};
-    (KeyBinding, $key:ident,) => {{ BindingKey::Keycode { key: Key::Named(NamedKey::$key), location: KeyLocation::Any } }};
-    (MouseBinding, MouseButton::$button:ident,) => {{ MouseEvent::Button(MouseButton::$button) }};
-    (MouseBinding, MouseEvent::$event:ident,) => {{ MouseEvent::$event }};
+    (KeyBinding, $key:literal, $location:expr) => {{
+        BindingKey::Keycode { key: Key::Character($key.into()), location: $location }
+    }};
+    (KeyBinding, $key:literal,) => {{
+        BindingKey::Keycode { key: Key::Character($key.into()), location: KeyLocation::Any }
+    }};
+    (KeyBinding, $key:ident, $location:expr) => {{
+        BindingKey::Keycode { key: Key::Named(NamedKey::$key), location: $location }
+    }};
+    (KeyBinding, $key:ident,) => {{
+        BindingKey::Keycode { key: Key::Named(NamedKey::$key), location: KeyLocation::Any }
+    }};
+    (MouseBinding, MouseButton::$button:ident,) => {{
+        MouseEvent::Button(MouseButton::$button)
+    }};
+    (MouseBinding, MouseEvent::$event:ident,) => {{
+        MouseEvent::$event
+    }};
 }
 
 pub fn default_mouse_bindings() -> Vec<MouseBinding> {
@@ -1448,5 +1489,26 @@ mod tests {
         assert!(binding.is_triggered_by(BindingMode::VI, mods, &t));
         assert!(!binding.is_triggered_by(BindingMode::ALT_SCREEN, mods, &t));
         assert!(!binding.is_triggered_by(BindingMode::ALT_SCREEN | BindingMode::VI, mods, &t));
+    }
+
+    #[test]
+    fn key_binding_matches_shifted_character_without_shift_modifier() {
+        let binding = KeyBinding {
+            trigger: BindingKey::Keycode {
+                key: Key::Character("/".into()),
+                location: KeyLocation::Standard,
+            },
+            mods: ModifiersState::empty(),
+            mode: BindingMode::VI,
+            notmode: BindingMode::SEARCH,
+            action: Action::SearchForward,
+        };
+
+        let input = BindingKey::Keycode {
+            key: Key::Character("/".into()),
+            location: KeyLocation::Standard,
+        };
+
+        assert!(binding.is_triggered_by(BindingMode::VI, ModifiersState::SHIFT, &input));
     }
 }
