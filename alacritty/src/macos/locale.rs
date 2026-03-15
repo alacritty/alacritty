@@ -11,7 +11,7 @@ use objc2_foundation::{NSLocale, NSObjectProtocol};
 const FALLBACK_LOCALE: &str = "UTF-8";
 
 pub fn set_locale_environment() {
-    let env_locale_c = CString::new("").unwrap();
+    let env_locale_c = CString::new("").expect("Empty string should be valid for CString");
     let env_locale_ptr = unsafe { setlocale(LC_ALL, env_locale_c.as_ptr()) };
     if !env_locale_ptr.is_null() {
         let env_locale = unsafe { CStr::from_ptr(env_locale_ptr).to_string_lossy() };
@@ -34,7 +34,7 @@ pub fn set_locale_environment() {
         // Use fallback locale.
         debug!("Using fallback locale: {}", FALLBACK_LOCALE);
 
-        let fallback_locale_c = CString::new(FALLBACK_LOCALE).unwrap();
+        let fallback_locale_c = CString::new(FALLBACK_LOCALE).expect("FALLBACK_LOCALE should be valid for CString");
         unsafe { setlocale(LC_CTYPE, fallback_locale_c.as_ptr()) };
 
         unsafe { env::set_var("LC_CTYPE", FALLBACK_LOCALE) };

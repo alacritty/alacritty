@@ -28,9 +28,9 @@ pub fn create_gl_display(
 
     #[cfg(windows)]
     let preference = if _prefer_egl {
-        DisplayApiPreference::EglThenWgl(Some(_raw_window_handle.unwrap()))
+        DisplayApiPreference::EglThenWgl(Some(_raw_window_handle.expect("Raw window handle should be present on Windows")))
     } else {
-        DisplayApiPreference::WglThenEgl(Some(_raw_window_handle.unwrap()))
+        DisplayApiPreference::WglThenEgl(Some(_raw_window_handle.expect("Raw window handle should be present on Windows")))
     };
 
     #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
@@ -144,7 +144,7 @@ pub fn create_gl_context(
     }
 
     // If no context was built successfully, return an error for the most permissive one.
-    Err(error.unwrap())
+    Err(error.expect("At least one context building error should be present"))
 }
 
 pub fn create_gl_surface(
@@ -159,8 +159,8 @@ pub fn create_gl_surface(
     let surface_attributes =
         SurfaceAttributesBuilder::<WindowSurface>::new().with_srgb(Some(false)).build(
             raw_window_handle,
-            NonZeroU32::new(size.width).unwrap(),
-            NonZeroU32::new(size.height).unwrap(),
+            NonZeroU32::new(size.width).expect("Surface width should be non-zero"),
+            NonZeroU32::new(size.height).expect("Surface height should be non-zero"),
         );
 
     // Create the GL surface to draw into.

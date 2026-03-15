@@ -147,13 +147,17 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
     info!(
         "Running on {}",
-        if matches!(
-            window_event_loop.display_handle().unwrap().as_raw(),
-            RawDisplayHandle::Wayland(_)
-        ) {
-            "Wayland"
+        if let Ok(display_handle) = window_event_loop.display_handle() {
+            if matches!(
+                display_handle.as_raw(),
+                RawDisplayHandle::Wayland(_)
+            ) {
+                "Wayland"
+            } else {
+                "X11"
+            }
         } else {
-            "X11"
+            "Unknown"
         }
     );
     #[cfg(not(any(feature = "x11", target_os = "macos", windows)))]

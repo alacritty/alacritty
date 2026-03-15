@@ -388,8 +388,8 @@ impl SequenceBuilder {
         if character.chars().count() == 1 {
             let shift = self.modifiers.contains(SequenceModifiers::SHIFT);
 
-            let ch = character.chars().next().unwrap();
-            let unshifted_ch = if shift { ch.to_lowercase().next().unwrap() } else { ch };
+            let ch = character.chars().next().expect("Character string should not be empty");
+            let unshifted_ch = if shift { ch.to_lowercase().next().expect("Lowercase conversion should produce at least one character") } else { ch };
 
             let alternate_key_code = u32::from(ch);
             let mut unicode_key_code = u32::from(unshifted_ch);
@@ -713,6 +713,6 @@ impl From<ModifiersState> for SequenceModifiers {
 fn is_control_character(text: &str) -> bool {
     // 0x7f (DEL) is included here since it has a dedicated control code (`^?`) which generally
     // does not match the reported text (`^H`), despite not technically being part of C0 or C1.
-    let codepoint = text.bytes().next().unwrap();
+    let codepoint = text.bytes().next().expect("Text should not be empty");
     text.len() == 1 && (codepoint < 0x20 || (0x7f..=0x9f).contains(&codepoint))
 }

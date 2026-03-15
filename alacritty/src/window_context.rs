@@ -77,7 +77,7 @@ impl WindowContext {
         config: Rc<UiConfig>,
         mut options: WindowOptions,
     ) -> Result<Self, Box<dyn Error>> {
-        let raw_display_handle = event_loop.display_handle().unwrap().as_raw();
+        let raw_display_handle = event_loop.display_handle().expect("Failed to get display handle").as_raw();
 
         let mut identity = config.window.identity.clone();
         options.window_identity.override_identity_config(&mut identity);

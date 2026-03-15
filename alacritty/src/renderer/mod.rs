@@ -125,7 +125,7 @@ impl Renderer {
         if !GL_FUNS_LOADED.swap(true, Ordering::Relaxed) {
             let gl_display = context.display();
             gl::load_with(|symbol| {
-                let symbol = CString::new(symbol).unwrap();
+                let symbol = CString::new(symbol).expect("Failed to create CString from symbol");
                 gl_display.get_proc_address(symbol.as_c_str()).cast()
             });
         }

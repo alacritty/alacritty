@@ -34,19 +34,19 @@ impl Clipboard {
     /// Used for tests, to handle missing clipboard provider when built without the `x11`
     /// feature, and as default clipboard value.
     pub fn new_nop() -> Self {
-        Self { clipboard: Box::new(NopClipboardContext::new().unwrap()), selection: None }
+        Self { clipboard: Box::new(NopClipboardContext::new().expect("Failed to create NopClipboardContext")), selection: None }
     }
 }
 
 impl Default for Clipboard {
     fn default() -> Self {
         #[cfg(any(target_os = "macos", windows))]
-        return Self { clipboard: Box::new(ClipboardContext::new().unwrap()), selection: None };
+        return Self { clipboard: Box::new(ClipboardContext::new().expect("Failed to create ClipboardContext")), selection: None };
 
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         return Self {
-            clipboard: Box::new(ClipboardContext::new().unwrap()),
-            selection: Some(Box::new(X11ClipboardContext::<X11SelectionClipboard>::new().unwrap())),
+            clipboard: Box::new(ClipboardContext::new().expect("Failed to create ClipboardContext")),
+            selection: Some(Box::new(X11ClipboardContext::<X11SelectionClipboard>::new().expect("Failed to create X11ClipboardContext"))),
         };
 
         #[cfg(not(any(feature = "x11", target_os = "macos", windows)))]

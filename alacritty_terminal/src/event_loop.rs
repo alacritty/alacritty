@@ -147,7 +147,9 @@ where
 
             // Write a copy of the bytes to the ref test file.
             if let Some(writer) = &mut writer {
-                writer.write_all(&buf[..unprocessed]).unwrap();
+                if let Err(e) = writer.write_all(&buf[..unprocessed]) {
+                    error!("Failed to write to ref test file: {e}");
+                }
             }
 
             // Parse the incoming bytes.
@@ -216,7 +218,7 @@ where
                 return (self, state);
             }
 
-            let mut events = Events::with_capacity(NonZeroUsize::new(1024).unwrap());
+            let mut events = Events::with_capacity(NonZeroUsize::new(1024).expect("Events capacity should be non-zero"));
 
             let mut pipe = if self.ref_test {
                 Some(File::create("./alacritty.recording").expect("create alacritty recording"))
@@ -312,7 +314,9 @@ where
                     interest.writable = needs_write;
 
                     // Re-register with new interest.
-                    self.pty.reregister(&self.poll, interest, poll_opts).unwrap();
+                    if let Err(e) = self.pty.reregister(&self.poll, interest, poll_opts) {
+                        error!("Failed to re-register PTY: {e}");
+                    }
                 }
             }
 
