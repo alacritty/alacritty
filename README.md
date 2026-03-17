@@ -23,7 +23,7 @@ a daily driver.
 
 Precompiled binaries are available from the [GitHub releases page](https://github.com/alacritty/alacritty/releases).
 
-Join [`#alacritty`] on libera.chat if you have questions or looking for a quick help.
+Join [`#alacritty`] on libera.chat if you have questions or are looking for quick help.
 
 [`#alacritty`]: https://web.libera.chat/gamja/?channels=#alacritty
 
