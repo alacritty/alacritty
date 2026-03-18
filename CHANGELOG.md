@@ -28,6 +28,8 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - IME is disabled in Vi mode on X11
 - Require explicit tap to enable IME with touch input
 - Use built-in font for block elements symbols from `U+1FB82` to `U+1FB8B`
+- Coalesce terminal wakeup events to reduce redundant redraw scheduling
+- Reduce per-frame allocations in grid rendering and damage tracking
 
 ### Fixed
 
@@ -36,6 +38,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Crash when OpenGL context resets
 - Crash when committing text with some IMEs on macOS
 - Signal termination skipping resource cleanup
+- Ensure redraw is requested again when a window becomes visible after occlusion
 
 ## 0.16.1
 

@@ -15,8 +15,8 @@ use std::os::unix::io::RawFd;
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::rc::Rc;
-#[cfg(unix)]
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
@@ -408,10 +408,7 @@ impl ApplicationHandler<Event> for Processor {
             },
             (EventType::Terminal(TerminalEvent::Wakeup), Some(window_id)) => {
                 if let Some(window_context) = self.windows.get_mut(window_id) {
-                    window_context.dirty = true;
-                    if window_context.display.window.has_frame {
-                        window_context.display.window.request_redraw();
-                    }
+                    window_context.handle_pending_wakeup();
                 }
             },
             (EventType::Terminal(TerminalEvent::Exit), Some(window_id)) => {
@@ -2003,6 +2000,13 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     WindowEvent::Occluded(occluded) => {
                         *self.ctx.occluded = occluded;
+                        if !occluded {
+                            // Mark dirty and request a redraw. The wakeup gate will be
+                            // reset by `on_frame_complete` after the draw actually
+                            // completes, which avoids taking the terminal lock here.
+                            *self.ctx.dirty = true;
+                            self.ctx.window().request_redraw();
+                        }
                     },
                     WindowEvent::DroppedFile(path) => {
                         let path: String = path.to_string_lossy().into();
@@ -2073,21 +2077,182 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 pub struct EventProxy {
     proxy: EventLoopProxy<Event>,
     window_id: WindowId,
+    /// Shared redraw gate between the terminal thread and window thread.
+    ///
+    /// Wakeups originate on the PTY side, but they are only considered
+    /// "consumed" after a visible frame finishes on the window side. This
+    /// shared gate is the handshake between those two threads.
+    pending_wakeup: WakeupGate,
+}
+
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WakeupState {
+    Idle = 0,
+    Pending = 1,
+    PendingWithRequeue = 2,
+}
+
+impl WakeupState {
+    fn from_u8(value: u8) -> Self {
+        match value {
+            0 => Self::Idle,
+            1 => Self::Pending,
+            2 => Self::PendingWithRequeue,
+            _ => unreachable!("invalid WakeupState"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct WakeupGate {
+    state: Arc<AtomicU8>,
+}
+
+impl WakeupGate {
+    /// Wakeup lifecycle:
+    ///
+    /// 1. PTY activity calls `try_queue`.
+    /// 2. The first wakeup moves IDLE -> PENDING and is sent to winit.
+    /// 3. Extra wakeups while that frame is outstanding collapse into PENDING_WITH_REQUEUE.
+    /// 4. `WindowContext::draw` calls `on_frame_complete` only after a real, visible draw. That
+    ///    resets the state back toward IDLE and re-sends exactly one wakeup if activity accumulated
+    ///    meanwhile.
+    ///
+    /// This keeps redraws coalesced without dropping terminal progress when the
+    /// window is throttled, temporarily occluded, or receives unrelated redraws.
+    ///
+    /// Try to queue a wakeup event.
+    ///
+    /// Returns `true` when the caller should send the event (IDLE -> PENDING).
+    /// When already PENDING, escalates to PENDING_WITH_REQUEUE so the
+    /// consumer will re-send after the current frame completes.
+    #[must_use]
+    fn try_queue(&self) -> bool {
+        let mut current = self.state.load(Ordering::Relaxed);
+        loop {
+            let next = match WakeupState::from_u8(current) {
+                WakeupState::Idle => WakeupState::Pending as u8,
+                WakeupState::Pending => WakeupState::PendingWithRequeue as u8,
+                WakeupState::PendingWithRequeue => return false,
+            };
+
+            match self.state.compare_exchange_weak(
+                current,
+                next,
+                Ordering::Release,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => return WakeupState::from_u8(current) == WakeupState::Idle,
+                Err(prev) => current = prev,
+            }
+        }
+    }
+
+    /// Mark redraw completion.
+    ///
+    /// Returns `true` when a coalesced wakeup should be requeued
+    /// (PENDING_WITH_REQUEUE -> PENDING).
+    ///
+    /// No-op when the gate is already IDLE (e.g. a spurious or
+    /// non-wakeup-driven redraw), so callers need not guard against that.
+    #[must_use]
+    fn on_redraw_complete(&self) -> bool {
+        let mut current = self.state.load(Ordering::Relaxed);
+        loop {
+            let next = match WakeupState::from_u8(current) {
+                WakeupState::Pending => WakeupState::Idle as u8,
+                WakeupState::PendingWithRequeue => WakeupState::Pending as u8,
+                WakeupState::Idle => return false,
+            };
+
+            match self.state.compare_exchange_weak(
+                current,
+                next,
+                Ordering::Acquire,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => return WakeupState::from_u8(current) == WakeupState::PendingWithRequeue,
+                Err(prev) => current = prev,
+            }
+        }
+    }
+
+    /// Reset the gate after the event loop proxy rejects the wakeup event.
+    ///
+    /// This allows future `try_queue` calls to succeed again. In practice,
+    /// send failures only occur when the event loop is shutting down, so the
+    /// brief IDLE->PENDING->IDLE cycle for any remaining PTY wakeups is harmless
+    /// - the PTY reader thread will exit shortly after the event loop is gone.
+    fn reset_after_send_failure(&self) {
+        self.state.store(WakeupState::Idle as u8, Ordering::Release);
+    }
+
+    fn is_pending(&self) -> bool {
+        WakeupState::from_u8(self.state.load(Ordering::Acquire)) != WakeupState::Idle
+    }
 }
 
 impl EventProxy {
     pub fn new(proxy: EventLoopProxy<Event>, window_id: WindowId) -> Self {
-        Self { proxy, window_id }
+        Self { proxy, window_id, pending_wakeup: WakeupGate::default() }
+    }
+
+    /// Signal that a frame has been drawn, resetting the wakeup gate.
+    ///
+    /// If a wakeup was coalesced while the previous frame was pending, this
+    /// requeues a single wakeup event so it is not silently dropped.
+    pub(crate) fn on_frame_complete(&self) {
+        if self.pending_wakeup.on_redraw_complete() {
+            self.send_wakeup_event();
+        }
+    }
+
+    /// Whether a queued wakeup event still represents unfinished work.
+    ///
+    /// Visible draws can consume the wakeup gate before an already posted
+    /// `TerminalEvent::Wakeup` is delivered. Callers should ignore such stale
+    /// wakeups instead of scheduling a redundant redraw.
+    pub(crate) fn has_pending_wakeup(&self) -> bool {
+        self.pending_wakeup.is_pending()
     }
 
     /// Send an event to the event loop.
+    ///
+    /// `TerminalEvent::Wakeup` must flow through this method so wakeups cannot
+    /// accidentally bypass the coalescing gate.
     pub fn send_event(&self, event: EventType) {
-        let _ = self.proxy.send_event(Event::new(event, self.window_id));
+        match event {
+            EventType::Terminal(TerminalEvent::Wakeup) => {
+                if !self.pending_wakeup.try_queue() {
+                    return;
+                }
+
+                self.send_wakeup_event();
+            },
+            event => {
+                let _ = self.proxy.send_event(Event::new(event, self.window_id));
+            },
+        }
+    }
+
+    fn send_wakeup_event(&self) {
+        if self
+            .proxy
+            .send_event(Event::new(EventType::Terminal(TerminalEvent::Wakeup), self.window_id))
+            .is_err()
+        {
+            self.pending_wakeup.reset_after_send_failure();
+        }
     }
 }
 
 impl EventListener for EventProxy {
     fn send_event(&self, event: TerminalEvent) {
-        let _ = self.proxy.send_event(Event::new(event.into(), self.window_id));
+        self.send_event(event.into());
     }
 }
+
+#[cfg(test)]
+#[path = "event_tests.rs"]
+mod tests;

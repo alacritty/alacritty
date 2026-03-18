@@ -61,6 +61,8 @@ pub struct WindowContext {
     touch: TouchPurpose,
     occluded: bool,
     preserve_title: bool,
+    /// Stored separately from the terminal to allow `on_frame_complete` without locking.
+    event_proxy: EventProxy,
     #[cfg(not(windows))]
     master_fd: RawFd,
     #[cfg(not(windows))]
@@ -234,6 +236,7 @@ impl WindowContext {
         // Create context for the Alacritty window.
         Ok(WindowContext {
             preserve_title,
+            event_proxy,
             terminal,
             display,
             #[cfg(not(windows))]
@@ -295,13 +298,12 @@ impl WindowContext {
             self.display.pending_update.dirty = true;
         }
 
-        // Update title on config reload according to the following table.
+        // Update title on config reload using these rules:
         //
-        // │cli │ dynamic_title │ current_title == old_config ││ set_title │
-        // │ Y  │       _       │              _              ││     N     │
-        // │ N  │       Y       │              Y              ││     Y     │
-        // │ N  │       Y       │              N              ││     N     │
-        // │ N  │       N       │              _              ││     Y     │
+        // - Never overwrite an explicit CLI title.
+        // - With dynamic titles enabled, update only if the current title still matches the old
+        //   config title.
+        // - With dynamic titles disabled, always restore the configured title.
         if !self.preserve_title
             && (!self.config.window.dynamic_title
                 || self.display.window.title() == old_config.window.identity.title)
@@ -362,7 +364,29 @@ impl WindowContext {
         self.update_config(config);
     }
 
+    /// Apply a queued PTY wakeup if it still represents unfinished work.
+    ///
+    /// A visible draw can consume the wakeup gate before an already posted
+    /// `TerminalEvent::Wakeup` is delivered back from winit. Ignoring such
+    /// stale wakeups avoids scheduling a redundant redraw.
+    pub(crate) fn handle_pending_wakeup(&mut self) {
+        if !self.event_proxy.has_pending_wakeup() {
+            return;
+        }
+
+        self.dirty = true;
+        if self.display.window.has_frame {
+            self.display.window.request_redraw();
+        }
+    }
+
     /// Draw the window.
+    ///
+    /// Successful visible draws reset the PTY wakeup gate before returning, so
+    /// callers do not need to remember separate frame-completion bookkeeping.
+    /// The gate is intentionally completed here, after `Display::draw`,
+    /// because this is the earliest point where the window thread knows a
+    /// visible frame really finished.
     pub fn draw(&mut self, scheduler: &mut Scheduler) {
         self.display.window.requested_redraw = false;
 
@@ -395,6 +419,7 @@ impl WindowContext {
             &self.config,
             &mut self.search_state,
         );
+        self.event_proxy.on_frame_complete();
     }
 
     /// Process events for this terminal window.

@@ -183,11 +183,15 @@ impl FrameDamage {
     fn reset(&mut self, num_lines: usize, num_cols: usize) {
         self.full = false;
         self.rects.clear();
-        self.lines.clear();
-        self.lines.reserve(num_lines);
-        for line in 0..num_lines {
-            self.lines.push(LineDamageBounds::undamaged(line, num_cols));
+
+        self.lines.truncate(num_lines);
+        for line in &mut self.lines {
+            line.reset(num_cols);
         }
+
+        let current_len = self.lines.len();
+        self.lines
+            .extend((current_len..num_lines).map(|i| LineDamageBounds::undamaged(i, num_cols)));
     }
 
     /// Check if a range is damaged.

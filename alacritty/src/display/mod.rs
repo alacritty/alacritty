@@ -44,7 +44,7 @@ use crate::config::window::Dimensions;
 use crate::config::window::StartupMode;
 use crate::display::bell::VisualBell;
 use crate::display::color::{List, Rgb};
-use crate::display::content::{RenderableContent, RenderableCursor};
+use crate::display::content::{RenderableCell, RenderableContent, RenderableCursor};
 use crate::display::cursor::IntoRects;
 use crate::display::damage::{DamageTracker, damage_y_to_viewport_y};
 use crate::display::hint::{HintMatch, HintState};
@@ -178,7 +178,7 @@ impl From<SizeInfo<f32>> for SizeInfo<u32> {
             padding_x: size_info.padding_x as u32,
             padding_y: size_info.padding_y as u32,
             screen_lines: size_info.screen_lines,
-            columns: size_info.screen_lines,
+            columns: size_info.columns,
         }
     }
 }
@@ -388,6 +388,9 @@ pub struct Display {
     // Mouse point position when highlighting hints.
     hint_mouse_point: Option<Point>,
 
+    // Cursor to restore when a highlighted hint disappears without mouse movement.
+    fallback_mouse_cursor: CursorIcon,
+
     renderer: ManuallyDrop<Renderer>,
     renderer_preference: Option<RendererPreference>,
 
@@ -396,6 +399,7 @@ pub struct Display {
     context: ManuallyDrop<PossiblyCurrentContext>,
 
     glyph_cache: GlyphCache,
+    grid_cells: Vec<RenderableCell>,
     meter: Meter,
 }
 
@@ -525,6 +529,7 @@ impl Display {
             raw_window_handle,
             damage_tracker,
             glyph_cache,
+            grid_cells: Vec::new(),
             hint_state,
             size_info,
             font_size,
@@ -535,6 +540,7 @@ impl Display {
             vi_highlighted_hint: Default::default(),
             highlighted_hint: Default::default(),
             hint_mouse_point: Default::default(),
+            fallback_mouse_cursor: CursorIcon::Text,
             pending_update: Default::default(),
             cursor_hidden: Default::default(),
             meter: Default::default(),
@@ -780,12 +786,18 @@ impl Display {
         config: &UiConfig,
         search_state: &mut SearchState,
     ) {
-        // Collect renderable content before the terminal is dropped.
+        // Reuse the grid cell buffer from the previous frame to avoid re-allocation.
+        let mut grid_cells = mem::take(&mut self.grid_cells);
+        grid_cells.clear();
+        let viewport_cell_capacity =
+            self.size_info.screen_lines().saturating_mul(self.size_info.columns());
+        grid_cells.reserve(viewport_cell_capacity);
         let mut content = RenderableContent::new(config, self, &terminal, search_state);
-        let mut grid_cells = Vec::new();
-        for cell in &mut content {
-            grid_cells.push(cell);
-        }
+        grid_cells.extend(&mut content);
+        // Retain enough capacity for a fully populated viewport so dense frames
+        // after sparse ones do not re-allocate, but avoid pinning a large
+        // fixed-size buffer for small windows.
+        let retain_grid_cell_capacity = grid_cells.len().max(viewport_cell_capacity);
         let selection_range = content.selection_range();
         let foreground_color = content.color(NamedColor::Foreground as usize);
         let background_color = content.color(NamedColor::Background as usize);
@@ -855,7 +867,7 @@ impl Display {
             let vi_highlighted_hint = &self.vi_highlighted_hint;
             let damage_tracker = &mut self.damage_tracker;
 
-            let cells = grid_cells.into_iter().map(|mut cell| {
+            let cells = grid_cells.drain(..).map(|mut cell| {
                 // Underline hints hovered by mouse or vi mode cursor.
                 if has_highlighted_hint {
                     let point = term::viewport_to_point(display_offset, cell.point);
@@ -877,6 +889,12 @@ impl Display {
             });
             self.renderer.draw_cells(&size_info, glyph_cache, cells);
         }
+
+        // Restore the drained Vec to self for reuse next frame, capping capacity.
+        if grid_cells.capacity() > retain_grid_cell_capacity {
+            grid_cells.shrink_to(retain_grid_cell_capacity);
+        }
+        self.grid_cells = grid_cells;
 
         let mut rects = lines.rects(&metrics, &size_info);
 
@@ -1063,6 +1081,10 @@ impl Display {
         mouse: &Mouse,
         modifiers: ModifiersState,
     ) -> bool {
+        let has_selection = !term.selection.as_ref().is_none_or(Selection::is_empty);
+        let fallback_mouse_cursor = mouse_cursor_without_hint(*term.mode(), modifiers);
+        self.fallback_mouse_cursor = fallback_mouse_cursor;
+
         // Update vi mode cursor hint.
         let vi_highlighted_hint = if term.mode().contains(TermMode::VI) {
             let mods = ModifiersState::all();
@@ -1081,13 +1103,21 @@ impl Display {
         }
 
         // Abort if mouse highlighting conditions are not met.
-        if !self.window.mouse_visible()
-            || !mouse.inside_text_area
-            || !term.selection.as_ref().is_none_or(Selection::is_empty)
-        {
+        if !self.window.mouse_visible() || !mouse.inside_text_area || has_selection {
             if self.highlighted_hint.take().is_some() {
+                self.hint_mouse_point = None;
                 self.damage_tracker.frame().mark_fully_damaged();
                 dirty = true;
+
+                // Mirror the normal cursor restoration path when a stationary selection clears
+                // the hint, but avoid overriding cursor state chosen outside the text area.
+                if should_restore_mouse_cursor_after_hint_abort(
+                    self.window.mouse_visible(),
+                    mouse.inside_text_area,
+                    has_selection,
+                ) {
+                    self.window.set_mouse_cursor(fallback_mouse_cursor);
+                }
             }
             return dirty;
         }
@@ -1105,11 +1135,7 @@ impl Display {
             self.window.set_mouse_cursor(CursorIcon::Pointer);
         } else if self.highlighted_hint.is_some() {
             self.hint_mouse_point = None;
-            if term.mode().intersects(TermMode::MOUSE_MODE) && !term.mode().contains(TermMode::VI) {
-                self.window.set_mouse_cursor(CursorIcon::Default);
-            } else {
-                self.window.set_mouse_cursor(CursorIcon::Text);
-            }
+            self.window.set_mouse_cursor(fallback_mouse_cursor);
         }
 
         let mouse_highlight_dirty = self.highlighted_hint != highlighted_hint;
@@ -1423,7 +1449,8 @@ impl Display {
             // Clear invalidated hints.
             if frame.intersects(start, end) {
                 if reset_mouse {
-                    self.window.set_mouse_cursor(CursorIcon::Default);
+                    self.hint_mouse_point = None;
+                    self.window.set_mouse_cursor(self.fallback_mouse_cursor);
                 }
                 frame.mark_fully_damaged();
                 *hint = None;
@@ -1469,6 +1496,25 @@ impl Drop for Display {
             ManuallyDrop::drop(&mut self.surface);
         }
     }
+}
+
+fn mouse_cursor_without_hint(term_mode: TermMode, modifiers: ModifiersState) -> CursorIcon {
+    if term_mode.intersects(TermMode::MOUSE_MODE)
+        && !term_mode.contains(TermMode::VI)
+        && !modifiers.shift_key()
+    {
+        CursorIcon::Default
+    } else {
+        CursorIcon::Text
+    }
+}
+
+fn should_restore_mouse_cursor_after_hint_abort(
+    mouse_visible: bool,
+    inside_text_area: bool,
+    has_selection: bool,
+) -> bool {
+    mouse_visible && inside_text_area && has_selection
 }
 
 /// Input method state.
@@ -1631,4 +1677,56 @@ fn window_size(
     let height = (padding.1).mul_add(2., grid_height).floor();
 
     PhysicalSize::new(width as u32, height as u32)
+}
+
+#[cfg(test)]
+mod tests {
+    use winit::keyboard::ModifiersState;
+    use winit::window::CursorIcon;
+
+    use alacritty_terminal::term::TermMode;
+
+    use super::{
+        SizeInfo, mouse_cursor_without_hint, should_restore_mouse_cursor_after_hint_abort,
+    };
+
+    #[test]
+    fn size_info_u32_conversion_preserves_columns() {
+        let size_info = SizeInfo {
+            width: 800.0,
+            height: 600.0,
+            cell_width: 8.0,
+            cell_height: 16.0,
+            padding_x: 4.0,
+            padding_y: 6.0,
+            screen_lines: 24,
+            columns: 80,
+        };
+
+        let converted: SizeInfo<u32> = size_info.into();
+        assert_eq!(converted.columns, 80);
+        assert_eq!(converted.screen_lines, 24);
+    }
+
+    #[test]
+    fn mouse_cursor_without_hint_uses_text_when_shift_bypasses_mouse_mode() {
+        let cursor = mouse_cursor_without_hint(TermMode::MOUSE_MODE, ModifiersState::SHIFT);
+        assert_eq!(cursor, CursorIcon::Text);
+    }
+
+    #[test]
+    fn mouse_cursor_without_hint_keeps_default_in_plain_mouse_mode() {
+        let cursor = mouse_cursor_without_hint(TermMode::MOUSE_MODE, ModifiersState::empty());
+        assert_eq!(cursor, CursorIcon::Default);
+    }
+
+    #[test]
+    fn hint_abort_restores_cursor_for_stationary_selection() {
+        assert!(should_restore_mouse_cursor_after_hint_abort(true, true, true));
+    }
+
+    #[test]
+    fn hint_abort_preserves_existing_cursor_outside_text_area() {
+        assert!(!should_restore_mouse_cursor_after_hint_abort(true, false, true));
+    }
 }
