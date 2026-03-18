@@ -33,15 +33,18 @@ rustix = { version = "1.0.0", default-features = false, features = ["std"] }
 signal-hook = "0.4.3"
 
 [target.'cfg(windows)'.dependencies]
-piper = "0.2.1"
-miow = "0.6.0"
 windows-sys = { version = "0.59.0", features = [
     "Win32_System_Console",
     "Win32_Foundation",
     "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Security_Cryptography",
+    "Win32_System_IO",
     "Win32_System_LibraryLoader",
     "Win32_System_Threading",
     "Win32_System_WindowsProgramming",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Pipes",
 ]}
 
 [dev-dependencies]

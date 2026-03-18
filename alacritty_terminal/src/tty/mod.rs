@@ -75,6 +75,28 @@ pub trait EventedReadWrite {
 
     fn reader(&mut self) -> &mut Self::Reader;
     fn writer(&mut self) -> &mut Self::Writer;
+
+    /// Whether the writer currently owns bytes that still require writable
+    /// wakeups before the event loop may queue additional input.
+    ///
+    /// Backends that write directly to the underlying handle can keep the
+    /// default `false`. Backends with internal async state must return `true`
+    /// from the moment `writer().write()` accepts bytes until
+    /// `advance_writer()` has fully retired that internal work.
+    fn writer_has_pending_io(&self) -> bool {
+        false
+    }
+
+    /// Advance backend-owned pending writes before queueing more caller bytes.
+    ///
+    /// The event loop calls this before each new `writer().write()` attempt.
+    /// Implementations must preserve any bytes they already accepted, and once
+    /// this returns `Ok(())` with `writer_has_pending_io() == false`, the next
+    /// `writer().write()` call must reflect the backend's real readiness by
+    /// either accepting new bytes or returning `WouldBlock`.
+    fn advance_writer(&mut self) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 /// Events concerning TTY child processes.

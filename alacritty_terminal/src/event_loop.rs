@@ -91,7 +91,7 @@ where
     fn drain_recv_channel(&mut self, state: &mut State) -> bool {
         while let Some(msg) = self.rx.recv() {
             match msg {
-                Msg::Input(input) => state.write_list.push_back(input),
+                Msg::Input(input) => state.queue_write(input),
                 Msg::Resize(window_size) => self.pty.on_resize(window_size),
                 Msg::Shutdown => return false,
             }
@@ -125,7 +125,8 @@ where
                 Ok(got) => unprocessed += got,
                 Err(err) => match err.kind() {
                     ErrorKind::Interrupted | ErrorKind::WouldBlock => {
-                        // Go back to mio if we're caught up on parsing and the PTY would block.
+                        // Return to the poller if we're caught up on parsing and the PTY would
+                        // block.
                         if unprocessed == 0 {
                             break;
                         }
@@ -172,6 +173,19 @@ where
 
     #[inline]
     fn pty_write(&mut self, state: &mut State) -> io::Result<()> {
+        match self.pty.advance_writer() {
+            Ok(()) => {},
+            Err(err) if err.kind() == ErrorKind::BrokenPipe => {
+                // The PTY input side closed while the child is shutting down.
+                // Drop queued input, but keep the reader thread alive long
+                // enough to process the eventual child-exit notification.
+                state.close_writer();
+                return Ok(());
+            },
+            Err(err) if err.kind() == ErrorKind::WouldBlock => return Ok(()),
+            Err(err) => return Err(err),
+        }
+
         state.ensure_next();
 
         'write_many: while let Some(mut current) = state.take_current() {
@@ -179,7 +193,10 @@ where
                 match self.pty.writer().write(current.remaining_bytes()) {
                     Ok(0) => {
                         state.set_current(Some(current));
-                        break 'write_many;
+                        return Err(io::Error::new(
+                            ErrorKind::WriteZero,
+                            "PTY writer accepted zero bytes",
+                        ));
                     },
                     Ok(n) => {
                         current.advance(n);
@@ -188,12 +205,22 @@ where
                             break 'write_one;
                         }
                     },
-                    Err(err) => {
-                        state.set_current(Some(current));
-                        match err.kind() {
-                            ErrorKind::Interrupted | ErrorKind::WouldBlock => break 'write_many,
-                            _ => return Err(err),
-                        }
+                    Err(err) => match err.kind() {
+                        ErrorKind::Interrupted => continue 'write_one,
+                        ErrorKind::BrokenPipe => {
+                            // Preserve the child-exit path instead of terminating
+                            // the PTY thread as soon as the write side closes.
+                            state.close_writer();
+                            break 'write_many;
+                        },
+                        ErrorKind::WouldBlock => {
+                            state.set_current(Some(current));
+                            break 'write_many;
+                        },
+                        _ => {
+                            state.set_current(Some(current));
+                            return Err(err);
+                        },
                     },
                 }
             }
@@ -306,13 +333,17 @@ where
                     }
                 }
 
-                // Register write interest if necessary.
-                let needs_write = state.needs_write();
+                // Register write interest if necessary, including writer-internal
+                // pending I/O that still needs writable wakeups to retire.
+                let needs_write = state.needs_write() || self.pty.writer_has_pending_io();
                 if needs_write != interest.writable {
                     interest.writable = needs_write;
 
                     // Re-register with new interest.
-                    self.pty.reregister(&self.poll, interest, poll_opts).unwrap();
+                    if let Err(err) = self.pty.reregister(&self.poll, interest, poll_opts) {
+                        error!("Error updating PTY writable interest in event loop: {err}");
+                        break 'event_loop;
+                    }
                 }
             }
 
@@ -401,13 +432,21 @@ impl EventLoopSender {
 pub struct State {
     write_list: VecDeque<Cow<'static, [u8]>>,
     writing: Option<Writing>,
+    write_closed: bool,
     parser: ansi::Processor,
 }
 
 impl State {
     #[inline]
+    fn queue_write(&mut self, input: Cow<'static, [u8]>) {
+        if !self.write_closed && !input.is_empty() {
+            self.write_list.push_back(input);
+        }
+    }
+
+    #[inline]
     fn ensure_next(&mut self) {
-        if self.writing.is_none() {
+        if !self.write_closed && self.writing.is_none() {
             self.goto_next();
         }
     }
@@ -424,12 +463,19 @@ impl State {
 
     #[inline]
     fn needs_write(&self) -> bool {
-        self.writing.is_some() || !self.write_list.is_empty()
+        !self.write_closed && (self.writing.is_some() || !self.write_list.is_empty())
     }
 
     #[inline]
     fn set_current(&mut self, new: Option<Writing>) {
         self.writing = new;
+    }
+
+    #[inline]
+    fn close_writer(&mut self) {
+        self.write_closed = true;
+        self.writing = None;
+        self.write_list.clear();
     }
 }
 
@@ -484,3 +530,7 @@ impl<T> PeekableReceiver<T> {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "event_loop_tests.rs"]
+mod tests;

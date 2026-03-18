@@ -26,7 +26,7 @@ jobs:
       - name: Clippy
         run: |
           rustup component add clippy
-          cargo clippy --all-targets
+          cargo clippy --all-targets -- -D warnings
   check-macos-x86_64:
     runs-on: macos-latest
     steps:

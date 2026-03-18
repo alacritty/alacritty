@@ -1,36 +1,119 @@
+//! Windows PTY backend wiring.
+//!
+//! Lifecycle overview:
+//!
+//! - `conpty::new` creates the named-pipe endpoints, starts the pseudoconsole, and wraps the local
+//!   pipe ends in the IOCP-backed reader/writer types.
+//! - `child::ChildExitWatcher` owns a duplicated process handle and converts process exit into a
+//!   readable poll event.
+//! - `Pty::drop` tears the pieces down in a strict order: pseudoconsole first, then the
+//!   conout/conin pipes, then the child watcher, and finally the spawned-process guard.
+//!
+//! That teardown ordering matters because `ClosePseudoConsole` may keep
+//! draining output through conout while closing, and the IOCP layer may defer
+//! final buffer and `OVERLAPPED` reclamation to background cleanup if a
+//! cancelled operation does not retire immediately. The spawned-process guard
+//! stays last so forced child termination only happens after the pseudoconsole,
+//! pipe I/O, and exit-event wiring are already being torn down.
+use log::warn;
 use std::ffi::OsStr;
-use std::io::{self, Result};
+use std::io::{self, ErrorKind, Result};
 use std::iter::once;
 use std::os::windows::ffi::OsStrExt;
+use std::os::windows::io::{AsRawHandle, OwnedHandle};
 use std::sync::Arc;
-use std::sync::mpsc::TryRecvError;
+
+use windows_sys::Win32::Foundation::{HANDLE, WAIT_OBJECT_0, WAIT_TIMEOUT};
+use windows_sys::Win32::System::Threading::{TerminateProcess, WaitForSingleObject};
 
 use crate::event::{OnResize, WindowSize};
 use crate::tty::windows::child::ChildExitWatcher;
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite, Options, Shell};
 
-mod blocking;
 mod child;
 mod conpty;
+mod iocp;
+pub(crate) mod wait_reclaim;
 
-use blocking::{UnblockedReader, UnblockedWriter};
 use conpty::Conpty as Backend;
-use miow::pipe::{AnonRead, AnonWrite};
+use iocp::{IocpReader, IocpWriter};
 use polling::{Event, Poller};
 
 pub const PTY_CHILD_EVENT_TOKEN: usize = 1;
 pub const PTY_READ_WRITE_TOKEN: usize = 2;
 
-type ReadPipe = UnblockedReader<AnonRead>;
-type WritePipe = UnblockedWriter<AnonWrite>;
+const CHILD_CLEANUP_TIMEOUT_MS: u32 = 2_000;
 
 pub struct Pty {
-    // XXX: Backend is required to be the first field, to ensure correct drop order. Dropping
-    // `conout` before `backend` will cause a deadlock (with Conpty).
+    // `backend` must be dropped first: `ClosePseudoConsole` drains remaining
+    // output through the conout pipe, so `conout` must still be alive to
+    // accept those writes. Reversing this order can deadlock when ConPTY
+    // is mid-write into a full pipe buffer whose reader is already gone.
     backend: Backend,
-    conout: ReadPipe,
-    conin: WritePipe,
+    conout: IocpReader,
+    conin: IocpWriter,
     child_watcher: ChildExitWatcher,
+    _child_process: SpawnedProcessGuard,
+    read_interest: bool,
+    write_interest: bool,
+}
+
+pub(super) struct SpawnedProcessGuard {
+    process: Option<OwnedHandle>,
+}
+
+impl SpawnedProcessGuard {
+    pub fn new(process: OwnedHandle) -> Self {
+        Self { process: Some(process) }
+    }
+
+    pub fn raw_handle(&self) -> HANDLE {
+        self.process.as_ref().unwrap().as_raw_handle() as HANDLE
+    }
+}
+
+impl Drop for SpawnedProcessGuard {
+    fn drop(&mut self) {
+        let Some(process) = self.process.as_ref() else {
+            return;
+        };
+
+        let handle = process.as_raw_handle() as HANDLE;
+
+        match unsafe { WaitForSingleObject(handle, 0) } {
+            WAIT_OBJECT_0 => return,
+            WAIT_TIMEOUT => (),
+            other => {
+                let err = io::Error::last_os_error();
+                warn!(
+                    "WaitForSingleObject returned unexpected value {other} while checking child \
+                     cleanup (last error: {err}); attempting termination"
+                );
+            },
+        }
+
+        if unsafe { TerminateProcess(handle, 1) } == 0 {
+            let err = io::Error::last_os_error();
+            if unsafe { WaitForSingleObject(handle, 0) } != WAIT_OBJECT_0 {
+                warn!("Failed to terminate child process: {err}");
+                return;
+            }
+        }
+
+        match unsafe { WaitForSingleObject(handle, CHILD_CLEANUP_TIMEOUT_MS) } {
+            WAIT_OBJECT_0 => (),
+            WAIT_TIMEOUT => {
+                warn!("Timed out waiting {}ms for child cleanup", CHILD_CLEANUP_TIMEOUT_MS)
+            },
+            other => {
+                let err = io::Error::last_os_error();
+                warn!(
+                    "WaitForSingleObject returned unexpected value {other} while waiting for \
+                     child cleanup (last error: {err})"
+                );
+            },
+        }
+    }
 }
 
 pub fn new(config: &Options, window_size: WindowSize, _window_id: u64) -> Result<Pty> {
@@ -40,11 +123,20 @@ pub fn new(config: &Options, window_size: WindowSize, _window_id: u64) -> Result
 impl Pty {
     fn new(
         backend: impl Into<Backend>,
-        conout: impl Into<ReadPipe>,
-        conin: impl Into<WritePipe>,
+        conout: impl Into<IocpReader>,
+        conin: impl Into<IocpWriter>,
         child_watcher: ChildExitWatcher,
+        child_process: SpawnedProcessGuard,
     ) -> Self {
-        Self { backend: backend.into(), conout: conout.into(), conin: conin.into(), child_watcher }
+        Self {
+            backend: backend.into(),
+            conout: conout.into(),
+            conin: conin.into(),
+            child_watcher,
+            _child_process: child_process,
+            read_interest: false,
+            write_interest: false,
+        }
     }
 
     pub fn child_watcher(&self) -> &ChildExitWatcher {
@@ -52,14 +144,39 @@ impl Pty {
     }
 }
 
-fn with_key(mut event: Event, key: usize) -> Event {
+fn read_event(mut event: Event, key: usize) -> Event {
     event.key = key;
+    event.writable = false;
     event
 }
 
+fn write_event(mut event: Event, key: usize) -> Event {
+    event.key = key;
+    event.readable = false;
+    event
+}
+
+fn child_event(mut event: Event, key: usize) -> Event {
+    event.key = key;
+    event.readable = true;
+    event.writable = false;
+    event
+}
+
+fn validate_readable_interest(interest: Event) -> io::Result<()> {
+    if interest.readable {
+        Ok(())
+    } else {
+        Err(io::Error::new(
+            ErrorKind::InvalidInput,
+            "Windows PTY child-exit notifications require readable interest",
+        ))
+    }
+}
+
 impl EventedReadWrite for Pty {
-    type Reader = ReadPipe;
-    type Writer = WritePipe;
+    type Reader = IocpReader;
+    type Writer = IocpWriter;
 
     #[inline]
     unsafe fn register(
@@ -68,9 +185,12 @@ impl EventedReadWrite for Pty {
         interest: polling::Event,
         poll_opts: polling::PollMode,
     ) -> io::Result<()> {
-        self.conin.register(poll, with_key(interest, PTY_READ_WRITE_TOKEN), poll_opts);
-        self.conout.register(poll, with_key(interest, PTY_READ_WRITE_TOKEN), poll_opts);
-        self.child_watcher.register(poll, with_key(interest, PTY_CHILD_EVENT_TOKEN));
+        validate_readable_interest(interest)?;
+        self.conin.register(poll, write_event(interest, PTY_READ_WRITE_TOKEN), poll_opts)?;
+        self.conout.register(poll, read_event(interest, PTY_READ_WRITE_TOKEN), poll_opts)?;
+        self.child_watcher.register(poll, child_event(interest, PTY_CHILD_EVENT_TOKEN));
+        self.read_interest = interest.readable;
+        self.write_interest = interest.writable;
 
         Ok(())
     }
@@ -82,9 +202,20 @@ impl EventedReadWrite for Pty {
         interest: polling::Event,
         poll_opts: polling::PollMode,
     ) -> io::Result<()> {
-        self.conin.register(poll, with_key(interest, PTY_READ_WRITE_TOKEN), poll_opts);
-        self.conout.register(poll, with_key(interest, PTY_READ_WRITE_TOKEN), poll_opts);
-        self.child_watcher.register(poll, with_key(interest, PTY_CHILD_EVENT_TOKEN));
+        validate_readable_interest(interest)?;
+
+        if self.write_interest != interest.writable {
+            self.conin.register(poll, write_event(interest, PTY_READ_WRITE_TOKEN), poll_opts)?;
+            self.write_interest = interest.writable;
+        }
+
+        if self.read_interest != interest.readable {
+            self.conout.register(poll, read_event(interest, PTY_READ_WRITE_TOKEN), poll_opts)?;
+            self.read_interest = interest.readable;
+        }
+
+        // The child watcher interest is always (readable=true, writable=false)
+        // with a fixed key, set once in `register`. No refresh needed here.
 
         Ok(())
     }
@@ -107,21 +238,55 @@ impl EventedReadWrite for Pty {
     fn writer(&mut self) -> &mut Self::Writer {
         &mut self.conin
     }
+
+    #[inline]
+    fn writer_has_pending_io(&self) -> bool {
+        self.conin.has_pending_io()
+    }
+
+    #[inline]
+    fn advance_writer(&mut self) -> io::Result<()> {
+        self.conin.advance()
+    }
 }
 
 impl EventedPty for Pty {
     fn next_child_event(&mut self) -> Option<ChildEvent> {
-        match self.child_watcher.event_rx().try_recv() {
-            Ok(ev) => Some(ev),
-            Err(TryRecvError::Empty) => None,
-            Err(TryRecvError::Disconnected) => Some(ChildEvent::Exited(None)),
-        }
+        self.child_watcher.next_event()
     }
 }
 
 impl OnResize for Pty {
     fn on_resize(&mut self, window_size: WindowSize) {
         self.backend.on_resize(window_size)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::ErrorKind;
+
+    use polling::Event;
+
+    use super::{PTY_CHILD_EVENT_TOKEN, child_event, validate_readable_interest};
+
+    #[test]
+    fn child_watcher_interest_requires_readable_registration() {
+        let err = validate_readable_interest(Event::writable(0)).unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn child_watcher_interest_accepts_readable_registration() {
+        validate_readable_interest(Event::readable(0)).unwrap();
+    }
+
+    #[test]
+    fn child_watcher_event_is_always_readable_only() {
+        let event = child_event(Event::writable(42), PTY_CHILD_EVENT_TOKEN);
+        assert_eq!(event.key, PTY_CHILD_EVENT_TOKEN);
+        assert!(event.readable);
+        assert!(!event.writable);
     }
 }
 
