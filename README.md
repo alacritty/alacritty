@@ -29,7 +29,7 @@ Join [`#alacritty`] on libera.chat if you have questions or looking for a quick 
 
 ## Features
 
-You can find an overview over the features available in Alacritty [here](./docs/features.md).
+You can find an overview of the features available in Alacritty [here](./docs/features.md).
 
 ## Further information
 
