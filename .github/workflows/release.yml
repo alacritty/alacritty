@@ -66,7 +66,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install dependencies
         run: |
-          sudo apt-get install cmake pkg-config libfreetype6-dev libfontconfig1-dev \
+          sudo apt update
+          sudo apt install cmake pkg-config libfreetype6-dev libfontconfig1-dev \
             libxcb-xfixes0-dev libxkbcommon-dev python3 scdoc
       - name: Test
         run: cargo test --release
