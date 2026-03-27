@@ -2,7 +2,7 @@
 
 use std::ops::{Index, IndexMut, Range};
 use std::sync::Arc;
-use std::{cmp, mem, ptr, slice, str};
+use std::{cmp, env, mem, ptr, slice, str};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -1272,6 +1272,22 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
+    fn xtgettcap(&mut self, name: &[u8]) {
+        trace!("Reporting XTGETTCAP for {:?}", String::from_utf8_lossy(name));
+
+        let response = match name {
+            b"TN" | b"name" => {
+                let value = env::var("TERM").unwrap_or_else(|_| String::from("xterm-256color"));
+                xtgettcap_response(name, Some(value.as_bytes()))
+            },
+            b"Co" | b"colors" => xtgettcap_response(name, Some(b"256")),
+            b"RGB" => xtgettcap_response(name, Some(b"8/8/8")),
+            _ => xtgettcap_response(name, None),
+        };
+        self.event_proxy.send_event(Event::PtyWrite(response));
+    }
+
+    #[inline]
     fn report_keyboard_mode(&mut self) {
         if !self.config.kitty_keyboard {
             return;
@@ -2310,6 +2326,32 @@ fn version_number(mut version: &str) -> usize {
     version_number
 }
 
+/// Build an XTGETTCAP DCS response with a single allocation.
+fn xtgettcap_response(name: &[u8], value: Option<&[u8]>) -> String {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+
+    let value_len = value.map_or(0, |v| 1 + v.len() * 2);
+    let mut response = String::with_capacity(6 + name.len() * 2 + value_len + 2);
+
+    response.push_str(if value.is_some() { "\x1bP1+r" } else { "\x1bP0+r" });
+
+    for &b in name {
+        response.push(HEX[(b >> 4) as usize] as char);
+        response.push(HEX[(b & 0xF) as usize] as char);
+    }
+
+    if let Some(value) = value {
+        response.push('=');
+        for &b in value {
+            response.push(HEX[(b >> 4) as usize] as char);
+            response.push(HEX[(b & 0xF) as usize] as char);
+        }
+    }
+
+    response.push_str("\x1b\\");
+    response
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClipboardType {
     Clipboard,
@@ -3298,5 +3340,96 @@ mod tests {
         assert_eq!(version_number("0.1.2-dev"), 1_02);
         assert_eq!(version_number("1.2.3-dev"), 1_02_03);
         assert_eq!(version_number("999.99.99"), 9_99_99_99);
+    }
+
+    /// Listener that records PtyWrite events.
+    #[derive(Default)]
+    struct RecordingListener {
+        pty_writes: std::cell::RefCell<Vec<String>>,
+    }
+
+    impl EventListener for RecordingListener {
+        fn send_event(&self, event: Event) {
+            if let Event::PtyWrite(text) = event {
+                self.pty_writes.borrow_mut().push(text);
+            }
+        }
+    }
+
+    #[test]
+    fn xtgettcap_known_capability() {
+        let size = TermSize::new(10, 5);
+        let listener = RecordingListener::default();
+        let mut term = Term::new(Config::default(), &size, listener);
+
+        term.xtgettcap(b"Co");
+
+        let writes = term.event_proxy.pty_writes.borrow();
+        assert_eq!(writes.len(), 1);
+        // "Co" = 436F, "256" = 323536.
+        assert_eq!(writes[0], "\x1bP1+r436F=323536\x1b\\");
+    }
+
+    #[test]
+    fn xtgettcap_rgb() {
+        let size = TermSize::new(10, 5);
+        let listener = RecordingListener::default();
+        let mut term = Term::new(Config::default(), &size, listener);
+
+        term.xtgettcap(b"RGB");
+
+        let writes = term.event_proxy.pty_writes.borrow();
+        assert_eq!(writes.len(), 1);
+        // "RGB" = 524742, "8/8/8" = 382F382F38.
+        assert_eq!(writes[0], "\x1bP1+r524742=382F382F38\x1b\\");
+    }
+
+    #[test]
+    fn xtgettcap_unknown_capability() {
+        let size = TermSize::new(10, 5);
+        let listener = RecordingListener::default();
+        let mut term = Term::new(Config::default(), &size, listener);
+
+        term.xtgettcap(b"xx");
+
+        let writes = term.event_proxy.pty_writes.borrow();
+        assert_eq!(writes.len(), 1);
+        // "xx" = 7878, not found response.
+        assert_eq!(writes[0], "\x1bP0+r7878\x1b\\");
+    }
+
+    #[test]
+    fn xtgettcap_name_synonyms() {
+        let size = TermSize::new(10, 5);
+        let listener = RecordingListener::default();
+        let mut term = Term::new(Config::default(), &size, listener);
+
+        term.xtgettcap(b"name");
+        term.xtgettcap(b"TN");
+
+        let writes = term.event_proxy.pty_writes.borrow();
+        assert_eq!(writes.len(), 2);
+        // Both should be valid responses with same value but different hex names.
+        // "name" = 6E616D65, "TN" = 544E.
+        assert!(writes[0].starts_with("\x1bP1+r6E616D65="));
+        assert!(writes[1].starts_with("\x1bP1+r544E="));
+        // Same value in both responses.
+        let value0 = writes[0].strip_prefix("\x1bP1+r6E616D65=").unwrap();
+        let value1 = writes[1].strip_prefix("\x1bP1+r544E=").unwrap();
+        assert_eq!(value0, value1);
+    }
+
+    #[test]
+    fn xtgettcap_colors_synonym() {
+        let size = TermSize::new(10, 5);
+        let listener = RecordingListener::default();
+        let mut term = Term::new(Config::default(), &size, listener);
+
+        term.xtgettcap(b"colors");
+
+        let writes = term.event_proxy.pty_writes.borrow();
+        assert_eq!(writes.len(), 1);
+        // "colors" = 636F6C6F7273, "256" = 323536.
+        assert_eq!(writes[0], "\x1bP1+r636F6C6F7273=323536\x1b\\");
     }
 }
