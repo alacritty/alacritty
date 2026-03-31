@@ -15,8 +15,7 @@ Upstream Alacritty has historically declined adding tabs by design; see
 which is closed with the `F - wontfix` label.
 
 <p align="center">
-  <img alt="Alacritty - A fast, cross-platform, OpenGL terminal emulator"
-       src="https://raw.githubusercontent.com/alacritty/alacritty/master/extra/promo/alacritty-readme.png">
+<img width="1000" alt="alacritty tabs" src="https://github.com/user-attachments/assets/1abb3b24-19a7-417d-a277-98652552d3cf" />
 </p>
 
 ## About
