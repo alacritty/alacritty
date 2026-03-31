@@ -625,6 +625,208 @@ Windows: _"powershell"_
 
 	Default: _"OnlyCopy"_
 
+# TABS
+
+This section documents the *[tabs]* table of the configuration file.
+
+Tabs are local to a single Alacritty window. On Linux, BSD, and Windows,
+creating a tab opens a new PTY inside the current window and attempts to reuse
+the active tab's working directory. On macOS, tab actions use the platform's
+native window tabs when available.
+
+The visible title for a tab is resolved in this order:
+
+. Custom tab title set through *SetTabTitle*
+. Terminal-provided title
+. Detected foreground process or working directory fallback
+
+When a custom title is set, it remains static until it is explicitly cleared.
+To restore dynamic titles, open the title editor, submit an empty title, and
+press _Enter_.
+
+While editing a title, _Enter_ confirms it, _Escape_ cancels it, _Backspace_
+deletes the previous character, and _Control|W_ deletes the previous word.
+
+The tab bar is shown only when *tab_bar_style* is not _"hidden"_ and the number
+of open tabs is at least *tab_bar_min_tabs*.
+
+*tab_bar_edge* = _"top"_ | _"bottom"_
+
+	Side of the window used for the tab bar.
+
+	Default: _"bottom"_
+
+*tab_bar_style* = _"hidden"_ | _"separator"_ | _"slant"_ | _"powerline"_ | _"fade"_
+
+	Visual style used to render tabs.
+
+	*Hidden*
+		Disable the tab bar completely.
+	*Separator*
+		Render text tabs separated by *tab_separator*.
+	*Slant*
+		Render slanted tab backgrounds.
+	*Powerline*
+		Render powerline-shaped separators.
+	*Fade*
+		Render text tabs separated by *tab_separator* on top of the bar background.
+
+	Default: _"powerline"_
+
+*tab_powerline_style* = _"angled"_ | _"slanted"_ | _"round"_
+
+	Separator glyph style used by the _"Powerline"_ tab bar style.
+
+	Default: _"angled"_
+
+*tab_bar_min_tabs* = _<integer>_
+
+	Minimum number of tabs required before the tab bar is shown.
+
+	Default: _2_
+
+*tab_switch_strategy* = _"previous"_ | _"left"_ | _"right"_ | _"last"_
+
+	Tab selected after closing the active tab.
+
+	*Previous*
+		Re-select the most recently focused remaining tab.
+	*Left*
+		Select the tab immediately to the left.
+	*Right*
+		Select the tab immediately to the right.
+	*Last*
+		Select the last tab in the tab list.
+
+	Default: _"previous"_
+
+*tab_separator* = _"<string>"_
+
+	Text separator used by the _"Separator"_ and _"Fade"_ styles.
+
+	Default: _" | "_
+
+*tab_title_template* = _"<string>"_
+
+	Template for inactive tab titles.
+
+	Supported placeholders:
+
+	. _{title}_: resolved tab title
+	. _{index}_: 1-based tab index
+	. _{num_windows}_: number of terminal windows in the tab
+
+	Default: _"{title}"_
+
+*active_tab_title_template* = _"<string>"_ | _"None"_
+
+	Optional title template for the active tab. When this is unset, the value of
+	*tab_title_template* is used.
+
+	Default: _"None"_
+
+*tab_title_max_length* = _<integer>_
+
+	Maximum number of cells used for each tab title before truncation. A value of
+	_0_ disables truncation.
+
+	Default: _0_
+
+*active_tab_foreground* = _"#RRGGBB"_ | _"None"_
+
+	Foreground color for the active tab.
+
+	Default: _"None"_
+
+*active_tab_background* = _"#RRGGBB"_ | _"None"_
+
+	Background color for the active tab.
+
+	Default: _"None"_
+
+*active_tab_font_style* = _"normal"_ | _"bold"_ | _"italic"_ | _"bold-italic"_
+
+	Font style used for the active tab title.
+
+	Default: _"normal"_
+
+*inactive_tab_foreground* = _"#RRGGBB"_ | _"None"_
+
+	Foreground color for inactive tabs.
+
+	Default: _"None"_
+
+*inactive_tab_background* = _"#RRGGBB"_ | _"None"_
+
+	Background color for inactive tabs.
+
+	Default: _"None"_
+
+*inactive_tab_font_style* = _"normal"_ | _"bold"_ | _"italic"_ | _"bold-italic"_
+
+	Font style used for inactive tab titles.
+
+	Default: _"normal"_
+
+*tab_bar_background* = _"#RRGGBB"_ | _"None"_
+
+	Background color for the tab bar itself.
+
+	Default: _"None"_
+
+*mouse* = { enabled = _true_ | _false_, hover = _true_ | _false_ }
+
+	Tab bar mouse integration.
+
+	*enabled*
+		Allow selecting tabs by clicking the tab bar.
+
+		Default: _true_
+
+	*hover*
+		Show the pointer cursor while hovering tabs.
+
+		Default: _true_
+
+Example:
+	This example places a slanted tab bar at the top, keeps it visible even with
+	a single tab, uses a purple active tab with italic text, dark inactive tabs,
+	and enables mouse hover/click interaction.
+
+	*[tabs]*++
+tab_bar_edge = _"top"_++
+tab_bar_style = _"slant"_++
+tab_powerline_style = _"slanted"_++
+tab_bar_min_tabs = _1_++
+tab_switch_strategy = _"previous"_++
+tab_title_template = _"{title}"_++
+active_tab_foreground = _"#1e1e2e"_++
+active_tab_background = _"#cba6f7"_++
+active_tab_font_style = _"italic"_++
+inactive_tab_foreground = _"#cdd6f4"_++
+inactive_tab_background = _"#0b0b12"_++
+inactive_tab_font_style = _"normal"_++
+tab_bar_background = _"#11111b"_++
+mouse = { enabled = _true_, hover = _true_ }
+
+	With the _"slant"_ style, *tab_powerline_style* is ignored, so keeping it in
+	the example is harmless but not required.
+
+	Example tab-related key bindings based on the same configuration:
+
+	*[keyboard]*++
+bindings = [++
+	{ key = _"T"_, mods = _"Super"_, action = _"CreateNewTab"_ },++
+	{ key = _"Right"_, mods = _"Super"_, action = _"SelectNextTab"_ },++
+	{ key = _"Left"_, mods = _"Super"_, action = _"SelectPreviousTab"_ },++
+	{ key = _"Tab"_, mods = _"Super"_, action = _"SelectNextTab"_ },++
+	{ key = _"Tab"_, mods = _"Super|Shift"_, action = _"SelectPreviousTab"_ },++
+	{ key = _"W"_, mods = _"Super"_, action = _"CloseTab"_ },++
+	{ key = _"."_, mods = _"Super"_, action = _"MoveTabForward"_ },++
+	{ key = _","_, mods = _"Super"_, action = _"MoveTabBackward"_ },++
+	{ key = _"T"_, mods = _"Super|Alt"_, action = _"SetTabTitle"_ },++
+]
+
 # MOUSE
 
 This section documents the *[mouse]* table of the configuration file.
@@ -841,6 +1043,40 @@ _https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead_
 			Spawn a new instance of Alacritty.
 		*CreateNewWindow*
 			Create a new Alacritty window.
+		*CreateNewTab*
+			Create a new tab in the current window.
+		*CloseTab* # _(Windows, Linux, and BSD only)_
+			Close the active tab.
+		*SelectNextTab*
+			Select the next tab.
+		*SelectPreviousTab*
+			Select the previous tab.
+		*SelectTab1*
+			Select the first tab.
+		*SelectTab2*
+			Select the second tab.
+		*SelectTab3*
+			Select the third tab.
+		*SelectTab4*
+			Select the fourth tab.
+		*SelectTab5*
+			Select the fifth tab.
+		*SelectTab6*
+			Select the sixth tab.
+		*SelectTab7*
+			Select the seventh tab.
+		*SelectTab8*
+			Select the eighth tab.
+		*SelectTab9*
+			Select the ninth tab.
+		*SelectLastTab*
+			Select the last tab.
+		*MoveTabForward* # _(Windows, Linux, and BSD only)_
+			Move the active tab one position forward.
+		*MoveTabBackward* # _(Windows, Linux, and BSD only)_
+			Move the active tab one position backward.
+		*SetTabTitle* # _(Windows, Linux, and BSD only)_
+			Open the custom title editor for the active tab.
 		*ToggleFullscreen*
 			Toggle fullscreen.
 		*ToggleMaximized*
@@ -961,32 +1197,6 @@ _https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead_
 			Enter fullscreen without occupying another space.
 		*HideOtherApplications*
 			Hide all windows other than Alacritty.
-		*CreateNewTab*
-			Create new window in a tab.
-		*SelectNextTab*
-			Select next tab.
-		*SelectPreviousTab*
-			Select previous tab.
-		*SelectTab1*
-			Select the first tab.
-		*SelectTab2*
-			Select the second tab.
-		*SelectTab3*
-			Select the third tab.
-		*SelectTab4*
-			Select the fourth tab.
-		*SelectTab5*
-			Select the fifth tab.
-		*SelectTab6*
-			Select the sixth tab.
-		*SelectTab7*
-			Select the seventh tab.
-		*SelectTab8*
-			Select the eighth tab.
-		*SelectTab9*
-			Select the ninth tab.
-		*SelectLastTab*
-			Select the last tab.
 
 		_Linux/BSD exclusive:_
 

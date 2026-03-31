@@ -436,6 +436,42 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Control"_
 :[
 :  _"DecreaseFontSize"_
+|  _"Right"_
+:  _"Control|Shift"_
+:[
+:  _"SelectNextTab"_
+|  _"Tab"_
+:  _"Control"_
+:[
+:  _"SelectNextTab"_
+|  _"Left"_
+:  _"Control|Shift"_
+:[
+:  _"SelectPreviousTab"_
+|  _"Tab"_
+:  _"Control|Shift"_
+:[
+:  _"SelectPreviousTab"_
+|  _"T"_
+:  _"Control|Shift"_
+:[
+:  _"CreateNewTab"_
+|  _"W"_
+:  _"Control|Shift"_
+:[
+:  _"CloseTab"_
+|  _"."_
+:  _"Control|Shift"_
+:[
+:  _"MoveTabForward"_
+|  _","_
+:  _"Control|Shift"_
+:[
+:  _"MoveTabBackward"_
+|  _"T"_
+:  _"Control|Shift|Alt"_
+:[
+:  _"SetTabTitle"_
 
 ## Windows only
 
