@@ -18,6 +18,39 @@ which is closed with the `F - wontfix` label.
 <img width="1000" alt="alacritty tabs" src="https://github.com/user-attachments/assets/1abb3b24-19a7-417d-a277-98652552d3cf" />
 </p>
 
+## Example Tabs Config
+
+```toml
+[tabs]
+tab_bar_edge = "top"
+tab_bar_style = "slant"
+tab_powerline_style = "slanted"
+tab_bar_min_tabs = 1
+tab_switch_strategy = "previous"
+tab_title_template = "{title}"
+active_tab_foreground = "#1e1e2e"
+active_tab_background = "#cba6f7"
+active_tab_font_style = "italic"
+inactive_tab_foreground = "#cdd6f4"
+inactive_tab_background = "#0b0b12"
+inactive_tab_font_style = "normal"
+tab_bar_background = "#11111b"
+mouse = { enabled = true, hover = true }
+
+[keyboard]
+bindings = [
+  { key = "T", mods = "Super", action = "CreateNewTab" },
+  { key = "Right", mods = "Super", action = "SelectNextTab" },
+  { key = "Left", mods = "Super", action = "SelectPreviousTab" },
+  { key = "Tab", mods = "Super", action = "SelectNextTab" },
+  { key = "Tab", mods = "Super|Shift", action = "SelectPreviousTab" },
+  { key = "W", mods = "Super", action = "CloseTab" },
+  { key = ".", mods = "Super", action = "MoveTabForward" },
+  { key = ",", mods = "Super", action = "MoveTabBackward" },
+  { key = "T", mods = "Super|Alt", action = "SetTabTitle" },
+]
+```
+
 ## About
 
 Alacritty is a modern terminal emulator that comes with sensible defaults, but
