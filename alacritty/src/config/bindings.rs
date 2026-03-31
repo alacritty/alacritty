@@ -181,6 +181,9 @@ pub enum Action {
     /// Spawn a new instance of Alacritty.
     SpawnNewInstance,
 
+    /// Close the active tab.
+    CloseTab,
+
     /// Select next tab.
     SelectNextTab,
 
@@ -216,6 +219,15 @@ pub enum Action {
 
     /// Select the last tab.
     SelectLastTab,
+
+    /// Move the active tab forward.
+    MoveTabForward,
+
+    /// Move the active tab backward.
+    MoveTabBackward,
+
+    /// Set a custom title for the active tab.
+    SetTabTitle,
 
     /// Create a new Alacritty window.
     CreateNewWindow,
@@ -558,6 +570,15 @@ fn common_keybindings() -> Vec<KeyBinding> {
         "-",    ModifiersState::CONTROL;                                                                 Action::DecreaseFontSize;
         "+" => KeyLocation::Numpad, ModifiersState::CONTROL;                                             Action::IncreaseFontSize;
         "-" => KeyLocation::Numpad, ModifiersState::CONTROL;                                             Action::DecreaseFontSize;
+        ArrowRight, ModifiersState::CONTROL | ModifiersState::SHIFT;                                     Action::SelectNextTab;
+        Tab,        ModifiersState::CONTROL;                                                             Action::SelectNextTab;
+        ArrowLeft,  ModifiersState::CONTROL | ModifiersState::SHIFT;                                     Action::SelectPreviousTab;
+        Tab,        ModifiersState::CONTROL | ModifiersState::SHIFT;                                     Action::SelectPreviousTab;
+        "t",        ModifiersState::CONTROL | ModifiersState::SHIFT;                                     Action::CreateNewTab;
+        "w",        ModifiersState::CONTROL | ModifiersState::SHIFT;                                     Action::CloseTab;
+        ".",        ModifiersState::CONTROL | ModifiersState::SHIFT;                                     Action::MoveTabForward;
+        ",",        ModifiersState::CONTROL | ModifiersState::SHIFT;                                     Action::MoveTabBackward;
+        "t",        ModifiersState::CONTROL | ModifiersState::SHIFT | ModifiersState::ALT;              Action::SetTabTitle;
     )
 }
 

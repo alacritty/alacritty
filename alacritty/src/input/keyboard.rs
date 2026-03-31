@@ -53,6 +53,25 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             return;
         }
 
+        if self.ctx.tab_title_editor_active() {
+            match key.logical_key.as_ref() {
+                Key::Named(NamedKey::Enter) => self.ctx.confirm_tab_title(),
+                Key::Named(NamedKey::Escape) => self.ctx.cancel_tab_title(),
+                Key::Named(NamedKey::Backspace) => self.ctx.tab_title_input('\x7f'),
+                _ if mods.control_key()
+                    && matches!(key.logical_key.as_ref(), Key::Character("w")) =>
+                {
+                    self.ctx.tab_title_pop_word()
+                },
+                _ => {
+                    for character in text.chars() {
+                        self.ctx.tab_title_input(character);
+                    }
+                },
+            }
+            return;
+        }
+
         // Reset search delay when the user is still typing.
         self.reset_search_delay();
 

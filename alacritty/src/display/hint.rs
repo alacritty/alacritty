@@ -13,8 +13,8 @@ use alacritty_terminal::term::cell::Hyperlink;
 use alacritty_terminal::term::search::{Match, RegexIter, RegexSearch};
 use alacritty_terminal::term::{Term, TermMode};
 
-use crate::config::UiConfig;
 use crate::config::ui_config::{Hint, HintAction};
+use crate::config::UiConfig;
 
 /// Maximum number of linewraps followed outside of the viewport during search highlighting.
 pub const MAX_SEARCH_LINES: usize = 100;

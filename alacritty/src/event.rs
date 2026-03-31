@@ -343,10 +343,8 @@ impl ApplicationHandler<Event> for Processor {
             (EventType::ConfigReload(path), _) => {
                 // Clear config logs from message bar for all terminals.
                 for window_context in self.windows.values_mut() {
-                    if !window_context.message_buffer.is_empty() {
-                        window_context.message_buffer.remove_target(LOG_TARGET_CONFIG);
-                        window_context.display.pending_update.dirty = true;
-                    }
+                    window_context.clear_config_messages(LOG_TARGET_CONFIG);
+                    window_context.display.pending_update.dirty = true;
                 }
 
                 // Load config and update each terminal.
@@ -408,35 +406,35 @@ impl ApplicationHandler<Event> for Processor {
             },
             (EventType::Terminal(TerminalEvent::Wakeup), Some(window_id)) => {
                 if let Some(window_context) = self.windows.get_mut(window_id) {
-                    window_context.dirty = true;
-                    if window_context.display.window.has_frame {
+                    window_context.handle_tab_wakeup(event.tab_id);
+                    if window_context.dirty && window_context.display.window.has_frame {
                         window_context.display.window.request_redraw();
                     }
                 }
             },
             (EventType::Terminal(TerminalEvent::Exit), Some(window_id)) => {
-                // Remove the closed terminal.
-                let window_context = match self.windows.entry(*window_id) {
-                    // Don't exit when terminal exits if user asked to hold the window.
-                    Entry::Occupied(window_context)
-                        if !window_context.get().display.window.hold =>
-                    {
-                        window_context.remove()
-                    },
-                    _ => return,
+                let close_window = match self.windows.get_mut(window_id) {
+                    Some(window_context) => window_context.handle_tab_exit(event.tab_id),
+                    None => false,
                 };
 
-                // Unschedule pending events.
-                self.scheduler.unschedule_window(window_context.id());
+                if close_window {
+                    let window_context = match self.windows.entry(*window_id) {
+                        Entry::Occupied(window_context) => window_context.remove(),
+                        Entry::Vacant(_) => return,
+                    };
 
-                // Shutdown if no more terminals are open.
-                if self.windows.is_empty() && !self.cli_options.daemon {
-                    // Write ref tests of last window to disk.
-                    if self.config.debug.ref_test {
-                        window_context.write_ref_test_results();
+                    // Unschedule pending events.
+                    self.scheduler.unschedule_window(window_context.id());
+
+                    // Shutdown if no more terminals are open.
+                    if self.windows.is_empty() && !self.cli_options.daemon {
+                        if self.config.debug.ref_test {
+                            window_context.write_ref_test_results();
+                        }
+
+                        event_loop.exit();
                     }
-
-                    event_loop.exit();
                 }
             },
             // NOTE: This event bypasses batching to minimize input latency.
@@ -520,15 +518,26 @@ impl ApplicationHandler<Event> for Processor {
 #[derive(Debug, Clone)]
 pub struct Event {
     /// Limit event to a specific window.
-    window_id: Option<WindowId>,
+    pub(crate) window_id: Option<WindowId>,
+
+    /// Limit event to a specific tab inside the window.
+    pub(crate) tab_id: Option<TabId>,
 
     /// Event payload.
-    payload: EventType,
+    pub(crate) payload: EventType,
 }
 
 impl Event {
     pub fn new<I: Into<Option<WindowId>>>(payload: EventType, window_id: I) -> Self {
-        Self { window_id: window_id.into(), payload }
+        Self { window_id: window_id.into(), tab_id: None, payload }
+    }
+
+    pub fn with_tab<I: Into<Option<WindowId>>>(
+        payload: EventType,
+        window_id: I,
+        tab_id: TabId,
+    ) -> Self {
+        Self { window_id: window_id.into(), tab_id: Some(tab_id), payload }
     }
 }
 
@@ -546,6 +555,7 @@ pub enum EventType {
     Message(Message),
     Scroll(Scroll),
     CreateWindow(WindowOptions),
+    Tab(TabAction),
     #[cfg(unix)]
     IpcConfig(IpcConfig),
     #[cfg(unix)]
@@ -562,6 +572,26 @@ impl From<TerminalEvent> for EventType {
     fn from(event: TerminalEvent) -> Self {
         Self::Terminal(event)
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct TabId(pub u64);
+
+#[derive(Debug, Clone)]
+pub enum TabAction {
+    Create,
+    Close,
+    SelectNext,
+    SelectPrevious,
+    Select(usize),
+    SelectLast,
+    MoveForward,
+    MoveBackward,
+    SetTitle,
+    ConfirmTitle,
+    CancelTitle,
+    TitleInput(char),
+    TitlePopWord,
 }
 
 /// Regex search state.
@@ -663,6 +693,11 @@ impl Default for InlineSearchState {
 pub struct ActionContext<'a, N, T> {
     pub notifier: &'a mut N,
     pub terminal: &'a mut Term<T>,
+    pub tab_terminal_title: &'a mut Option<String>,
+    pub tab_detected_title: &'a str,
+    pub tab_custom_title: &'a mut Option<String>,
+    pub tab_title_editor_active: bool,
+    pub is_active_tab: bool,
     pub clipboard: &'a mut Clipboard,
     pub mouse: &'a mut Mouse,
     pub touch: &'a mut TouchPurpose,
@@ -879,6 +914,103 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         self.spawn_daemon(&alacritty, &args);
+    }
+
+    fn create_new_tab(&mut self) {
+        let _ = self
+            .event_proxy
+            .send_event(Event::new(EventType::Tab(TabAction::Create), self.display.window.id()));
+    }
+
+    fn close_tab(&mut self) {
+        let _ = self
+            .event_proxy
+            .send_event(Event::new(EventType::Tab(TabAction::Close), self.display.window.id()));
+    }
+
+    fn select_next_tab(&mut self) {
+        let _ = self.event_proxy.send_event(Event::new(
+            EventType::Tab(TabAction::SelectNext),
+            self.display.window.id(),
+        ));
+    }
+
+    fn select_previous_tab(&mut self) {
+        let _ = self.event_proxy.send_event(Event::new(
+            EventType::Tab(TabAction::SelectPrevious),
+            self.display.window.id(),
+        ));
+    }
+
+    fn select_tab_at_index(&mut self, index: usize) {
+        let _ = self.event_proxy.send_event(Event::new(
+            EventType::Tab(TabAction::Select(index)),
+            self.display.window.id(),
+        ));
+    }
+
+    fn select_last_tab(&mut self) {
+        let _ = self.event_proxy.send_event(Event::new(
+            EventType::Tab(TabAction::SelectLast),
+            self.display.window.id(),
+        ));
+    }
+
+    fn move_tab_forward(&mut self) {
+        let _ = self.event_proxy.send_event(Event::new(
+            EventType::Tab(TabAction::MoveForward),
+            self.display.window.id(),
+        ));
+    }
+
+    fn move_tab_backward(&mut self) {
+        let _ = self.event_proxy.send_event(Event::new(
+            EventType::Tab(TabAction::MoveBackward),
+            self.display.window.id(),
+        ));
+    }
+
+    fn set_tab_title(&mut self) {
+        let _ = self
+            .event_proxy
+            .send_event(Event::new(EventType::Tab(TabAction::SetTitle), self.display.window.id()));
+    }
+
+    fn tab_at_mouse(&mut self) -> Option<usize> {
+        let mouse = &*self.mouse;
+        self.display.tab_at_position(mouse.x, mouse.y)
+    }
+
+    fn tab_title_editor_active(&self) -> bool {
+        self.tab_title_editor_active
+    }
+
+    fn confirm_tab_title(&mut self) {
+        let _ = self.event_proxy.send_event(Event::new(
+            EventType::Tab(TabAction::ConfirmTitle),
+            self.display.window.id(),
+        ));
+    }
+
+    fn cancel_tab_title(&mut self) {
+        let _ = self.event_proxy.send_event(Event::new(
+            EventType::Tab(TabAction::CancelTitle),
+            self.display.window.id(),
+        ));
+    }
+
+    fn tab_title_input(&mut self, c: char) {
+        let _ = self.event_proxy.send_event(Event::new(
+            EventType::Tab(TabAction::TitleInput(c)),
+            self.display.window.id(),
+        ));
+    }
+
+    fn tab_title_pop_word(&mut self) {
+        let _ = self.event_proxy.send_event(Event::new(
+            EventType::Tab(TabAction::TitlePopWord),
+            self.display.window.id(),
+        ));
     }
 
     #[cfg(not(windows))]
@@ -1866,15 +1998,30 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 },
                 EventType::Terminal(event) => match event {
                     TerminalEvent::Title(title) => {
-                        if !self.ctx.preserve_title && self.ctx.config.window.dynamic_title {
+                        *self.ctx.tab_terminal_title = Some(title.clone());
+                        if self.ctx.is_active_tab
+                            && self.ctx.tab_custom_title.is_none()
+                            && !self.ctx.preserve_title
+                            && self.ctx.config.window.dynamic_title
+                        {
                             self.ctx.window().set_title(title);
                         }
+                        *self.ctx.dirty = true;
                     },
                     TerminalEvent::ResetTitle => {
+                        *self.ctx.tab_terminal_title = None;
                         let window_config = &self.ctx.config.window;
-                        if !self.ctx.preserve_title && window_config.dynamic_title {
-                            self.ctx.display.window.set_title(window_config.identity.title.clone());
+                        if self.ctx.is_active_tab
+                            && self.ctx.tab_custom_title.is_none()
+                            && !self.ctx.preserve_title
+                            && window_config.dynamic_title
+                        {
+                            self.ctx
+                                .display
+                                .window
+                                .set_title(self.ctx.tab_detected_title.to_owned());
                         }
+                        *self.ctx.dirty = true;
                     },
                     TerminalEvent::Bell => {
                         // Set window urgency hint when window is not focused.
@@ -1930,6 +2077,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 },
                 #[cfg(unix)]
                 EventType::IpcConfig(_) | EventType::IpcGetConfig(..) | EventType::Shutdown => (),
+                EventType::Tab(_) => (),
                 EventType::Message(_)
                 | EventType::ConfigReload(_)
                 | EventType::CreateWindow(_)
@@ -2073,21 +2221,22 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 pub struct EventProxy {
     proxy: EventLoopProxy<Event>,
     window_id: WindowId,
+    tab_id: TabId,
 }
 
 impl EventProxy {
-    pub fn new(proxy: EventLoopProxy<Event>, window_id: WindowId) -> Self {
-        Self { proxy, window_id }
+    pub fn new(proxy: EventLoopProxy<Event>, window_id: WindowId, tab_id: TabId) -> Self {
+        Self { proxy, window_id, tab_id }
     }
 
     /// Send an event to the event loop.
     pub fn send_event(&self, event: EventType) {
-        let _ = self.proxy.send_event(Event::new(event, self.window_id));
+        let _ = self.proxy.send_event(Event::with_tab(event, self.window_id, self.tab_id));
     }
 }
 
 impl EventListener for EventProxy {
     fn send_event(&self, event: TerminalEvent) {
-        let _ = self.proxy.send_event(Event::new(event.into(), self.window_id));
+        let _ = self.proxy.send_event(Event::with_tab(event.into(), self.window_id, self.tab_id));
     }
 }

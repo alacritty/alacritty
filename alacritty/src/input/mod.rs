@@ -99,6 +99,25 @@ pub trait ActionContext<T: EventListener> {
     fn terminal(&self) -> &Term<T>;
     fn terminal_mut(&mut self) -> &mut Term<T>;
     fn spawn_new_instance(&mut self) {}
+    fn create_new_tab(&mut self) {}
+    fn close_tab(&mut self) {}
+    fn select_next_tab(&mut self) {}
+    fn select_previous_tab(&mut self) {}
+    fn select_tab_at_index(&mut self, _index: usize) {}
+    fn select_last_tab(&mut self) {}
+    fn move_tab_forward(&mut self) {}
+    fn move_tab_backward(&mut self) {}
+    fn set_tab_title(&mut self) {}
+    fn tab_at_mouse(&mut self) -> Option<usize> {
+        None
+    }
+    fn tab_title_editor_active(&self) -> bool {
+        false
+    }
+    fn confirm_tab_title(&mut self) {}
+    fn cancel_tab_title(&mut self) {}
+    fn tab_title_input(&mut self, _c: char) {}
+    fn tab_title_pop_word(&mut self) {}
     #[cfg(target_os = "macos")]
     fn create_new_window(&mut self, _tabbing_id: Option<String>) {}
     #[cfg(not(target_os = "macos"))]
@@ -405,6 +424,10 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ClearLogNotice => ctx.pop_message(),
             #[cfg(not(target_os = "macos"))]
             Action::CreateNewWindow => ctx.create_new_window(),
+            #[cfg(not(target_os = "macos"))]
+            Action::CreateNewTab => ctx.create_new_tab(),
+            #[cfg(not(target_os = "macos"))]
+            Action::CloseTab => ctx.close_tab(),
             Action::SpawnNewInstance => ctx.spawn_new_instance(),
             #[cfg(target_os = "macos")]
             Action::CreateNewWindow => ctx.create_new_window(None),
@@ -440,6 +463,36 @@ impl<T: EventListener> Execute<T> for Action {
             Action::SelectTab9 => ctx.window().select_tab_at_index(8),
             #[cfg(target_os = "macos")]
             Action::SelectLastTab => ctx.window().select_last_tab(),
+            #[cfg(not(target_os = "macos"))]
+            Action::SelectNextTab => ctx.select_next_tab(),
+            #[cfg(not(target_os = "macos"))]
+            Action::SelectPreviousTab => ctx.select_previous_tab(),
+            #[cfg(not(target_os = "macos"))]
+            Action::SelectTab1 => ctx.select_tab_at_index(0),
+            #[cfg(not(target_os = "macos"))]
+            Action::SelectTab2 => ctx.select_tab_at_index(1),
+            #[cfg(not(target_os = "macos"))]
+            Action::SelectTab3 => ctx.select_tab_at_index(2),
+            #[cfg(not(target_os = "macos"))]
+            Action::SelectTab4 => ctx.select_tab_at_index(3),
+            #[cfg(not(target_os = "macos"))]
+            Action::SelectTab5 => ctx.select_tab_at_index(4),
+            #[cfg(not(target_os = "macos"))]
+            Action::SelectTab6 => ctx.select_tab_at_index(5),
+            #[cfg(not(target_os = "macos"))]
+            Action::SelectTab7 => ctx.select_tab_at_index(6),
+            #[cfg(not(target_os = "macos"))]
+            Action::SelectTab8 => ctx.select_tab_at_index(7),
+            #[cfg(not(target_os = "macos"))]
+            Action::SelectTab9 => ctx.select_tab_at_index(8),
+            #[cfg(not(target_os = "macos"))]
+            Action::SelectLastTab => ctx.select_last_tab(),
+            #[cfg(not(target_os = "macos"))]
+            Action::MoveTabForward => ctx.move_tab_forward(),
+            #[cfg(not(target_os = "macos"))]
+            Action::MoveTabBackward => ctx.move_tab_backward(),
+            #[cfg(not(target_os = "macos"))]
+            Action::SetTabTitle => ctx.set_tab_title(),
             _ => (),
         }
     }
@@ -993,6 +1046,17 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             _ => (),
         }
 
+        if state == ElementState::Pressed
+            && button == MouseButton::Left
+            && self.ctx.config().tabs.mouse.enabled
+        {
+            if let Some(tab_index) = self.ctx.tab_at_mouse() {
+                self.ctx.select_tab_at_index(tab_index);
+                self.ctx.window().set_mouse_cursor(CursorIcon::Pointer);
+                return;
+            }
+        }
+
         // Skip normal mouse events if the message bar has been clicked.
         if self.message_bar_cursor_state() == Some(CursorIcon::Pointer)
             && state == ElementState::Pressed
@@ -1097,6 +1161,16 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let display_offset = self.ctx.terminal().grid().display_offset();
         let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
         let hyperlink = self.ctx.terminal().grid()[point].hyperlink();
+
+        if self.ctx.config().tabs.mouse.enabled {
+            if self.ctx.tab_at_mouse().is_some() {
+                return if self.ctx.config().tabs.mouse.hover {
+                    CursorIcon::Pointer
+                } else {
+                    CursorIcon::Default
+                };
+            }
+        }
 
         // Function to check if mouse is on top of a hint.
         let hint_highlighted = |hint: &HintMatch| hint.should_highlight(point, hyperlink.as_ref());

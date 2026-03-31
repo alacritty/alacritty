@@ -200,10 +200,13 @@ fn update_projection(u_projection: GLint, size: &SizeInfo) {
     let width = size.width();
     let height = size.height();
     let padding_x = size.padding_x();
-    let padding_y = size.padding_y();
+    let padding_top = size.padding_y();
+    let padding_bottom = size.padding_bottom_y();
 
     // Bounds check.
-    if (width as u32) < (2 * padding_x as u32) || (height as u32) < (2 * padding_y as u32) {
+    if (width as u32) < (2 * padding_x as u32)
+        || (height as u32) < ((padding_top + padding_bottom) as u32)
+    {
         return;
     }
 
@@ -211,7 +214,7 @@ fn update_projection(u_projection: GLint, size: &SizeInfo) {
     //   [0, width - 2 * padding_x] to [-1, 1]
     //   [height - 2 * padding_y, 0] to [-1, 1]
     let scale_x = 2. / (width - 2. * padding_x);
-    let scale_y = -2. / (height - 2. * padding_y);
+    let scale_y = -2. / (height - padding_top - padding_bottom);
     let offset_x = -1.;
     let offset_y = 1.;
 
