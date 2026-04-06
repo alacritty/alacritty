@@ -213,7 +213,17 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 },
             };
 
-            if binding.is_triggered_by(mode, mods, &key) {
+            // For character bindings, only require that the binding's modifiers are
+            // present, ignoring extra modifiers like Shift that may be needed to
+            // produce the character on non-US keyboard layouts. For scancode
+            // bindings, modifiers must match exactly since the binding refers to a
+            // physical key position.
+            let binding_mods = match &binding.trigger {
+                BindingKey::Keycode { key: Key::Character(_), .. } => mods & binding.mods,
+                _ => mods,
+            };
+
+            if binding.is_triggered_by(mode, binding_mods, &key) {
                 // Pass through the key if any of the bindings has the `ReceiveChar` action.
                 *suppress_chars.get_or_insert(true) &= binding.action != Action::ReceiveChar;
 
