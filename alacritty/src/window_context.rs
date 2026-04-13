@@ -304,9 +304,9 @@ impl WindowContext {
         // │ N  │       N       │              _              ││     Y     │
         if !self.preserve_title
             && (!self.config.window.dynamic_title
-                || self.display.window.title() == old_config.window.identity.title)
+                || self.display.window.title() == old_config.window.default_title())
         {
-            self.display.window.set_title(self.config.window.identity.title.clone());
+            self.display.window.set_title(self.config.window.default_title());
         }
 
         let opaque = self.config.window_opacity() >= 1.;

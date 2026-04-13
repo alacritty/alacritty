@@ -173,8 +173,9 @@ impl Window {
             window_attributes = window_attributes.with_embed_parent_window(parent_window_id);
         }
 
+        let initial_title = config.window.default_title();
         window_attributes = window_attributes
-            .with_title(&identity.title)
+            .with_title(&initial_title)
             .with_theme(config.window.theme())
             .with_visible(false)
             .with_transparent(true)
@@ -206,7 +207,7 @@ impl Window {
         Ok(Self {
             hold: options.terminal_options.hold,
             requested_redraw: false,
-            title: identity.title,
+            title: initial_title,
             current_mouse_cursor,
             mouse_visible: true,
             has_frame: true,

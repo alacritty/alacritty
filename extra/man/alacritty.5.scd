@@ -159,7 +159,11 @@ This section documents the *[window]* table of the configuration file.
 
 *title* = _"<string>"_
 
-	Window title.
+	Window title. If the string contains _{}_, it acts as a format string
+	where _{}_ is replaced with the dynamic title set by the terminal
+	application.
+
+	Example: _"Alacritty - {}"_
 
 	Default: _"Alacritty"_
 

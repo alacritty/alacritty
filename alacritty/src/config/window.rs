@@ -90,6 +90,19 @@ impl Default for WindowConfig {
 }
 
 impl WindowConfig {
+    pub fn formatted_title(&self, dynamic_title: &str) -> String {
+        let title = &self.identity.title;
+        if title.contains("{}") {
+            title.replace("{}", dynamic_title)
+        } else {
+            dynamic_title.to_owned()
+        }
+    }
+
+    pub fn default_title(&self) -> String {
+        self.identity.title.replace("{}", "")
+    }
+
     #[inline]
     pub fn dimensions(&self) -> Option<Dimensions> {
         let (lines, columns) = (self.dimensions.lines, self.dimensions.columns);

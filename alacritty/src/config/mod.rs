@@ -450,4 +450,46 @@ window = "Hello""#
         let toml = yaml_to_toml(contents);
         assert!(toml.is_empty());
     }
+
+    fn window_config_with_title(title: &str) -> window::WindowConfig {
+        let mut config = window::WindowConfig::default();
+        config.identity.title = title.to_owned();
+        config
+    }
+
+    #[test]
+    fn formatted_title_with_placeholder() {
+        let config = window_config_with_title("Alacritty - {}");
+        assert_eq!(config.formatted_title("vim"), "Alacritty - vim");
+    }
+
+    #[test]
+    fn formatted_title_without_placeholder_uses_dynamic() {
+        let config = window_config_with_title("Alacritty");
+        assert_eq!(config.formatted_title("vim"), "vim");
+    }
+
+    #[test]
+    fn formatted_title_with_empty_dynamic() {
+        let config = window_config_with_title("prefix - {} - suffix");
+        assert_eq!(config.formatted_title(""), "prefix -  - suffix");
+    }
+
+    #[test]
+    fn formatted_title_with_multiple_placeholders() {
+        let config = window_config_with_title("{} - {} - end");
+        assert_eq!(config.formatted_title("vim"), "vim - vim - end");
+    }
+
+    #[test]
+    fn default_title_strips_placeholder() {
+        let config = window_config_with_title("Alacritty - {}");
+        assert_eq!(config.default_title(), "Alacritty - ");
+    }
+
+    #[test]
+    fn default_title_without_placeholder() {
+        let config = window_config_with_title("Alacritty");
+        assert_eq!(config.default_title(), "Alacritty");
+    }
 }

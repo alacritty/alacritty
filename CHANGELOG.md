@@ -10,6 +10,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.18.0-dev
 
+### Changed
+
+- Support `{}` placeholder in `window.title` for dynamic title customization
+
 ## 0.17.0
 
 ### Packaging
