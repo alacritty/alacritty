@@ -10,6 +10,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.18.0-dev
 
+### Fixed
+
+- Spurious "Failed to set new owner of XCB selection" warnings on X11
+
 ## 0.17.0
 
 ### Packaging

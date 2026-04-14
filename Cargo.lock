@@ -2723,8 +2723,7 @@ checksum = "f17a85883d4e6d00e8a97c586de764dabcc06133f7f1d55dce5cdc070ad7fe59"
 [[package]]
 name = "x11-clipboard"
 version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "662d74b3d77e396b8e5beb00b9cad6a9eccf40b2ef68cc858784b14c41d535a3"
+source = "git+https://github.com/quininer/x11-clipboard.git?rev=19ab2163cf0bd0db607e827a5214571990307866#19ab2163cf0bd0db607e827a5214571990307866"
 dependencies = [
  "libc",
  "x11rb",
