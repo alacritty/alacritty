@@ -1,0 +1,39 @@
+---
+description: Governance rules for alacritty — quality gates, security, conventions
+globs:
+  - "**/*.rs"
+alwaysApply: true
+---
+
+# Governance — alacritty
+
+> Generated from governance.md by crag. Regenerate: `crag compile --target cursor`
+
+**Stack:** rust
+
+## Quality Gates
+
+Run these checks in order before committing:
+### Lint
+- `cargo clippy -- -D warnings`
+- `cargo fmt --check`
+
+### Test
+- `cargo test`
+
+### Ci (inferred from workflow)
+- `cargo test -p alacritty_terminal --no-default-features`
+- `cargo clippy --all-targets`
+- `cargo build --target=x86_64-apple-darwin`
+- `cargo test --release --target=x86_64-apple-darwin`
+- `cargo build --release --target=aarch64-apple-darwin`
+- `make dmg-universal`
+- `cargo test --release`
+## Security
+
+- No hardcoded secrets — grep for sk_live, AKIA, password= before commit
+
+## Conventions
+
+- Follow project commit conventions
+- Runtimes: rust
