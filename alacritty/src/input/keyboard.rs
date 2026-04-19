@@ -204,6 +204,21 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             key.logical_key.clone()
         };
 
+        // For character bindings, strip SHIFT from the modifier state when SHIFT was consumed
+        // by the keyboard layout to produce the character (e.g. Shift+7 → '/' on Spanish
+        // keyboards). This allows layout-dependent bindings like '/' to trigger correctly
+        // without requiring users to add an explicit `mods = "Shift"` workaround.
+        let char_binding_mods = if mods.shift_key() {
+            match &logical_key {
+                Key::Character(_) if logical_key != key.key_without_modifiers() => {
+                    mods & !ModifiersState::SHIFT
+                },
+                _ => mods,
+            }
+        } else {
+            mods
+        };
+
         // Get the action of a key binding.
         let mut binding_action = |binding: &KeyBinding| {
             let key = match (&binding.trigger, &logical_key) {
@@ -213,7 +228,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 },
             };
 
-            if binding.is_triggered_by(mode, mods, &key) {
+            // Scancode bindings use full mods; character bindings use mods with any
+            // layout-consumed SHIFT stripped.
+            let effective_mods =
+                if matches!(binding.trigger, BindingKey::Scancode(_)) { mods } else { char_binding_mods };
+
+            if binding.is_triggered_by(mode, effective_mods, &key) {
                 // Pass through the key if any of the bindings has the `ReceiveChar` action.
                 *suppress_chars.get_or_insert(true) &= binding.action != Action::ReceiveChar;
 
