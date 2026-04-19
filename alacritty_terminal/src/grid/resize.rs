@@ -82,14 +82,12 @@ impl<T: GridCell + Default + PartialEq> Grid<T> {
     {
         // Scroll up to keep content inside the window.
         let required_scrolling = (self.cursor.point.line.0 as usize + 1).saturating_sub(target);
-        if required_scrolling > 0 {
+        if required_scrolling > 0 && self.max_scroll_limit > 0 {
             self.scroll_up(&(Line(0)..Line(self.lines as i32)), required_scrolling);
-
-            // Clamp cursors to the new viewport size.
-            self.cursor.point.line = min(self.cursor.point.line, Line(target as i32 - 1));
         }
 
-        // Clamp saved cursor, since only primary cursor is scrolled into viewport.
+        // Clamp cursors to the new viewport size.
+        self.cursor.point.line = min(self.cursor.point.line, Line(target as i32 - 1));
         self.saved_cursor.point.line = min(self.saved_cursor.point.line, Line(target as i32 - 1));
 
         self.raw.rotate((self.lines - target) as isize);
