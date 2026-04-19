@@ -21,7 +21,7 @@ impl<T: GridCell + Default + PartialEq> Grid<T> {
 
         match self.lines.cmp(&lines) {
             Ordering::Less => self.grow_lines(lines),
-            Ordering::Greater => self.shrink_lines(lines),
+            Ordering::Greater => self.shrink_lines(lines, reflow),
             Ordering::Equal => (),
         }
 
@@ -75,14 +75,14 @@ impl<T: GridCell + Default + PartialEq> Grid<T> {
     /// of the terminal window.
     ///
     /// Alacritty takes the same approach.
-    fn shrink_lines<D>(&mut self, target: usize)
+    fn shrink_lines<D>(&mut self, target: usize, reflow: bool)
     where
         T: ResetDiscriminant<D>,
         D: PartialEq,
     {
-        // Scroll up to keep content inside the window.
+        // On the alt screen the app redraws after SIGWINCH
         let required_scrolling = (self.cursor.point.line.0 as usize + 1).saturating_sub(target);
-        if required_scrolling > 0 && self.max_scroll_limit > 0 {
+        if required_scrolling > 0 && reflow {
             self.scroll_up(&(Line(0)..Line(self.lines as i32)), required_scrolling);
         }
 
