@@ -298,7 +298,7 @@ impl Window {
             let mut decoder = Decoder::new(Cursor::new(WINDOW_ICON));
             decoder.set_transformations(png::Transformations::normalize_to_color8());
             let mut reader = decoder.read_info().expect("invalid embedded icon");
-            let mut buf = vec![0; reader.output_buffer_size()];
+            let mut buf = vec![0; reader.output_buffer_size().expect("invalid embedded icon size")];
             let _ = reader.next_frame(&mut buf);
             Icon::from_rgba(buf, reader.info().width, reader.info().height)
                 .expect("invalid embedded icon format")

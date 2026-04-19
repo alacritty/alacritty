@@ -55,7 +55,7 @@ clap_complete = "4.2.3"
 xdg = "3.0.0"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
-png = { version = "0.17.5", default-features = false, optional = true }
+png = { version = "0.18.1", default-features = false, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.1"
