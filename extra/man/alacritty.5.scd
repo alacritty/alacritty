@@ -853,6 +853,8 @@ _https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead_
 			Start a forward buffer search.
 		*SearchBackward*
 			Start a backward buffer search.
+		*SelectAll*
+			Select all terminal content including scrollback and copy to clipboard.
 
 		_Vi mode actions:_
 

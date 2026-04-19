@@ -247,6 +247,9 @@ pub enum Action {
     /// Start a backward buffer search.
     SearchBackward,
 
+    /// Select all terminal content including scrollback and copy to clipboard.
+    SelectAll,
+
     /// No action.
     None,
 }

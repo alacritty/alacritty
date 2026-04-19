@@ -29,7 +29,7 @@ use winit::window::CursorIcon;
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Boundary, Column, Direction, Point, Side};
-use alacritty_terminal::selection::SelectionType;
+use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::search::Match;
 use alacritty_terminal::term::{ClipboardType, Term, TermMode};
 use alacritty_terminal::vi_mode::ViMotion;
@@ -320,6 +320,14 @@ impl<T: EventListener> Execute<T> for Action {
             Action::Mouse(MouseAction::ExpandSelection) => ctx.expand_selection(),
             Action::SearchForward => ctx.start_search(Direction::Right),
             Action::SearchBackward => ctx.start_search(Direction::Left),
+            Action::SelectAll => {
+                let start = Point::new(ctx.terminal().topmost_line(), Column(0));
+                let cursor = ctx.terminal().grid().cursor.point;
+                let mut selection = Selection::new(SelectionType::Simple, start, Side::Left);
+                selection.update(cursor, Side::Right);
+                ctx.terminal_mut().selection = Some(selection);
+                ctx.mark_dirty();
+            },
             Action::Copy => ctx.copy_selection(ClipboardType::Clipboard),
             #[cfg(not(any(target_os = "macos", windows)))]
             Action::CopySelection => ctx.copy_selection(ClipboardType::Selection),
