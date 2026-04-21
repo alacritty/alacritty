@@ -1735,6 +1735,13 @@ impl<T: EventListener> Handler for Term<T> {
             _ => return,
         };
 
+        warn!(
+            "OSC 52 clipboard read request granted for {:?}; applications running inside the \
+             terminal can read clipboard contents. Set 'terminal.osc52' to 'disabled' or \
+             'onlycopy' to prevent this.",
+            clipboard_type,
+        );
+
         let terminator = terminator.to_owned();
 
         self.event_proxy.send_event(Event::ClipboardLoad(
