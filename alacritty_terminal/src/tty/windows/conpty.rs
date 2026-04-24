@@ -143,8 +143,9 @@ pub fn new(config: &Options, window_size: WindowSize) -> Result<Pty> {
 
     startup_info_ex.StartupInfo.cb = mem::size_of::<STARTUPINFOEXW>() as u32;
 
-    // Setting this flag but leaving all the handles as default (null) ensures the
-    // PTY process does not inherit any handles from this Alacritty process.
+    // Setting STARTF_USESTDHANDLES with null handles prevents standard I/O from
+    // being inherited. ConPTY infrastructure handles are inherited separately via
+    // the thread attribute list (see UpdateProcThreadAttribute below).
     startup_info_ex.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
 
     // Create the appropriately sized thread attribute list.
@@ -221,7 +222,7 @@ pub fn new(config: &Options, window_size: WindowSize) -> Result<Pty> {
             cmdline.as_ptr() as PWSTR,
             ptr::null_mut(),
             ptr::null_mut(),
-            false as i32,
+            true as i32,  // bInheritHandles: allow ConPTY infrastructure inheritance
             creation_flags,
             custom_env_block_pointer,
             cwd.as_ref().map_or_else(ptr::null, |s| s.as_ptr()),
