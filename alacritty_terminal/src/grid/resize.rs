@@ -20,7 +20,7 @@ impl<T: GridCell + Default + PartialEq> Grid<T> {
         let template = mem::take(&mut self.cursor.template);
 
         match self.lines.cmp(&lines) {
-            Ordering::Less => self.grow_lines(lines),
+            Ordering::Less => self.grow_lines(lines, reflow),
             Ordering::Greater => self.shrink_lines(lines, reflow),
             Ordering::Equal => (),
         }
@@ -40,7 +40,7 @@ impl<T: GridCell + Default + PartialEq> Grid<T> {
     /// Alacritty keeps the cursor at the bottom of the terminal as long as there
     /// is scrollback available. Once scrollback is exhausted, new lines are
     /// simply added to the bottom of the screen.
-    fn grow_lines<D>(&mut self, target: usize)
+    fn grow_lines<D>(&mut self, target: usize, reflow: bool)
     where
         T: ResetDiscriminant<D>,
         D: PartialEq,
@@ -51,7 +51,7 @@ impl<T: GridCell + Default + PartialEq> Grid<T> {
         self.raw.grow_visible_lines(target);
         self.lines = target;
 
-        let history_size = self.history_size();
+        let history_size = if reflow { self.history_size() } else { 0 };
         let from_history = min(history_size, lines_added);
 
         // Move existing lines up for every line that couldn't be pulled from history.
@@ -80,7 +80,8 @@ impl<T: GridCell + Default + PartialEq> Grid<T> {
         T: ResetDiscriminant<D>,
         D: PartialEq,
     {
-        // On the alt screen the app redraws after SIGWINCH
+        // If the cursor is at the bottom in the primary screen, scroll up the content together
+        // with the cursor.
         let required_scrolling = (self.cursor.point.line.0 as usize + 1).saturating_sub(target);
         if required_scrolling > 0 && reflow {
             self.scroll_up(&(Line(0)..Line(self.lines as i32)), required_scrolling);

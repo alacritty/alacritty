@@ -13,6 +13,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Fixed
 
 - Spurious "Failed to set new owner of XCB selection" warnings on X11
+- Alternate screen flickering during vertical resize
 
 ## 0.17.0
 
