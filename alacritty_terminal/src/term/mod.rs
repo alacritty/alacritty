@@ -11,7 +11,7 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD as Base64;
 use bitflags::bitflags;
 use log::{debug, trace};
-use unicode_width::UnicodeWidthChar;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::event::{Event, EventListener};
 use crate::grid::{Dimensions, Grid, GridIterator, Scroll};
@@ -1081,6 +1081,37 @@ impl<T: EventListener> Handler for Term<T> {
             }
 
             self.grid[line][column].push_zerowidth(c);
+
+            if c == '\u{FE0F}' && !self.grid[line][column].flags.contains(Flags::WIDE_CHAR) {
+                let base = self.grid[line][column].c;
+                let mut buf = [0u8; 8];
+                let s = {
+                    let len = base.encode_utf8(&mut buf).len();
+                    let vlen = '\u{FE0F}'.encode_utf8(&mut buf[len..]).len();
+                    core::str::from_utf8(&buf[..len + vlen]).unwrap()
+                };
+                if UnicodeWidthStr::width(s) == 2 {
+                    let columns = self.columns();
+                    self.grid[line][column].flags.insert(Flags::WIDE_CHAR);
+                    let spacer_col = column.0 + 1;
+                    if spacer_col < columns {
+                        let cell = &mut self.grid[line][Column(spacer_col)];
+                        cell.c = ' ';
+                        cell.flags.insert(Flags::WIDE_CHAR_SPACER);
+                        let next_col = spacer_col + 1;
+                        if next_col < columns {
+                            self.grid.cursor.point.column = Column(next_col);
+                            self.grid.cursor.input_needs_wrap = false;
+                        } else {
+                            self.grid.cursor.point.column = Column(spacer_col);
+                            self.grid.cursor.input_needs_wrap = true;
+                        }
+                    } else {
+                        self.grid.cursor.input_needs_wrap = true;
+                    }
+                }
+            }
+
             return;
         }
 
