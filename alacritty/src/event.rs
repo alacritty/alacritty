@@ -2018,8 +2018,14 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     WindowEvent::Ime(ime) => match ime {
                         Ime::Commit(text) => {
                             *self.ctx.dirty = true;
-                            // Don't use bracketed paste for single char input.
-                            self.ctx.paste(&text, text.chars().count() > 1);
+                            // IME commits are user typing (e.g. a Chinese
+                            // input method committing `你好`, or a Japanese
+                            // input method committing `ありがとう` as one
+                            // chunk), not a clipboard paste — never wrap
+                            // them in a bracketed-paste sequence, which
+                            // would make the shell treat the text as a
+                            // clipboard paste.
+                            self.ctx.paste(&text, false);
                             self.ctx.update_cursor_blinking();
                         },
                         Ime::Preedit(text, cursor_offset) => {
