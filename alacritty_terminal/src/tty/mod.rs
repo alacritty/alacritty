@@ -127,7 +127,7 @@ fn terminfo_exists(terminfo: &str) -> bool {
 
     if let Some(dir) = env::var_os("TERMINFO") {
         check_path!(PathBuf::from(&dir));
-    } else if let Some(home) = home::home_dir() {
+    } else if let Some(home) = env::home_dir() {
         check_path!(home.join(".terminfo"));
     }
 

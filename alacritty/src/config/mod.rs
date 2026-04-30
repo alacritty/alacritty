@@ -319,7 +319,7 @@ pub fn normalize_import(base_config_path: &Path, import_path: impl Into<PathBuf>
     let mut import_path = import_path.into();
 
     // Resolve paths relative to user's home directory.
-    if let (Ok(stripped), Some(home_dir)) = (import_path.strip_prefix("~/"), home::home_dir()) {
+    if let (Ok(stripped), Some(home_dir)) = (import_path.strip_prefix("~/"), env::home_dir()) {
         import_path = home_dir.join(stripped);
     }
 
