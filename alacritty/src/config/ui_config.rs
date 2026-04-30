@@ -173,7 +173,6 @@ impl UiConfig {
 #[derive(ConfigDeserialize, Serialize, Default, Clone, Debug, PartialEq)]
 struct Keyboard {
     /// Keybindings.
-    #[serde(skip_serializing)]
     bindings: KeyBindings,
 }
 
@@ -192,6 +191,12 @@ impl<'de> Deserialize<'de> for KeyBindings {
         D: Deserializer<'de>,
     {
         Ok(Self(deserialize_bindings(deserializer, Self::default().0)?))
+    }
+}
+
+impl Serialize for KeyBindings {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
     }
 }
 

@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Display};
 
 use bitflags::bitflags;
 use serde::de::{self, Error as SerdeError, MapAccess, Unexpected, Visitor};
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::rc::Rc;
 use toml::Value as SerdeValue;
 use winit::event::MouseButton;
@@ -23,7 +23,7 @@ use crate::config::ui_config::{Hint, Program, StringVisitor};
 /// Describes a state and action to take in that state.
 ///
 /// This is the shared component of `MouseBinding` and `KeyBinding`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Binding<T> {
     /// Modifier keys required to activate binding.
     pub mods: ModifiersState,
@@ -85,7 +85,7 @@ impl<T: Eq> Binding<T> {
     }
 }
 
-#[derive(ConfigDeserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum Action {
     /// Write an escape sequence.
     #[config(skip)]
@@ -294,7 +294,7 @@ impl Display for Action {
 }
 
 /// Vi mode specific actions.
-#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq, Serialize)]
 pub enum ViAction {
     /// Toggle normal vi selection.
     ToggleNormalSelection,
@@ -336,7 +336,7 @@ pub enum ViAction {
 
 /// Search mode specific actions.
 #[allow(clippy::enum_variant_names)]
-#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq, Serialize)]
 pub enum SearchAction {
     /// Move the focus to the next search match.
     SearchFocusNext,
@@ -357,14 +357,14 @@ pub enum SearchAction {
 }
 
 /// Mouse binding specific actions.
-#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq, Serialize)]
 pub enum MouseAction {
     /// Expand the selection to the current mouse cursor position.
     ExpandSelection,
 }
 
 /// Mouse binding specific events.
-#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Serialize)]
 pub enum MouseEvent {
     Button(MouseButton),
     WheelUp,
@@ -626,14 +626,14 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
     vec![]
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub enum BindingKey {
     Scancode(PhysicalKey),
     Keycode { key: Key, location: KeyLocation },
 }
 
 /// Key location for matching bindings.
-#[derive(Debug, Clone, Copy, Eq)]
+#[derive(Debug, Clone, Copy, Eq, Serialize)]
 pub enum KeyLocation {
     /// The key is in its standard position.
     Standard,
@@ -786,6 +786,12 @@ impl BindingMode {
             mode.contains(TermMode::REPORT_ALL_KEYS_AS_ESC),
         );
         binding_mode
+    }
+}
+
+impl Serialize for BindingMode {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_u8(self.bits())
     }
 }
 

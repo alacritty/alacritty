@@ -412,6 +412,16 @@ mod tests {
         toml::from_str::<UiConfig>("").unwrap();
     }
 
+    #[test]
+    fn get_config_includes_keyboard_bindings() {
+        let config = UiConfig::default();
+        let json = serde_json::to_string(&config).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let bindings =
+            value["keyboard"]["bindings"].as_array().expect("keyboard.bindings must be an array");
+        assert!(!bindings.is_empty(), "keyboard.bindings must not be empty");
+    }
+
     fn yaml_to_toml(contents: &str) -> String {
         let mut value: serde_yaml::Value = serde_yaml::from_str(contents).unwrap();
         prune_yaml_nulls(&mut value, false);
