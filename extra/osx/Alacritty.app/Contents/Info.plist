@@ -34,6 +34,8 @@
   <string>Alacritty</string>
   <key>NSRequiresAquaSystemAppearance</key>
   <string>NO</string>
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
     <key>NSAppleEventsUsageDescription</key>
     <string>An application in Alacritty would like to access AppleScript.</string>
     <key>NSCalendarsUsageDescription</key>
