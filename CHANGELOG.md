@@ -17,7 +17,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Fixed
 
 - Spurious "Failed to set new owner of XCB selection" warnings on X11
-- Can not control other apps on macOS
+- Lacking permissions to launch software sending Apple events
 
 ## 0.17.0
 
