@@ -30,11 +30,10 @@ Please refer to the [Dependencies](#dependencies) section.
         10. [Solus](#solus)
         11. [NixOS/Nixpkgs](#nixosnixpkgs)
         12. [Gentoo](#gentoo)
-        13. [Clear Linux](#clear-linux)
-        14. [GNU Guix](#gnu-guix)
-        15. [Alpine Linux](#alpine-linux)
-        16. [Windows](#windows)
-        17. [Other](#other)
+        13. [GNU Guix](#gnu-guix)
+        14. [Alpine Linux](#alpine-linux)
+        15. [Windows](#windows)
+        16. [Other](#other)
 2. [Building](#building)
     1. [Linux/Windows/BSD](#linux--windows--bsd)
     2. [macOS](#macos)
@@ -204,16 +203,6 @@ please open an issue.
 
 ```sh
 emerge --onlydeps x11-terms/alacritty
-```
-
-#### Clear Linux
-
-On Clear Linux, you need a few extra libraries to build Alacritty. Here's a
-`swupd` command that should install all of them. If something is still found
-to be missing, please open an issue.
-
-```sh
-swupd bundle-add devpkg-expat devpkg-freetype devpkg-libxcb devpkg-fontconfig
 ```
 
 #### GNU Guix
