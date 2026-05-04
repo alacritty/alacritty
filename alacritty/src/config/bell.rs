@@ -18,6 +18,9 @@ pub struct BellConfig {
     /// Visual bell flash color.
     pub color: Rgb,
 
+    /// If enabled, a bell will cause an unfocused window to request attention.
+    pub request_attention: bool,
+
     /// Visual bell duration in milliseconds.
     duration: u16,
 }
@@ -28,6 +31,7 @@ impl Default for BellConfig {
             color: Rgb::new(255, 255, 255),
             animation: Default::default(),
             command: Default::default(),
+            request_attention: true,
             duration: Default::default(),
         }
     }

@@ -1879,7 +1879,10 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     TerminalEvent::Bell => {
                         // Set window urgency hint when window is not focused.
                         let focused = self.ctx.terminal.is_focused;
-                        if !focused && self.ctx.terminal.mode().contains(TermMode::URGENCY_HINTS) {
+                        if !focused
+                            && self.ctx.config.bell.request_attention
+                            && self.ctx.terminal.mode().contains(TermMode::URGENCY_HINTS)
+                        {
                             self.ctx.window().set_urgent(true);
                         }
 
