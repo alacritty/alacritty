@@ -59,14 +59,9 @@ impl Dimensions for TermSize {
 
 pub type SessionId = u64;
 
-/// One terminal session: a PTY child plus its parsed terminal state.
-///
-/// The PTY's read/write loop runs on its own thread and stays alive even when
-/// this session isn't currently visible — that's the property that lets us
-/// switch worktrees without killing running processes.
+/// PTY child + parsed terminal state.  The read/write loop is on its own
+/// thread and survives workspace switches, so running processes aren't killed.
 pub struct Session {
-    /// Stable identifier, unique for the lifetime of the process.  Used by
-    /// the App to track per-workspace active sessions across removals.
     pub id: SessionId,
     pub title: String,
     pub working_directory: Option<PathBuf>,
@@ -107,8 +102,7 @@ impl Session {
             env: config.env.clone(),
         };
 
-        // Use a stable but unique-per-process window id; alacritty uses this for
-        // OSC 7 / signal routing.  Sessions in the same window get distinct ids.
+        // alacritty routes OSC 7 / signals by this id, so each session needs its own.
         let window_id = next_window_id();
         let pty = tty::new(&pty_options, window_size, window_id)?;
 
@@ -149,7 +143,6 @@ impl Session {
         self.size = size;
         self.cell_size = cell_size;
         let ws = window_size(size, cell_size);
-        // Resize the PTY (kernel-side) and the parsed terminal state.
         let _ = self.sender.send(Msg::Resize(ws));
         self.term.lock().resize(size);
     }

@@ -1,5 +1,4 @@
-//! Compute the data shown in the right sidebar: working-tree status and
-//! summary of changes vs. the project's default branch.
+//! Working-tree status + a summary of changes vs the project's default branch.
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -55,7 +54,6 @@ pub struct GitStatus {
     pub error: Option<String>,
 }
 
-/// Per-worktree cache of the most recent status, plus the time it was computed.
 pub struct StatusCache {
     path: PathBuf,
     last: Option<(Instant, GitStatus)>,
@@ -66,12 +64,9 @@ impl StatusCache {
         Self { path, last: None }
     }
 
-    /// Get the current status, recomputing if the cached result is stale.
     pub fn get(&mut self) -> &GitStatus {
-        let needs_refresh = self
-            .last
-            .as_ref()
-            .map_or(true, |(when, _)| when.elapsed() > REFRESH_INTERVAL);
+        let needs_refresh =
+            self.last.as_ref().map_or(true, |(when, _)| when.elapsed() > REFRESH_INTERVAL);
         if needs_refresh {
             let status = compute(&self.path, None);
             self.last = Some((Instant::now(), status));
@@ -88,10 +83,7 @@ impl StatusCache {
 pub fn compute(path: &Path, default_branch_hint: Option<&str>) -> GitStatus {
     match compute_inner(path, default_branch_hint) {
         Ok(s) => s,
-        Err(e) => GitStatus {
-            error: Some(e.to_string()),
-            ..Default::default()
-        },
+        Err(e) => GitStatus { error: Some(e.to_string()), ..Default::default() },
     }
 }
 
@@ -99,9 +91,8 @@ fn compute_inner(path: &Path, default_branch_hint: Option<&str>) -> Result<GitSt
     let repo = Repository::open(path)?;
 
     let branch = current_branch_name(&repo);
-    let default_branch = default_branch_hint
-        .map(|s| s.to_string())
-        .or_else(|| detect_default_branch(&repo));
+    let default_branch =
+        default_branch_hint.map(|s| s.to_string()).or_else(|| detect_default_branch(&repo));
 
     let mut staged = Vec::new();
     let mut unstaged = Vec::new();
@@ -210,9 +201,8 @@ fn unstaged_kind(s: Status) -> Option<ChangeKind> {
     None
 }
 
-/// Diff `HEAD` against the merge-base with `branch`, so the result reflects
-/// "what this branch adds on top of the default branch" rather than every
-/// commit difference.  Uses the remote-tracking ref when available.
+/// Diff against the merge base, not the branch tip, so local-only commits
+/// still appear when the default branch hasn't moved.
 fn diff_against_branch(
     repo: &Repository,
     branch: &str,
@@ -220,8 +210,6 @@ fn diff_against_branch(
     let (base_commit, resolved) = resolve_base_commit(repo, branch)?;
     let head_commit = repo.head()?.peel_to_commit()?;
 
-    // Merge base — use it instead of the branch tip so local-only commits show
-    // as changes even if the branch hasn't moved.
     let merge_base_oid = repo.merge_base(base_commit.id(), head_commit.id())?;
     let merge_base_commit = repo.find_commit(merge_base_oid)?;
 
@@ -252,11 +240,7 @@ fn diff_against_branch(
         None,
     )?;
 
-    // Fill in line counts using diff stats — single pass.
-    let line_stats = diff.stats()?;
-    let _ = line_stats; // currently unused; per-file counts come via patch iteration below.
-
-    for (i, delta) in diff.deltas().enumerate() {
+    for i in 0..diff.deltas().len() {
         if let Ok(Some(patch)) = git2::Patch::from_diff(&diff, i) {
             let (_, additions, deletions) = patch.line_stats().unwrap_or((0, 0, 0));
             if let Some(stat) = stats.get_mut(i) {
@@ -264,22 +248,16 @@ fn diff_against_branch(
                 stat.deletions = deletions;
             }
         }
-        let _ = delta;
     }
 
     Ok((stats, resolved))
 }
 
-/// Resolve the commit object for the default branch, preferring the remote
-/// tracking ref when present.  Returns `(commit, resolved_ref_name)`.
 fn resolve_base_commit<'a>(
     repo: &'a Repository,
     branch: &str,
 ) -> Result<(git2::Commit<'a>, String), git2::Error> {
-    let candidates = [
-        format!("refs/remotes/origin/{branch}"),
-        format!("refs/heads/{branch}"),
-    ];
+    let candidates = [format!("refs/remotes/origin/{branch}"), format!("refs/heads/{branch}")];
     for refname in &candidates {
         if let Ok(reference) = repo.find_reference(refname) {
             if let Ok(commit) = reference.peel_to_commit() {
@@ -287,7 +265,5 @@ fn resolve_base_commit<'a>(
             }
         }
     }
-    Err(git2::Error::from_str(&format!(
-        "default branch '{branch}' not found"
-    )))
+    Err(git2::Error::from_str(&format!("default branch '{branch}' not found")))
 }

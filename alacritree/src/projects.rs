@@ -1,12 +1,4 @@
-//! Discovery of projects and their git worktrees.
-//!
-//! A "project" here is a directory the user has added to the sidebar — usually
-//! a git repository.  For each project we list:
-//!  - the main checkout (the working directory of the repo itself), and
-//!  - any linked worktrees (`git worktree list`).
-//!
-//! We re-read this on demand rather than caching across long periods because
-//! worktrees come and go between sessions.
+//! Enumerate sidebar-added directories and their git worktrees.
 
 use std::path::PathBuf;
 
@@ -30,10 +22,8 @@ pub struct Worktree {
 }
 
 impl Project {
-    /// Open `root` as a git repo and enumerate its main + linked worktrees.
-    /// If `root` isn't a git repository, returns a project with a single
-    /// pseudo-worktree for the directory itself — the user can still use the
-    /// sidebar to spawn a shell rooted there.
+    /// Non-git roots get a single pseudo-worktree pointing at themselves so
+    /// the user can still spawn a shell there from the sidebar.
     pub fn discover(root: PathBuf) -> Self {
         let name = root
             .file_name()
@@ -58,10 +48,7 @@ impl Project {
     }
 
     fn from_repo(root: PathBuf, name: String, repo: &Repository) -> Self {
-        let main_path = repo
-            .workdir()
-            .map(|p| p.to_path_buf())
-            .unwrap_or_else(|| root.clone());
+        let main_path = repo.workdir().map(|p| p.to_path_buf()).unwrap_or_else(|| root.clone());
 
         let mut worktrees = Vec::new();
         worktrees.push(Worktree {
@@ -75,9 +62,8 @@ impl Project {
             for name in names.iter().flatten() {
                 if let Ok(wt) = repo.find_worktree(name) {
                     let path = wt.path().to_path_buf();
-                    let branch = Repository::open(&path)
-                        .ok()
-                        .and_then(|wt_repo| current_branch(&wt_repo));
+                    let branch =
+                        Repository::open(&path).ok().and_then(|wt_repo| current_branch(&wt_repo));
                     worktrees.push(Worktree {
                         name: name.to_string(),
                         path,
@@ -141,13 +127,9 @@ fn detect_default_branch(repo: &Repository) -> Option<String> {
     }
 
     for candidate in ["main", "master"] {
-        if repo
-            .find_reference(&format!("refs/heads/{candidate}"))
-            .is_ok()
-        {
+        if repo.find_reference(&format!("refs/heads/{candidate}")).is_ok() {
             return Some(candidate.to_string());
         }
     }
     None
 }
-

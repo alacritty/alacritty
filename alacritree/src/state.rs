@@ -1,8 +1,4 @@
-//! On-disk persistence of the project sidebar.
-//!
-//! Stored at `$XDG_CONFIG_HOME/alacritree/state.toml`, falling back to
-//! `~/.config/alacritree/state.toml`.  Only data the user actively builds up
-//! lives here — running PTYs aren't persisted across restarts.
+//! Persists the sidebar across restarts at `$XDG_CONFIG_HOME/alacritree/state.toml`.
 
 use std::path::PathBuf;
 
@@ -51,7 +47,7 @@ pub fn load() -> PersistedState {
         Err(e) => {
             log::warn!("failed to parse {}: {e}", path.display());
             PersistedState::default()
-        }
+        },
     }
 }
 
@@ -70,7 +66,7 @@ pub fn save(state: &PersistedState) {
         Err(e) => {
             log::warn!("failed to serialize state: {e}");
             return;
-        }
+        },
     };
     if let Err(e) = std::fs::write(&path, body) {
         log::warn!("failed to write {}: {e}", path.display());

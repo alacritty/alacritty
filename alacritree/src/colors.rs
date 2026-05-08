@@ -1,9 +1,5 @@
-//! ANSI / 256-color resolution against a [`Palette`] from the user's config.
-//!
-//! Resolution priority (high → low):
-//!   1. The terminal's runtime palette (set by the application via OSC 4)
-//!   2. The user's config (`alacritty.toml` + `alacritree.toml`)
-//!   3. Built-in defaults (mirroring alacritty's defaults)
+//! Resolve ANSI / 256-color values against the runtime palette (OSC 4) → user
+//! config → built-in defaults, in that order.
 
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Colors;
@@ -24,8 +20,6 @@ pub fn foreground(palette: &Palette) -> Color32 {
     rgb_to_color32(palette.fg)
 }
 
-/// Resolve a `vte::ansi::Color` to an explicit RGB, applying SGR flags
-/// (bold-as-bright, dim) along the way.
 pub fn resolve(
     color: Color,
     flags: Flags,
@@ -82,11 +76,7 @@ fn resolve_named(
 }
 
 fn ansi16(index: usize, palette: &Palette) -> Rgb {
-    if index < 8 {
-        palette.normal[index]
-    } else {
-        palette.bright[index - 8]
-    }
+    if index < 8 { palette.normal[index] } else { palette.bright[index - 8] }
 }
 
 fn palette_named(named: NamedColor, palette: &Palette) -> Option<Rgb> {
@@ -117,8 +107,7 @@ fn palette_named(named: NamedColor, palette: &Palette) -> Option<Rgb> {
 }
 
 fn named_fallback(named: NamedColor, palette: &Palette) -> Rgb {
-    // Only reached for Dim* named colors when no `[colors.dim]` table is set;
-    // approximate by darkening the corresponding normal color.
+    // Reached only for Dim* when [colors.dim] is unset — fake it by darkening.
     use NamedColor::*;
     let normal = match named {
         DimBlack => palette.normal[0],
