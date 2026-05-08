@@ -5,6 +5,7 @@ use eframe::CreationContext;
 use egui::{Color32, Context, Frame, Margin, RichText, ScrollArea, SidePanel, Stroke};
 
 use crate::bindings::{BindingAction, NamedAction};
+use crate::clipboard::{self, Target};
 use crate::colors::rgb_to_color32;
 use crate::config::Config;
 use crate::git_status::{ChangeKind, FileChange, StatusCache};
@@ -441,10 +442,24 @@ impl AlacritreeApp {
                 }
             }
             BindingAction::Named(NamedAction::Paste) => {
-                if let Ok(mut clip) = arboard::Clipboard::new() {
-                    if let Ok(text) = clip.get_text() {
-                        if let Some(idx) = self.active_session_index() {
-                            self.sessions[idx].write(text.into_bytes());
+                if let Some(text) = clipboard::read(Target::Clipboard) {
+                    if let Some(idx) = self.active_session_index() {
+                        self.sessions[idx].write(text.into_bytes());
+                    }
+                }
+            }
+            BindingAction::Named(NamedAction::PasteSelection) => {
+                if let Some(text) = clipboard::read(Target::Primary) {
+                    if let Some(idx) = self.active_session_index() {
+                        self.sessions[idx].write(text.into_bytes());
+                    }
+                }
+            }
+            BindingAction::Named(NamedAction::Copy) => {
+                if let Some(idx) = self.active_session_index() {
+                    if let Some(text) = self.sessions[idx].term.lock().selection_to_string() {
+                        if !text.is_empty() {
+                            clipboard::write(Target::Clipboard, &text);
                         }
                     }
                 }

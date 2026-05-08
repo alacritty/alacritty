@@ -64,6 +64,10 @@ pub struct ShellConfig {
 #[derive(Debug, Clone)]
 pub struct SelectionConfig {
     pub semantic_escape_chars: String,
+    /// Mirror auto-copy of selections to the regular clipboard.  Off by default
+    /// (matches alacritty); when off, drag-select still writes to the X11
+    /// PRIMARY / Wayland primary-selection buffer for middle-click paste.
+    pub save_to_clipboard: bool,
 }
 
 impl Config {
@@ -80,6 +84,8 @@ pub struct Palette {
     pub dim_fg: Option<Rgb>,
     pub cursor_fg: Option<Rgb>,
     pub cursor_bg: Option<Rgb>,
+    pub selection_bg: Option<Rgb>,
+    pub selection_fg: Option<Rgb>,
     pub normal: [Rgb; 8],
     pub bright: [Rgb; 8],
     pub dim: Option<[Rgb; 8]>,
@@ -144,6 +150,7 @@ impl Default for SelectionConfig {
         // Mirrors alacritty_terminal::term::SEMANTIC_ESCAPE_CHARS.
         Self {
             semantic_escape_chars: String::from(",│`|:\"' ()[]{}<>\t"),
+            save_to_clipboard: false,
         }
     }
 }
@@ -159,6 +166,8 @@ impl Default for Palette {
             dim_fg: None,
             cursor_fg: None,
             cursor_bg: None,
+            selection_bg: None,
+            selection_fg: None,
             normal: [
                 rgb(0x18, 0x18, 0x18),
                 rgb(0xac, 0x42, 0x42),
@@ -417,6 +426,7 @@ enum RawShell {
 #[serde(default)]
 struct RawSelection {
     semantic_escape_chars: Option<String>,
+    save_to_clipboard: Option<bool>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -426,6 +436,8 @@ struct RawColors {
     primary: RawPrimary,
     #[serde(default)]
     cursor: RawInverted,
+    #[serde(default)]
+    selection: RawInverted,
     #[serde(default)]
     normal: RawSet,
     #[serde(default)]
@@ -531,6 +543,10 @@ impl RawConfig {
         palette.cursor_fg = c.cursor.text.map(|v| v.0).or_else(|| c.cursor.foreground.map(|v| v.0));
         palette.cursor_bg = c.cursor.cursor.map(|v| v.0).or_else(|| c.cursor.background.map(|v| v.0));
 
+        palette.selection_fg =
+            c.selection.text.map(|v| v.0).or_else(|| c.selection.foreground.map(|v| v.0));
+        palette.selection_bg = c.selection.background.map(|v| v.0);
+
         apply_set(&mut palette.normal, c.normal);
         apply_set(&mut palette.bright, c.bright);
         if let Some(d) = c.dim {
@@ -599,6 +615,9 @@ impl RawConfig {
         let mut selection = config.selection.clone();
         if let Some(s) = self.selection.semantic_escape_chars {
             selection.semantic_escape_chars = s;
+        }
+        if let Some(v) = self.selection.save_to_clipboard {
+            selection.save_to_clipboard = v;
         }
 
         // ---- Shell ----
