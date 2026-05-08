@@ -772,8 +772,13 @@ impl AlacritreeApp {
                         ui.horizontal(|ui| {
                             ui.label(RichText::new("on").color(theme.text_muted).small());
                             ui.add(
-                                egui::Label::new(RichText::new(branch).color(theme.accent))
-                                    .truncate(),
+                                egui::Label::new(
+                                    RichText::new(branch)
+                                        .color(theme.accent)
+                                        .small()
+                                        .strong(),
+                                )
+                                .truncate(),
                             );
                             if let Some(default) = &status.default_branch {
                                 if Some(branch) != Some(default) {
@@ -788,7 +793,7 @@ impl AlacritreeApp {
                             }
                         });
                     }
-                    ui.add_space(6.0);
+                    ui.add_space(10.0);
 
                     section(ui, &theme, "Staged", status.staged.len(), |ui| {
                         for f in &status.staged {
@@ -819,7 +824,8 @@ impl AlacritreeApp {
                                             egui::Label::new(
                                                 RichText::new(&stat.path)
                                                     .color(theme.text_dim)
-                                                    .monospace(),
+                                                    .monospace()
+                                                    .small(),
                                             )
                                             .truncate(),
                                         );
@@ -877,6 +883,11 @@ fn focus_default(ctx: &Context, id: egui::Id) {
     }
 }
 
+/// Render a collapsed-when-empty git section.
+///
+/// Empty sections are skipped entirely — a placeholder glyph for "no files
+/// here" added visual noise without communicating anything the count badge
+/// didn't already say.
 fn section<R>(
     ui: &mut egui::Ui,
     theme: &Theme,
@@ -884,16 +895,16 @@ fn section<R>(
     count: usize,
     add_contents: impl FnOnce(&mut egui::Ui) -> R,
 ) {
+    if count == 0 {
+        return;
+    }
     ui.horizontal(|ui| {
-        ui.label(RichText::new(title).color(theme.text).strong());
+        ui.label(RichText::new(title).color(theme.text).strong().small());
         ui.label(RichText::new(format!("{count}")).color(theme.text_muted).small());
     });
-    if count == 0 {
-        ui.label(RichText::new("·").color(theme.text_muted).small());
-    } else {
-        add_contents(ui);
-    }
-    ui.add_space(8.0);
+    ui.add_space(2.0);
+    add_contents(ui);
+    ui.add_space(10.0);
 }
 
 fn file_row(
@@ -1005,6 +1016,7 @@ fn worktree_row(
     let panel_x = ui.max_rect().x_range();
 
     let mut delete_clicked = false;
+    let mut delete_rect: Option<egui::Rect> = None;
     let frame = Frame::default().inner_margin(Margin { left: 16, right: 6, top: 3, bottom: 3 });
     let resp = frame
         .show(ui, |ui| {
@@ -1019,11 +1031,14 @@ fn worktree_row(
                 },
                 |ui| {
                     if !wt.is_main {
-                        let btn = ui.add(
-                            egui::Button::new(RichText::new("×").color(theme.text_muted))
-                                .frame(false),
-                        );
-                        if btn.on_hover_text("delete worktree and branch").clicked() {
+                        let btn = ui
+                            .add(
+                                egui::Button::new(RichText::new("×").color(theme.text_muted))
+                                    .frame(false),
+                            )
+                            .on_hover_text("delete worktree and branch");
+                        delete_rect = Some(btn.rect);
+                        if btn.clicked() {
                             delete_clicked = true;
                         }
                     }
@@ -1032,6 +1047,18 @@ fn worktree_row(
         })
         .response
         .interact(egui::Sense::click());
+
+    // Frame allocates its space at end-of-show, so its retroactive `interact`
+    // registers *after* the inner button in egui's z-order — meaning clicks on
+    // the × land on this row response, not the button.  Recover by routing
+    // clicks whose position falls inside the button rect to delete.
+    if resp.clicked() && !delete_clicked {
+        if let (Some(rect), Some(pos)) = (delete_rect, resp.interact_pointer_pos()) {
+            if rect.contains(pos) {
+                delete_clicked = true;
+            }
+        }
+    }
 
     let bg = if is_active {
         theme.row_active_bg
