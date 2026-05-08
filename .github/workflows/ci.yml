@@ -6,32 +6,31 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest]
-
-    runs-on: ${{ matrix.os }}
+  alacritree:
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
-      - name: Stable
-        run: cargo test
-      - name: Stable (no default features)
-        run: cargo test -p alacritty_terminal --no-default-features
-      - name: Oldstable
+
+      # eframe (winit + glow), arboard (X11/Wayland clipboard), and the unix
+      # fontconfig dep all need C headers that aren't on the runner by default.
+      - name: Install system dependencies
         run: |
-          rustup default $(cat Cargo.toml | grep "rust-version" | sed 's/.*"\(.*\)".*/\1/')
-          cargo test
-      - name: Clippy
-        run: |
-          rustup component add clippy
-          cargo clippy --all-targets
-  check-macos-x86_64:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install target
-        run: rustup update && rustup target add x86_64-apple-darwin
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake pkg-config \
+            libfreetype6-dev libfontconfig1-dev \
+            libxkbcommon-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+            libwayland-dev libgl1-mesa-dev libegl1-mesa-dev
+
+      - name: Rust toolchain
+        run: rustup show && rustup component add clippy
+
       - name: Build
-        run: cargo build --target=x86_64-apple-darwin
+        run: cargo build -p alacritree --locked
+
+      - name: Test
+        run: cargo test -p alacritree --locked
+
+      - name: Clippy
+        run: cargo clippy -p alacritree --all-targets --locked

@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "alacritree",
     "alacritty",
     "alacritty_terminal",
     "alacritty_config",

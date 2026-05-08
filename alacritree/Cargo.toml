@@ -1,0 +1,35 @@
+[package]
+name = "alacritree"
+version = "0.1.0-dev"
+authors = ["Arnaud Gissinger"]
+license = "Apache-2.0"
+description = "Alacritty fork with worktree-aware sidebars"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+alacritty_terminal = { path = "../alacritty_terminal" }
+eframe = { version = "0.31", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+egui = "0.31"
+log = "0.4"
+env_logger = "0.11"
+git2 = { version = "0.20", default-features = false }
+rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "async-std"] }
+serde = { version = "1", features = ["derive"] }
+toml = { workspace = true }
+xdg = "3.0.0"
+home = "0.5.5"
+fontdb = { version = "0.23", default-features = false, features = ["fontconfig", "memmap"] }
+arboard = { version = "3", default-features = false, features = ["wayland-data-control"] }
+
+[target.'cfg(unix)'.dependencies]
+# Used for font matching: matches what alacritty does via crossfont so that
+# fontconfig <alias> rules and weight/slant substitution behave identically
+# in both terminals.  Pinned to 0.8 because that's the latest line that links
+# against `yeslogic-fontconfig-sys = "^5"`, which is also what `crossfont`
+# (alacritty's font backend, present in this workspace) pulls in.
+fontconfig = "0.8"
+
+[[bin]]
+name = "alacritree"
+path = "src/main.rs"
