@@ -20,13 +20,9 @@ pub fn show(ui: &mut Ui, session: &mut Session, config: &Config, allow_focus: bo
         let h = f.row_height(&font_id);
         (w, h)
     });
-    // Floor cell size to whole device pixels (matches alacritty's
-    // `compute_cell_size` in display/mod.rs).  When pixels_per_point is
-    // fractional, raw float cell widths cause `col * cell_w` to land on
-    // non-integer physical pixels and the AA fringes of adjacent
-    // background rects bleed into each other — visible as a vertical
-    // seam in solid-color block art.  Snapping cell size to integer
-    // device pixels makes every column boundary an integer pixel.
+    // Floor cell size to whole device pixels — matches alacritty's
+    // `compute_cell_size`.  Without this, fractional cell widths combined
+    // with egui's AA fringe leave visible seams between adjacent cells.
     let ppp = ui.ctx().pixels_per_point();
     let cell_w = (cell_w_pt * ppp).floor().max(1.0) / ppp;
     let cell_h = (cell_h_pt * ppp).floor().max(1.0) / ppp;
@@ -50,8 +46,10 @@ pub fn show(ui: &mut Ui, session: &mut Session, config: &Config, allow_focus: bo
         ),
         Sense::click_and_drag(),
     );
+    // Snap the grid origin so column/row boundaries stay on integer pixels.
+    let snap = |v: f32| (v * ppp).round() / ppp;
     let rect = Rect::from_min_size(
-        Pos2::new(rect.min.x + pad_x, rect.min.y),
+        Pos2::new(snap(rect.min.x + pad_x), snap(rect.min.y)),
         Vec2::new(cols as f32 * cell_w, rows as f32 * cell_h),
     );
 
@@ -421,10 +419,6 @@ fn paint_run(
 
     if !style.flags.contains(Flags::HIDDEN) {
         // Per-glyph paint: egui's run layout drifts off the cursor's `col * cell_w` grid (worse with zoom).
-        // The font family is picked per-run from the cell flags so bold / italic
-        // cells use real Bold / Italic glyphs; we still measure the grid against
-        // the regular face (font_id) so cell-by-cell painting stays aligned even
-        // when the bold variant has a different advance width.
         let glyph_font = font_for_flags(style.flags, font_id);
         let mut buf = [0u8; 4];
         for (i, ch) in run.chars().enumerate() {

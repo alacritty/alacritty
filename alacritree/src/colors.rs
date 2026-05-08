@@ -27,9 +27,8 @@ pub fn resolve(
     palette: &Palette,
     is_fg: bool,
 ) -> Rgb {
-    // Mirrors alacritty's `RenderableCellContent::compute_fg_rgb` for `is_fg`
-    // and `compute_bg_rgb` otherwise.  Background paths skip DIM/BOLD swaps
-    // entirely; that matches alacritty (only the glyph color dims).
+    // Mirrors alacritty's `compute_fg_rgb` / `compute_bg_rgb`: backgrounds
+    // never apply DIM or BOLD-as-bright; only the glyph color does.
     if !is_fg {
         return match color {
             Color::Spec(rgb) => rgb,
@@ -64,11 +63,8 @@ fn resolve_indexed(index: u8, runtime: &Colors, palette: &Palette) -> Rgb {
     indexed_default(index)
 }
 
-/// Foreground variant of indexed lookup that honors BOLD-as-bright and DIM,
-/// per alacritty's `compute_fg_rgb`:
-///   - bold-as-bright + BOLD + 0..=7 → idx + 8 (promote to bright)
-///   - DIM + 8..=15                  → idx - 8 (downgrade bright to normal)
-///   - DIM + 0..=7                   → DimBlack + idx (one of the eight Dim*)
+/// Foreground indexed lookup with BOLD-as-bright and DIM applied per
+/// alacritty's `compute_fg_rgb` table (idx+8 / idx-8 / DimBlack+idx).
 fn resolve_indexed_fg(idx: u8, flags: Flags, runtime: &Colors, palette: &Palette) -> Rgb {
     let dim_bold = flags & (Flags::DIM | Flags::BOLD);
     let promote_bright = palette.draw_bold_with_bright && dim_bold == Flags::BOLD && idx < 8;
@@ -83,9 +79,6 @@ fn resolve_indexed_fg(idx: u8, flags: Flags, runtime: &Colors, palette: &Palette
         return resolve_indexed(idx - 8, runtime, palette);
     }
     if dim_to_dim_named {
-        // Dim variants live in NamedColor::DimBlack..=DimWhite; resolve via
-        // the runtime palette first, falling back to dim_rgb of the normal
-        // ANSI color when [colors.dim] isn't configured.
         let dim_named = match idx {
             0 => NamedColor::DimBlack,
             1 => NamedColor::DimRed,
@@ -114,10 +107,6 @@ fn resolve_named_fg(
     runtime: &Colors,
     palette: &Palette,
 ) -> Rgb {
-    // Logic ported from alacritty's `compute_fg_rgb` (see
-    // `alacritty/src/display/content.rs`).  Differences from the previous
-    // impl: handles `DIM + Foreground` → DimForeground and the special
-    // `DIM_BOLD + Foreground` case when no bright_foreground is configured.
     let dim_bold = flags & (Flags::DIM | Flags::BOLD);
     let bold_only = dim_bold == Flags::BOLD;
     let dim_only = dim_bold == Flags::DIM;
@@ -127,8 +116,7 @@ fn resolve_named_fg(
         && named == NamedColor::Foreground
         && palette.bright_fg.is_none()
     {
-        // DIM + BOLD on the default foreground when no bright fg is configured:
-        // alacritty treats the bold as if absent and dims the foreground.
+        // Without a configured bright foreground, alacritty drops the bold and dims.
         NamedColor::DimForeground
     } else if palette.draw_bold_with_bright && bold_only && (named as usize) < 8 {
         named.to_bright()
@@ -150,7 +138,7 @@ fn resolve_named_fg(
 }
 
 fn apply_dim(c: Rgb) -> Rgb {
-    // Match alacritty's DIM_FACTOR = 0.66 from src/display/color.rs.
+    // alacritty's DIM_FACTOR.
     Rgb {
         r: (c.r as f32 * 0.66) as u8,
         g: (c.g as f32 * 0.66) as u8,

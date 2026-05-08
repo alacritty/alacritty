@@ -1,28 +1,11 @@
 //! Resolve font faces and register them as egui font families.
 //!
-//! On Unix we drive libfontconfig directly with the same pattern flow as
-//! alacritty's `crossfont` backend (see `crossfont::ft::FreeTypeRasterizer::
-//! get_face`):
-//!
-//!   1. Build a pattern with `family`, `pixelsize`, `weight`, `slant`.
-//!   2. `FcConfigSubstitute(MatchKind::Pattern)` — applies `<alias>` and
-//!      `<prefer>` rules to the pattern itself.
-//!   3. `FcDefaultSubstitute()` — fills in remaining defaults.
-//!   4. `FcFontMatch()` — returns the closest installed face.
-//!
-//! That's how alacritty resolves an alias like `terminal-mono-font` into a
-//! real family and then picks the bold/italic variant.  Going through
-//! `fc-match` on the command line gives different results because the CLI
-//! parser treats `family:weight=bold` differently than building the pattern
-//! programmatically.
-//!
-//! Four faces are loaded so that ANSI bold / italic cells use real Bold or
-//! Italic glyphs.  Variants are registered under named families:
-//!   - `FontFamily::Monospace` and `FontFamily::Proportional` — normal face
-//!   - `BOLD_FAMILY` / `ITALIC_FAMILY` / `BOLD_ITALIC_FAMILY` — variant faces
-//! If a variant resolves to the same file as the normal face we register the
-//! normal face under that name as a fallback so painting code can always
-//! reference the named family.
+//! Four faces are loaded so ANSI bold/italic cells use real Bold/Italic
+//! glyphs.  On Unix we go through libfontconfig directly (same pattern flow
+//! as `crossfont::ft::FreeTypeRasterizer::get_face`) — `fc-match` on the CLI
+//! mishandles `family:weight=bold` patterns when the family is an `<alias>`,
+//! so building the pattern programmatically is what makes weight/slant pick
+//! the real variant for aliased families.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -70,10 +53,8 @@ pub fn install_terminal_fonts(
         return;
     };
 
-    // The normal face's path is what the variant lookups compare against
-    // when checking whether a real bold/italic file was found — if a variant
-    // resolves to the same file as normal it means fontconfig had no real
-    // variant available and substituted the regular face.
+    // The variant lookups compare their resolved path against this one to
+    // detect when fontconfig substituted the regular face for a missing variant.
     let normal_match = match resolve_face(family, normal.style.as_deref(), Variant::Normal) {
         Some(m) => m,
         None => {
@@ -89,8 +70,7 @@ pub fn install_terminal_fonts(
         },
     };
 
-    // Bold / italic / bold-italic fall back to the normal family if the user
-    // didn't override them, matching alacritty's behavior.
+    // Bold/italic/bold-italic inherit the normal family unless overridden.
     let bold_family = bold.family.as_deref().unwrap_or(family);
     let italic_family = italic.family.as_deref().unwrap_or(family);
     let bold_italic_family = bold_italic.family.as_deref().unwrap_or(family);
@@ -196,8 +176,8 @@ fn resolve_face(family_or_path: &str, style: Option<&str>, variant: Variant) -> 
     if let Some(face) = fontconfig_resolve::resolve(family_or_path, style, variant) {
         return Some(face);
     }
-    // Fall through to fontdb only if libfontconfig isn't available at runtime;
-    // it doesn't apply <alias> rules, so the fontconfig path is preferred.
+    // fontdb fallback for the case where libfontconfig isn't available; it
+    // doesn't expand <alias> rules, so it's strictly second-best on Unix.
     resolve_via_fontdb(family_or_path, variant)
 }
 
@@ -236,19 +216,18 @@ fn resolve_via_fontdb(family: &str, variant: Variant) -> Option<ResolvedFace> {
     let face_info = db.face(face_id)?;
     match &face_info.source {
         fontdb::Source::File(path) => Some(ResolvedFace { path: path.clone() }),
-        // fontdb can also return embedded data; egui needs a path-or-bytes
-        // pair from us, so for simplicity we only support file-backed faces
-        // through this path (rare on Unix).
+        // Embedded faces aren't path-addressable; we'd have to re-architect
+        // the loader to support them and they're rare on Unix.
         fontdb::Source::Binary(_) | fontdb::Source::SharedFile(_, _) => None,
     }
 }
 
 #[cfg(unix)]
 mod fontconfig_resolve {
-    //! Pattern construction mirrors `crossfont::ft::FreeTypeRasterizer::get_face`:
-    //! we add family + weight + slant, run `config_substitute(Pattern)` to
-    //! expand fontconfig `<alias>`/`<prefer>` rules, then `default_substitute`
-    //! and `font_match` to pick the closest installed face.
+    //! Mirrors `crossfont::ft::FreeTypeRasterizer::get_face`: build a pattern
+    //! with family + weight + slant and let `font_match` run substitution.
+    //! Doing this in code (vs `fc-match` CLI) is what makes `<alias>` rules
+    //! plus weight/slant pick the right variant.
 
     use std::ffi::CString;
     use std::path::PathBuf;
@@ -267,9 +246,6 @@ mod fontconfig_resolve {
         let family_c = CString::new(family).ok()?;
         pattern.add_string(FC_FAMILY, &family_c);
 
-        // Style hint, if the user provided one (e.g. "Bold", "Italic").  We add
-        // it on top of weight+slant; FcConfigSubstitute resolves any conflict
-        // by preferring the integer attributes during matching.
         if let Some(style) = style {
             if let Ok(style_c) = CString::new(style) {
                 pattern.add_string(FC_STYLE, &style_c);
@@ -285,10 +261,6 @@ mod fontconfig_resolve {
         pattern.add_integer(FC_WEIGHT, weight);
         pattern.add_integer(FC_SLANT, slant);
 
-        // `font_match` internally calls FcConfigSubstitute (MatchPattern) +
-        // FcDefaultSubstitute + FcFontMatch, which is exactly what
-        // `crossfont::ft::FreeTypeRasterizer::get_face` does for the primary
-        // face lookup.
         let matched = pattern.font_match();
         let path = matched.filename()?;
         Some(ResolvedFace { path: PathBuf::from(path) })
