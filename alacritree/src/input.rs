@@ -1,16 +1,21 @@
 use egui::{Event, Key, Modifiers};
 
-/// Translate an egui input event into bytes to write to the PTY.
-///
-/// Returns `None` when the event isn't something the terminal cares about.
 pub fn event_to_bytes(event: &Event) -> Option<Vec<u8>> {
     match event {
-        // Plain typed text — this already accounts for Shift on letters and
-        // dead-key composition done by the OS.  Skip it when Ctrl/Alt are held;
-        // those are handled below as escape/control sequences.
+        // OS-composed text — already accounts for Shift and dead-key composition.
         Event::Text(text) if !text.is_empty() => Some(text.as_bytes().to_vec()),
-        Event::Key { key, pressed: true, modifiers, repeat: _, .. } => key_to_bytes(*key, *modifiers),
+        Event::Key { key, pressed: true, modifiers, repeat: _, .. } => {
+            key_to_bytes(*key, *modifiers)
+        },
         Event::Paste(s) => Some(s.as_bytes().to_vec()),
+        // egui_winit eats Ctrl+C / Ctrl+X and re-emits them as Copy/Cut without a
+        // matching Key event, so the PTY would otherwise never see ETX/CAN.
+        // Skip on macOS where the gesture is Cmd+C (Ctrl+C still flows as a Key
+        // event there, so we don't want Cmd+C hijacked into SIGINT).
+        #[cfg(not(target_os = "macos"))]
+        Event::Copy => Some(vec![0x03]),
+        #[cfg(not(target_os = "macos"))]
+        Event::Cut => Some(vec![0x18]),
         _ => None,
     }
 }
@@ -53,7 +58,7 @@ fn key_to_bytes(key: Key, mods: Modifiers) -> Option<Vec<u8>> {
     };
 
     if mods.alt {
-        // Alt+key — prefix with ESC, the long-standing meta-key convention.
+        // Long-standing meta convention: Alt+key sends ESC + key.
         let mut out = Vec::with_capacity(bytes.len() + 1);
         out.push(0x1b);
         out.extend_from_slice(bytes);
@@ -64,15 +69,33 @@ fn key_to_bytes(key: Key, mods: Modifiers) -> Option<Vec<u8>> {
 }
 
 fn ctrl_byte(key: Key) -> Option<u8> {
-    // Map Ctrl+letter / Ctrl+symbol to the canonical control byte.
     let b = match key {
-        Key::A => 0x01, Key::B => 0x02, Key::C => 0x03, Key::D => 0x04,
-        Key::E => 0x05, Key::F => 0x06, Key::G => 0x07, Key::H => 0x08,
-        Key::I => 0x09, Key::J => 0x0a, Key::K => 0x0b, Key::L => 0x0c,
-        Key::M => 0x0d, Key::N => 0x0e, Key::O => 0x0f, Key::P => 0x10,
-        Key::Q => 0x11, Key::R => 0x12, Key::S => 0x13, Key::T => 0x14,
-        Key::U => 0x15, Key::V => 0x16, Key::W => 0x17, Key::X => 0x18,
-        Key::Y => 0x19, Key::Z => 0x1a,
+        Key::A => 0x01,
+        Key::B => 0x02,
+        Key::C => 0x03,
+        Key::D => 0x04,
+        Key::E => 0x05,
+        Key::F => 0x06,
+        Key::G => 0x07,
+        Key::H => 0x08,
+        Key::I => 0x09,
+        Key::J => 0x0a,
+        Key::K => 0x0b,
+        Key::L => 0x0c,
+        Key::M => 0x0d,
+        Key::N => 0x0e,
+        Key::O => 0x0f,
+        Key::P => 0x10,
+        Key::Q => 0x11,
+        Key::R => 0x12,
+        Key::S => 0x13,
+        Key::T => 0x14,
+        Key::U => 0x15,
+        Key::V => 0x16,
+        Key::W => 0x17,
+        Key::X => 0x18,
+        Key::Y => 0x19,
+        Key::Z => 0x1a,
         Key::OpenBracket => 0x1b,
         Key::Backslash => 0x1c,
         Key::CloseBracket => 0x1d,
