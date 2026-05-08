@@ -32,7 +32,20 @@ pub struct Config {
 #[derive(Debug, Clone)]
 pub struct FontConfig {
     pub size: f32,
-    pub normal_family: Option<String>,
+    pub normal: FontFace,
+    pub bold: FontFace,
+    pub italic: FontFace,
+    pub bold_italic: FontFace,
+}
+
+/// A single weight/style face.  `family` mirrors alacritty's `[font.*].family`;
+/// `style` mirrors `[font.*].style` (e.g. "Bold", "Italic", "Bold Italic"), and
+/// is used both as a hint to the font matcher and to disambiguate faces that
+/// only differ by style within a family.
+#[derive(Debug, Clone, Default)]
+pub struct FontFace {
+    pub family: Option<String>,
+    pub style: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -122,7 +135,13 @@ impl Default for FontConfig {
     fn default() -> Self {
         // Match alacritty's default of 11.25pt; egui's logical points map
         // 1:1 to pt, modulo HiDPI scale.
-        Self { size: 11.25, normal_family: None }
+        Self {
+            size: 11.25,
+            normal: FontFace::default(),
+            bold: FontFace::default(),
+            italic: FontFace::default(),
+            bold_italic: FontFace::default(),
+        }
     }
 }
 
@@ -574,7 +593,22 @@ impl RawConfig {
         if let Some(s) = self.font.size {
             font.size = s.max(1.0);
         }
-        font.normal_family = self.font.normal.family.clone();
+        font.normal = FontFace {
+            family: self.font.normal.family.clone(),
+            style: self.font.normal.style.clone(),
+        };
+        font.bold = FontFace {
+            family: self.font.bold.family.clone(),
+            style: self.font.bold.style.clone(),
+        };
+        font.italic = FontFace {
+            family: self.font.italic.family.clone(),
+            style: self.font.italic.style.clone(),
+        };
+        font.bold_italic = FontFace {
+            family: self.font.bold_italic.family.clone(),
+            style: self.font.bold_italic.style.clone(),
+        };
 
         // ---- Cursor ----
         let mut cursor = config.cursor;

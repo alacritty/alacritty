@@ -4,11 +4,12 @@ use alacritty_terminal::selection::{Selection, SelectionRange, SelectionType};
 use alacritty_terminal::term::Term;
 use alacritty_terminal::term::cell::{Cell, Flags};
 use alacritty_terminal::vte::ansi::Color as AnsiColor;
-use egui::{Color32, FontId, PointerButton, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2};
+use egui::{Color32, FontFamily, FontId, PointerButton, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2};
 
 use crate::clipboard::{self, Target};
 use crate::colors::{background, foreground, resolve, rgb_to_color32};
 use crate::config::Config;
+use crate::fonts::{BOLD_FAMILY, BOLD_ITALIC_FAMILY, ITALIC_FAMILY};
 use crate::input::event_to_bytes;
 use crate::session::{EventProxy, Session, TermSize};
 
@@ -333,6 +334,18 @@ fn is_selected(range: Option<&SelectionRange>, line: Line, column: Column) -> bo
     range.is_some_and(|r| r.contains(Point::new(line, column)))
 }
 
+fn font_for_flags(flags: Flags, normal: &FontId) -> FontId {
+    let bold = flags.contains(Flags::BOLD);
+    let italic = flags.contains(Flags::ITALIC);
+    let family = match (bold, italic) {
+        (true, true) => FontFamily::Name(BOLD_ITALIC_FAMILY.into()),
+        (true, false) => FontFamily::Name(BOLD_FAMILY.into()),
+        (false, true) => FontFamily::Name(ITALIC_FAMILY.into()),
+        (false, false) => return normal.clone(),
+    };
+    FontId::new(normal.size, family)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn paint_run(
     painter: &egui::Painter,
@@ -398,6 +411,11 @@ fn paint_run(
 
     if !style.flags.contains(Flags::HIDDEN) {
         // Per-glyph paint: egui's run layout drifts off the cursor's `col * cell_w` grid (worse with zoom).
+        // The font family is picked per-run from the cell flags so bold / italic
+        // cells use real Bold / Italic glyphs; we still measure the grid against
+        // the regular face (font_id) so cell-by-cell painting stays aligned even
+        // when the bold variant has a different advance width.
+        let glyph_font = font_for_flags(style.flags, font_id);
         let mut buf = [0u8; 4];
         for (i, ch) in run.chars().enumerate() {
             if ch == ' ' {
@@ -407,7 +425,7 @@ fn paint_run(
                 Pos2::new(x + i as f32 * cell_w, y),
                 egui::Align2::LEFT_TOP,
                 ch.encode_utf8(&mut buf).to_string(),
-                font_id.clone(),
+                glyph_font.clone(),
                 fg,
             );
         }
@@ -447,7 +465,15 @@ fn paint_cursor(
 
     let x = rect.min.x + cursor_point.column.0 as f32 * cell_w;
     let y = rect.min.y + cursor_visible_line as f32 * cell_h;
-    let cursor_rect = Rect::from_min_size(Pos2::new(x, y), Vec2::new(cell_w, cell_h));
+    // Snap to device pixels for the same reason `paint_run` does — the cursor
+    // sits on top of a cell whose bg already used pixel-snapped edges, so
+    // matching its rounding keeps the cursor flush with the cell underneath.
+    let ppp = painter.ctx().pixels_per_point();
+    let snap = |v: f32| (v * ppp).round() / ppp;
+    let cursor_rect = Rect::from_min_max(
+        Pos2::new(snap(x), snap(y)),
+        Pos2::new(snap(x + cell_w), snap(y + cell_h)),
+    );
 
     let cursor_color = runtime_palette[alacritty_terminal::vte::ansi::NamedColor::Cursor]
         .map(rgb_to_color32)
@@ -488,7 +514,7 @@ fn paint_cursor(
             Pos2::new(x, y),
             egui::Align2::LEFT_TOP,
             cell.c.to_string(),
-            font_id.clone(),
+            font_for_flags(cell.flags, font_id),
             glyph_color,
         );
     }

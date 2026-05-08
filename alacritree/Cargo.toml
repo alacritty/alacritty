@@ -22,6 +22,14 @@ home = "0.5.5"
 fontdb = { version = "0.23", default-features = false, features = ["fontconfig", "memmap"] }
 arboard = { version = "3", default-features = false, features = ["wayland-data-control"] }
 
+[target.'cfg(unix)'.dependencies]
+# Used for font matching: matches what alacritty does via crossfont so that
+# fontconfig <alias> rules and weight/slant substitution behave identically
+# in both terminals.  Pinned to 0.8 because that's the latest line that links
+# against `yeslogic-fontconfig-sys = "^5"`, which is also what `crossfont`
+# (alacritty's font backend, present in this workspace) pulls in.
+fontconfig = "0.8"
+
 [[bin]]
 name = "alacritree"
 path = "src/main.rs"

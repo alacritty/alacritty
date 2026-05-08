@@ -55,6 +55,7 @@ dependencies = [
  "eframe",
  "egui",
  "env_logger",
+ "fontconfig",
  "fontdb",
  "git2",
  "home",
@@ -1317,6 +1318,15 @@ name = "foldhash"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
+
+[[package]]
+name = "fontconfig"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9b79b619a4ae048ea79e927376b1d10294979bda195b0c052fc958be96c62d9"
+dependencies = [
+ "yeslogic-fontconfig-sys",
+]
 
 [[package]]
 name = "fontconfig-parser"
@@ -2676,7 +2686,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d8fae84b431384b68627d0f9b3b1245fcf9f46f6c0e3dc902e9dce64edd1967"
 dependencies = [
  "libc",
- "windows-sys 0.45.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

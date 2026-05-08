@@ -113,7 +113,13 @@ impl AlacritreeApp {
     pub fn new(cc: &CreationContext<'_>, config: Config) -> Self {
         let theme = Theme::from_config(&config);
 
-        crate::fonts::install_terminal_font(&cc.egui_ctx, config.font.normal_family.as_deref());
+        crate::fonts::install_terminal_fonts(
+            &cc.egui_ctx,
+            &config.font.normal,
+            &config.font.bold,
+            &config.font.italic,
+            &config.font.bold_italic,
+        );
 
         let mut visuals = egui::Visuals::dark();
         visuals.panel_fill = theme.terminal_bg;
@@ -550,11 +556,7 @@ impl AlacritreeApp {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new("Projects").color(theme.text).strong());
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui
-                            .add(
-                                egui::Button::new(RichText::new("+").color(theme.text_dim))
-                                    .frame(false),
-                            )
+                        if icon_button(ui, "+", theme.text_dim)
                             .on_hover_text("add project")
                             .clicked()
                         {
@@ -585,11 +587,7 @@ impl AlacritreeApp {
                             ui,
                             |ui| {
                                 let arrow = if project.expanded { "▾" } else { "▸" };
-                                let toggle = ui.add(
-                                    egui::Button::new(RichText::new(arrow).color(theme.text_dim))
-                                        .frame(false),
-                                );
-                                if toggle.clicked() {
+                                if icon_button(ui, arrow, theme.text_dim).clicked() {
                                     project.expanded = !project.expanded;
                                     expand_toggled = true;
                                 }
@@ -601,37 +599,20 @@ impl AlacritreeApp {
                                 );
                             },
                             |ui| {
-                                if ui
-                                    .add(
-                                        egui::Button::new(
-                                            RichText::new("×").color(theme.text_muted),
-                                        )
-                                        .frame(false),
-                                    )
+                                ui.spacing_mut().item_spacing.x = 2.0;
+                                if icon_button(ui, "×", theme.text_muted)
                                     .on_hover_text("remove from sidebar")
                                     .clicked()
                                 {
                                     remove_idx = Some(idx);
                                 }
-                                if ui
-                                    .add(
-                                        egui::Button::new(
-                                            RichText::new("⟲").color(theme.text_muted),
-                                        )
-                                        .frame(false),
-                                    )
+                                if icon_button(ui, "↻", theme.text_muted)
                                     .on_hover_text("refresh worktrees")
                                     .clicked()
                                 {
                                     refresh_idx = Some(idx);
                                 }
-                                if ui
-                                    .add(
-                                        egui::Button::new(
-                                            RichText::new("+").color(theme.text_muted),
-                                        )
-                                        .frame(false),
-                                    )
+                                if icon_button(ui, "+", theme.text_muted)
                                     .on_hover_text("create new worktree")
                                     .clicked()
                                 {
@@ -937,6 +918,33 @@ fn file_row(
 /// internals) so it doesn't claim the parent's full remaining height when nested
 /// in a vertical layout — without this, `Align::Center` would push the row's
 /// content to the middle of the column and leave a giant gap before the next row.
+/// Frameless, fixed-footprint icon button. Painter-drawn rather than a
+/// `Button` because `Button` lays text out from the top-left of its rect, so
+/// glyphs of different intrinsic heights (e.g. `+` vs `↻`) end up on different
+/// baselines. `painter.text` with `CENTER_CENTER` centers the galley in the
+/// rect, giving real grid alignment.
+fn icon_button(ui: &mut egui::Ui, glyph: &str, color: Color32) -> egui::Response {
+    let size = egui::vec2(16.0, 16.0);
+    let (rect, resp) = ui.allocate_exact_size(size, egui::Sense::click());
+    let painted = if resp.hovered() {
+        Color32::from_rgb(
+            color.r().saturating_add(40),
+            color.g().saturating_add(40),
+            color.b().saturating_add(40),
+        )
+    } else {
+        color
+    };
+    ui.painter().text(
+        rect.center(),
+        egui::Align2::CENTER_CENTER,
+        glyph,
+        egui::FontId::proportional(12.0),
+        painted,
+    );
+    resp
+}
+
 fn row_with_trailing<L, T>(ui: &mut egui::Ui, leading: L, trailing: T)
 where
     L: FnOnce(&mut egui::Ui),
@@ -1017,7 +1025,9 @@ fn worktree_row(
 
     let mut delete_clicked = false;
     let mut delete_rect: Option<egui::Rect> = None;
-    let frame = Frame::default().inner_margin(Margin { left: 16, right: 6, top: 3, bottom: 3 });
+    // right: 0 keeps the worktree `×` at the same x as the project row's `×`,
+    // which has no frame margin and sits flush against the panel's outer padding.
+    let frame = Frame::default().inner_margin(Margin { left: 16, right: 0, top: 3, bottom: 3 });
     let resp = frame
         .show(ui, |ui| {
             let icon = if wt.is_main { "●" } else { "○" };
@@ -1031,11 +1041,7 @@ fn worktree_row(
                 },
                 |ui| {
                     if !wt.is_main {
-                        let btn = ui
-                            .add(
-                                egui::Button::new(RichText::new("×").color(theme.text_muted))
-                                    .frame(false),
-                            )
+                        let btn = icon_button(ui, "×", theme.text_muted)
                             .on_hover_text("delete worktree and branch");
                         delete_rect = Some(btn.rect);
                         if btn.clicked() {
