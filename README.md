@@ -2,67 +2,63 @@
     <img width="200" alt="Alacritree Logo" src="alacritree/assets/icon.png">
 </p>
 
-<h1 align="center">Alacritty - A fast, cross-platform, OpenGL terminal emulator</h1>
+<h1 align="center">Alacritree</h1>
 
 <p align="center">
-  <img alt="Alacritty - A fast, cross-platform, OpenGL terminal emulator"
-       src="https://raw.githubusercontent.com/alacritty/alacritty/master/extra/promo/alacritty-readme.png">
+    A worktree-aware terminal that pairs <a href="https://github.com/alacritty/alacritty"><code>alacritty_terminal</code></a> with project and git sidebars.
 </p>
 
 ## About
 
-Alacritty is a modern terminal emulator that comes with sensible defaults, but
-allows for extensive [configuration](#configuration). By integrating with other
-applications, rather than reimplementing their functionality, it manages to
-provide a flexible set of [features](./docs/features.md) with high performance.
-The supported platforms currently consist of BSD, Linux, macOS and Windows.
+Alacritree is a fork of [Alacritty]. It reuses Alacritty's headless
+`alacritty_terminal` crate (PTY, VT parser, grid) but replaces the winit/OpenGL
+GUI with an [egui]/[eframe] shell that adds two things the upstream terminal
+intentionally leaves out:
 
-The software is considered to be at a **beta** level of readiness; there are
-a few missing features and bugs to be fixed, but it is already used by many as
-a daily driver.
+- **A project / worktree sidebar** on the left. Add a git repository and
+  Alacritree lists its worktrees; switching worktrees switches you to a shell
+  rooted in that path. Non-git folders work too — they show up as a single
+  pseudo-worktree so you can still spawn a shell there.
+- **A git status sidebar** on the right. Per-worktree staged/unstaged file
+  lists and a diff-stat against the project's default branch, refreshed in the
+  background.
 
-Precompiled binaries are available from the [GitHub releases page](https://github.com/alacritty/alacritty/releases).
+Sessions are tabbed and outlive workspace switches: jumping between worktrees
+doesn't kill running shells. Configuration is the same `alacritty.toml` you
+already use (palette, cursor, scrolling, shell, key bindings), with an
+optional `alacritree.toml` for sidebar-specific UI overrides.
 
-Join [`#alacritty`] on libera.chat if you have questions or looking for a quick help.
+[Alacritty]: https://github.com/alacritty/alacritty
+[egui]: https://github.com/emilk/egui
+[eframe]: https://github.com/emilk/egui/tree/master/crates/eframe
 
-[`#alacritty`]: https://web.libera.chat/gamja/?channels=#alacritty
+> **Status:** early, single-author project. Linux is the only supported
+> platform today (the GUI deps currently target Linux); macOS/Windows builds
+> are not wired up.
 
-## Features
+## Build
 
-You can find an overview over the features available in Alacritty [here](./docs/features.md).
+Workspace MSRV is **Rust 1.85** (edition 2024). System packages required on
+Debian/Ubuntu:
 
-## Further information
+```sh
+sudo apt install \
+    cmake pkg-config \
+    libfreetype6-dev libfontconfig1-dev \
+    libxkbcommon-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+    libwayland-dev libgl1-mesa-dev libegl1-mesa-dev
+```
 
-- [Announcing Alacritty, a GPU-Accelerated Terminal Emulator](https://jwilm.io/blog/announcing-alacritty/) January 6, 2017
-- [A talk about Alacritty at the Rust Meetup January 2017](https://www.youtube.com/watch?v=qHOdYO3WUTk) January 19, 2017
-- [Alacritty Lands Scrollback, Publishes Benchmarks](https://jwilm.io/blog/alacritty-lands-scrollback/) September 17, 2018
+Then:
 
-## Installation
-
-Alacritty can be installed by using various package managers on Linux, BSD,
-macOS and Windows.
-
-Prebuilt binaries for macOS and Windows can also be downloaded from the
-[GitHub releases page](https://github.com/alacritty/alacritty/releases).
-
-For everyone else, the detailed instructions to install Alacritty can be found
-[here](INSTALL.md).
-
-### Requirements
-
-- At least OpenGL ES 2.0
-- [Windows] ConPTY support (Windows 10 version 1809 or higher)
+```sh
+cargo run -p alacritree              # debug
+cargo build -p alacritree --release  # release → target/release/alacritree
+```
 
 ## Configuration
 
-You can find the documentation for Alacritty's configuration in `man 5
-alacritty`, or by looking at [the website] if you do not have the manpages
-installed.
-
-[the website]: https://alacritty.org/config-alacritty.html
-
-Alacritty doesn't create the config file for you, but it looks for one in the
-following locations:
+Alacritree reads the same files Alacritty does, in the same order:
 
 1. `$XDG_CONFIG_HOME/alacritty/alacritty.toml`
 2. `$XDG_CONFIG_HOME/alacritty.toml`
@@ -70,45 +66,35 @@ following locations:
 4. `$HOME/.alacritty.toml`
 5. `/etc/alacritty/alacritty.toml`
 
-On Windows, the config file will be looked for in:
+After loading `alacritty.toml`, Alacritree deep-merges an optional
+`alacritree.toml` (same search path) on top. Merge semantics match
+Alacritty's: arrays concatenate (so `[[keyboard.bindings]]` in
+`alacritree.toml` *adds to* the upstream bindings rather than replacing
+them), tables merge recursively, primitives replace.
 
-* `%APPDATA%\alacritty\alacritty.toml`
+Alacritree-only options live under `[ui]` in `alacritree.toml` — sidebar
+colours, panel visibility, etc. See `alacritree/src/config.rs` for the
+current schema.
 
-## Contributing
+## Repository layout
 
-A guideline about contributing to Alacritty can be found in the
-[`CONTRIBUTING.md`](CONTRIBUTING.md) file.
+This is a Cargo workspace:
 
-## FAQ
+- `alacritree/` — **the fork.** GUI shell, sidebars, worktree integration.
+- `alacritty_terminal/` — vendored from upstream Alacritty; used as a library.
+- `alacritty/`, `alacritty_config/`, `alacritty_config_derive/` — vendored
+  upstream crates. Treated as read-only here; the upstream `alacritty` GUI
+  binary is **not** what this fork ships.
 
-**_Is it really the fastest terminal emulator?_**
+## Relationship to upstream Alacritty
 
-Benchmarking terminal emulators is complicated. Alacritty uses
-[vtebench](https://github.com/alacritty/vtebench) to quantify terminal emulator
-throughput and manages to consistently score better than the competition using
-it. If you have found an example where this is not the case, please report a
-bug.
-
-Other aspects like latency or framerate and frame consistency are more difficult
-to quantify. Some terminal emulators also intentionally slow down to save
-resources, which might be preferred by some users.
-
-If you have doubts about Alacritty's performance or usability, the best way to
-quantify terminal emulators is always to test them with **your** specific
-usecases.
-
-**_Why isn't feature X implemented?_**
-
-Alacritty has many great features, but not every feature from every other
-terminal. This could be for a number of reasons, but sometimes it's just not a
-good fit for Alacritty. This means you won't find things like tabs or splits
-(which are best left to a window manager or [terminal multiplexer][tmux]) nor
-niceties like a GUI config editor.
-
-[tmux]: https://github.com/tmux/tmux
+Alacritree is not a competitor to or replacement for Alacritty. It depends on
+upstream's terminal crate and would not exist without it. Upstream's
+`CONTRIBUTING.md` (kept in this repo for the vendored crates) includes a "no
+LLM contributions" policy — that policy applies to upstream Alacritty, not to
+the `alacritree/` crate.
 
 ## License
 
-Alacritty is released under the [Apache License, Version 2.0].
-
-[Apache License, Version 2.0]: https://github.com/alacritty/alacritty/blob/master/LICENSE-APACHE
+Released under the [Apache License, Version 2.0](LICENSE-APACHE), matching
+upstream Alacritty.
