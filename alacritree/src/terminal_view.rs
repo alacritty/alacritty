@@ -15,11 +15,21 @@ use crate::session::{EventProxy, Session, TermSize};
 
 pub fn show(ui: &mut Ui, session: &mut Session, config: &Config, allow_focus: bool) -> Response {
     let font_id = FontId::monospace(config.font.size);
-    let (cell_w, cell_h) = ui.ctx().fonts(|f| {
+    let (cell_w_pt, cell_h_pt) = ui.ctx().fonts(|f| {
         let w = f.glyph_width(&font_id, 'M');
         let h = f.row_height(&font_id);
         (w, h)
     });
+    // Floor cell size to whole device pixels (matches alacritty's
+    // `compute_cell_size` in display/mod.rs).  When pixels_per_point is
+    // fractional, raw float cell widths cause `col * cell_w` to land on
+    // non-integer physical pixels and the AA fringes of adjacent
+    // background rects bleed into each other — visible as a vertical
+    // seam in solid-color block art.  Snapping cell size to integer
+    // device pixels makes every column boundary an integer pixel.
+    let ppp = ui.ctx().pixels_per_point();
+    let cell_w = (cell_w_pt * ppp).floor().max(1.0) / ppp;
+    let cell_h = (cell_h_pt * ppp).floor().max(1.0) / ppp;
 
     let pad_x = config.window.padding_x;
     let pad_y = config.window.padding_y;
@@ -465,15 +475,7 @@ fn paint_cursor(
 
     let x = rect.min.x + cursor_point.column.0 as f32 * cell_w;
     let y = rect.min.y + cursor_visible_line as f32 * cell_h;
-    // Snap to device pixels for the same reason `paint_run` does — the cursor
-    // sits on top of a cell whose bg already used pixel-snapped edges, so
-    // matching its rounding keeps the cursor flush with the cell underneath.
-    let ppp = painter.ctx().pixels_per_point();
-    let snap = |v: f32| (v * ppp).round() / ppp;
-    let cursor_rect = Rect::from_min_max(
-        Pos2::new(snap(x), snap(y)),
-        Pos2::new(snap(x + cell_w), snap(y + cell_h)),
-    );
+    let cursor_rect = Rect::from_min_size(Pos2::new(x, y), Vec2::new(cell_w, cell_h));
 
     let cursor_color = runtime_palette[alacritty_terminal::vte::ansi::NamedColor::Cursor]
         .map(rgb_to_color32)
