@@ -93,6 +93,7 @@ fn default_bindings() -> Vec<KeyBinding> {
     let ctrl_shift = Modifiers::CTRL | Modifiers::SHIFT;
     let ctrl = Modifiers::CTRL;
     let shift = Modifiers::SHIFT;
+    let alt_shift = Modifiers::ALT | Modifiers::SHIFT;
 
     #[cfg_attr(not(target_os = "macos"), allow(unused_mut))]
     let mut b = vec![
@@ -110,6 +111,14 @@ fn default_bindings() -> Vec<KeyBinding> {
             key: Key::PageDown,
             mods: shift,
             action: BindingAction::Named(ScrollPageDown),
+        },
+        // Alacritty emits CSI Z for Shift+Tab and ESC + CSI Z for Alt+Shift+Tab
+        // so apps that handle reverse-tab (readline, vim, etc.) keep working.
+        KeyBinding { key: Key::Tab, mods: shift, action: BindingAction::Chars(b"\x1b[Z".to_vec()) },
+        KeyBinding {
+            key: Key::Tab,
+            mods: alt_shift,
+            action: BindingAction::Chars(b"\x1b\x1b[Z".to_vec()),
         },
     ];
 
@@ -152,8 +161,16 @@ fn parse_key(name: &str) -> Option<Key> {
         let c = n.chars().next().unwrap().to_ascii_uppercase();
         return char_to_key(c);
     }
+    if n == "NumpadEnter" {
+        // egui-winit maps both `KeyCode::Enter` and `KeyCode::NumpadEnter` to
+        // `egui::Key::Enter`, so we can't tell them apart.  Aliasing NumpadEnter
+        // to Enter would silently fire NumpadEnter bindings on the regular
+        // Return key — drop the binding instead.
+        log::warn!("ignoring NumpadEnter binding: egui cannot distinguish it from Return");
+        return None;
+    }
     Some(match n {
-        "Return" | "Enter" | "NumpadEnter" => Key::Enter,
+        "Return" | "Enter" => Key::Enter,
         "Space" => Key::Space,
         "Tab" => Key::Tab,
         "Backspace" | "Back" => Key::Backspace,

@@ -321,50 +321,44 @@ impl AlacritreeApp {
         let mut cycle_ws_delta: Option<i32> = None;
         let mut quit_requested = false;
         ctx.input_mut(|i| {
-            if i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::B))
-            {
+            if consume_exact(i, egui::Modifiers::CTRL, egui::Key::B) {
                 self.show_left_sidebar = !self.show_left_sidebar;
                 sidebars_changed = true;
             }
-            if i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::G))
-            {
+            if consume_exact(i, egui::Modifiers::CTRL, egui::Key::G) {
                 self.show_right_sidebar = !self.show_right_sidebar;
                 sidebars_changed = true;
             }
-            if i.consume_shortcut(&egui::KeyboardShortcut::new(
-                egui::Modifiers::CTRL,
-                egui::Key::Tab,
-            )) {
-                cycle_tabs_delta = Some(1);
-            }
-            if i.consume_shortcut(&egui::KeyboardShortcut::new(
-                egui::Modifiers::CTRL | egui::Modifiers::SHIFT,
-                egui::Key::Tab,
-            )) {
+            // Ctrl+Shift+Tab must be checked before Ctrl+Tab — even with exact
+            // matching, leaving them in the opposite order works, but ordering
+            // forward→backward keeps the "modifier-richer wins" intent obvious.
+            if consume_exact(i, egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::Tab) {
                 cycle_tabs_delta = Some(-1);
             }
-            if i.consume_shortcut(&egui::KeyboardShortcut::new(
+            if consume_exact(i, egui::Modifiers::CTRL, egui::Key::Tab) {
+                cycle_tabs_delta = Some(1);
+            }
+            if consume_exact(
+                i,
                 egui::Modifiers::CTRL | egui::Modifiers::ALT,
                 egui::Key::ArrowRight,
-            )) {
+            ) {
                 cycle_ws_delta = Some(1);
             }
-            if i.consume_shortcut(&egui::KeyboardShortcut::new(
+            if consume_exact(
+                i,
                 egui::Modifiers::CTRL | egui::Modifiers::ALT,
                 egui::Key::ArrowLeft,
-            )) {
+            ) {
                 cycle_ws_delta = Some(-1);
             }
-            if i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::Q))
-            {
+            if consume_exact(i, egui::Modifiers::CTRL, egui::Key::Q) {
                 quit_requested = true;
             }
         });
 
         // Split out so spawn_session can take &mut self without tripping the borrow.
-        let ctrl_t = ctx.input_mut(|i| {
-            i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::T))
-        });
+        let ctrl_t = ctx.input_mut(|i| consume_exact(i, egui::Modifiers::CTRL, egui::Key::T));
         if ctrl_t {
             let ws = self.current_workspace.clone();
             if let Err(e) = self.spawn_session(ctx, ws) {
@@ -844,6 +838,24 @@ fn modal_frame(theme: &Theme) -> Frame {
         .fill(theme.sidebar_bg)
         .stroke(Stroke::new(1.0, theme.sidebar_border))
         .inner_margin(Margin { left: 16, right: 16, top: 12, bottom: 12 })
+}
+
+/// `InputState::consume_shortcut` matches modifiers as a *subset*: `Ctrl+G`
+/// fires on `Ctrl+Shift+G`, `Ctrl+Tab` fires on `Ctrl+Shift+Tab`, and the
+/// stronger binding never gets a chance to consume the event.  Use exact
+/// modifier matching so each shortcut only triggers on its own combination.
+fn consume_exact(input: &mut egui::InputState, mods: egui::Modifiers, key: egui::Key) -> bool {
+    let mut hit = false;
+    input.events.retain(|ev| {
+        if let egui::Event::Key { key: k, pressed: true, modifiers, .. } = ev {
+            if *k == key && modifiers.matches_exact(mods) {
+                hit = true;
+                return false;
+            }
+        }
+        true
+    });
+    hit
 }
 
 fn consume_modal_keys(ctx: &Context) -> (bool, bool) {
