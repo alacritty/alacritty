@@ -13,6 +13,7 @@ use crate::projects::{Project, Worktree};
 use crate::session::{Session, SessionId, TermSize};
 use crate::state::{self, PersistedProject, PersistedState};
 use crate::terminal_view;
+use crate::worktree as wt;
 
 /// Workspace identifier — the working directory of a worktree, or `None` for
 /// the implicit "home" workspace where sessions inherit `$PWD`.
@@ -107,6 +108,15 @@ pub struct AlacritreeApp {
     theme: Theme,
     last_error: Option<String>,
     quit_dialog_open: bool,
+    pending_delete: Option<DeleteRequest>,
+}
+
+#[derive(Clone)]
+struct DeleteRequest {
+    project_root: PathBuf,
+    worktree_path: PathBuf,
+    worktree_name: String,
+    branch: Option<String>,
 }
 
 impl AlacritreeApp {
@@ -146,6 +156,7 @@ impl AlacritreeApp {
             theme,
             last_error: None,
             quit_dialog_open: false,
+            pending_delete: None,
         };
 
         if let Err(e) = app.spawn_session(&cc.egui_ctx, None) {
@@ -568,6 +579,7 @@ impl AlacritreeApp {
 
     fn show_project_sidebar(&mut self, ctx: &Context, panel_frame: Frame) {
         let activate_request: std::cell::Cell<Option<PathBuf>> = std::cell::Cell::new(None);
+        let delete_request: std::cell::Cell<Option<DeleteRequest>> = std::cell::Cell::new(None);
         let mut add_project_clicked = false;
         let mut refresh_idx: Option<usize> = None;
         let mut remove_idx: Option<usize> = None;
@@ -643,11 +655,21 @@ impl AlacritreeApp {
                         let _ = header_resp;
 
                         if project.expanded {
+                            let project_root = project.root.clone();
                             for wt in &project.worktrees {
                                 let is_active =
                                     self.current_workspace.as_deref() == Some(&wt.path);
-                                if worktree_row(ui, wt, is_active, &theme).clicked() {
+                                let action = worktree_row(ui, wt, is_active, &theme);
+                                if action.activate {
                                     activate_request.set(Some(wt.path.clone()));
+                                }
+                                if action.delete {
+                                    delete_request.set(Some(DeleteRequest {
+                                        project_root: project_root.clone(),
+                                        worktree_path: wt.path.clone(),
+                                        worktree_name: wt.name.clone(),
+                                        branch: wt.branch.clone(),
+                                    }));
                                 }
                             }
                             ui.add_space(4.0);
@@ -674,6 +696,9 @@ impl AlacritreeApp {
         }
         if let Some(path) = activate_request.take() {
             self.activate_worktree(ctx, &path);
+        }
+        if let Some(req) = delete_request.take() {
+            self.pending_delete = Some(req);
         }
     }
 
@@ -899,16 +924,22 @@ fn home_row(ui: &mut egui::Ui, is_active: bool, theme: &Theme) -> egui::Response
     resp
 }
 
+struct WorktreeAction {
+    activate: bool,
+    delete: bool,
+}
+
 fn worktree_row(
     ui: &mut egui::Ui,
     wt: &Worktree,
     is_active: bool,
     theme: &Theme,
-) -> egui::Response {
+) -> WorktreeAction {
     // Reserve a paint slot *before* the row's content so the hover/active
     // background can be filled in beneath the labels once we know the state.
     // (Painting it after would put it on top of the text — the bug we're fixing.)
     let bg_idx = ui.painter().add(egui::Shape::Noop);
+    let mut delete_clicked = false;
 
     let frame = Frame::default()
         .inner_margin(Margin { left: 16, right: 6, top: 3, bottom: 3 });
@@ -925,14 +956,22 @@ fn worktree_row(
                     RichText::new(&wt.name)
                         .color(if is_active { theme.text } else { theme.text_dim }),
                 );
-                if let Some(branch) = &wt.branch {
-                    ui.with_layout(
-                        egui::Layout::right_to_left(egui::Align::Center),
-                        |ui| {
+                ui.with_layout(
+                    egui::Layout::right_to_left(egui::Align::Center),
+                    |ui| {
+                        if !wt.is_main {
+                            let btn = ui
+                                .add(egui::Button::new(RichText::new("×").color(theme.text_muted)).frame(false))
+                                .on_hover_text("delete worktree and branch");
+                            if btn.clicked() {
+                                delete_clicked = true;
+                            }
+                        }
+                        if let Some(branch) = &wt.branch {
                             ui.label(RichText::new(branch).small().color(theme.text_muted));
-                        },
-                    );
-                }
+                        }
+                    },
+                );
             });
         })
         .response
@@ -949,7 +988,10 @@ fn worktree_row(
         ui.painter()
             .set(bg_idx, egui::Shape::rect_filled(resp.rect, 0.0, bg));
     }
-    resp
+    WorktreeAction {
+        activate: resp.clicked() && !delete_clicked,
+        delete: delete_clicked,
+    }
 }
 
 impl AlacritreeApp {
@@ -964,6 +1006,76 @@ impl AlacritreeApp {
             .collect();
         for id in exited_ids {
             self.close_session(id);
+        }
+    }
+
+    fn show_delete_dialog(&mut self, ctx: &Context) {
+        let theme = self.theme;
+        let danger = rgb_to_color32(self.config.palette.normal[1]);
+        let Some(req) = self.pending_delete.clone() else {
+            return;
+        };
+        let title = format!("Delete worktree `{}`?", req.worktree_name);
+        let detail = match &req.branch {
+            Some(b) => format!("Removes the worktree directory and deletes branch `{b}`."),
+            None => "Removes the worktree directory.".to_string(),
+        };
+
+        let mut confirmed = false;
+        let mut cancelled = false;
+        let modal = egui::Modal::new(egui::Id::new("alacritree_delete_dialog")).show(ctx, |ui| {
+            ui.set_min_width(320.0);
+            ui.heading(RichText::new(title).color(theme.text));
+            ui.add_space(6.0);
+            ui.label(RichText::new(detail).color(theme.text_dim));
+            ui.add_space(4.0);
+            ui.label(
+                RichText::new("Uncommitted changes will block the delete.")
+                    .color(theme.text_muted)
+                    .small(),
+            );
+            ui.add_space(12.0);
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button(RichText::new("Delete").color(danger)).clicked() {
+                    confirmed = true;
+                }
+                if ui.button("Cancel").clicked() {
+                    cancelled = true;
+                }
+            });
+        });
+
+        if confirmed {
+            self.run_pending_delete();
+        } else if cancelled || modal.should_close() {
+            self.pending_delete = None;
+        }
+    }
+
+    fn run_pending_delete(&mut self) {
+        let Some(req) = self.pending_delete.take() else {
+            return;
+        };
+        if let Err(e) =
+            wt::delete_worktree(&req.project_root, &req.worktree_path, req.branch.as_deref())
+        {
+            self.last_error = Some(format!("delete worktree: {e}"));
+            return;
+        }
+
+        // Drop sessions and cached state for the deleted workspace; the
+        // working directory no longer exists, so leaving them around just
+        // strands PTYs against a stale path.
+        let workspace: WorkspaceKey = Some(req.worktree_path.clone());
+        if self.current_workspace == workspace {
+            self.current_workspace = None;
+        }
+        self.active_session.remove(&workspace);
+        self.sessions.retain(|s| s.working_directory != workspace);
+        self.git_status.remove(&req.worktree_path);
+
+        if let Some(project) = self.projects.iter_mut().find(|p| p.root == req.project_root) {
+            project.refresh();
         }
     }
 
@@ -1061,6 +1173,9 @@ impl eframe::App for AlacritreeApp {
                 let _ = terminal_view::show(ui, session, &self.config);
             });
 
+        if self.pending_delete.is_some() {
+            self.show_delete_dialog(ctx);
+        }
         if self.quit_dialog_open {
             self.show_quit_dialog(ctx);
         }
