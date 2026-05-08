@@ -1,6 +1,4 @@
-//! Resolve a font family name (or file path) and register it as egui's
-//! Monospace family.  Best-effort — silently falls back to egui's bundled
-//! Hack font if the requested family can't be loaded.
+//! Resolve a font family / file and register it as egui's Monospace face.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -17,14 +15,12 @@ pub fn install_terminal_font(ctx: &Context, family_or_path: Option<&str>) {
         None => {
             log::warn!("could not resolve font '{name}'; using bundled monospace");
             return;
-        }
+        },
     };
 
     let mut defs = FontDefinitions::default();
     let font_id = "alacritree_terminal";
     defs.font_data.insert(font_id.to_string(), Arc::new(FontData::from_owned(bytes)));
-    // Place our font ahead of the bundled fallbacks for the Monospace family
-    // so all monospace text uses it.
     let monospace = defs.families.entry(FontFamily::Monospace).or_default();
     monospace.insert(0, font_id.to_string());
     let proportional = defs.families.entry(FontFamily::Proportional).or_default();
@@ -38,7 +34,25 @@ fn load_font_bytes(name: &str) -> Option<Vec<u8>> {
     if path.is_file() {
         return std::fs::read(path).ok();
     }
-    resolve_via_fontdb(name)
+    if let Some(bytes) = resolve_via_fontdb(name) {
+        return Some(bytes);
+    }
+    // fontdb only matches exact family names — shell out for fontconfig aliases.
+    resolve_via_fc_match(name)
+}
+
+fn resolve_via_fc_match(name: &str) -> Option<Vec<u8>> {
+    let output =
+        std::process::Command::new("fc-match").arg("-f").arg("%{file}").arg(name).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let path = String::from_utf8(output.stdout).ok()?;
+    let path = path.trim();
+    if path.is_empty() {
+        return None;
+    }
+    std::fs::read(path).ok()
 }
 
 fn resolve_via_fontdb(family: &str) -> Option<Vec<u8>> {
@@ -56,6 +70,6 @@ fn resolve_via_fontdb(family: &str) -> Option<Vec<u8>> {
         fontdb::Source::File(path) => std::fs::read(path).ok(),
         fontdb::Source::Binary(data) | fontdb::Source::SharedFile(_, data) => {
             Some(data.as_ref().as_ref().to_vec())
-        }
+        },
     }
 }
