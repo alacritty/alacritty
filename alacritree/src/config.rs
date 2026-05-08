@@ -52,6 +52,7 @@ pub struct ScrollingConfig {
 pub struct WindowConfig {
     pub padding_x: f32,
     pub padding_y: f32,
+    pub opacity: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -134,7 +135,7 @@ impl Default for ScrollingConfig {
 
 impl Default for WindowConfig {
     fn default() -> Self {
-        Self { padding_x: 0.0, padding_y: 0.0 }
+        Self { padding_x: 0.0, padding_y: 0.0, opacity: 1.0 }
     }
 }
 
@@ -389,6 +390,7 @@ struct RawScrolling {
 #[serde(default)]
 struct RawWindow {
     padding: Option<RawPadding>,
+    opacity: Option<f32>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -588,6 +590,9 @@ impl RawConfig {
             if let Some(y) = p.y {
                 window.padding_y = y;
             }
+        }
+        if let Some(o) = self.window.opacity {
+            window.opacity = o.clamp(0.0, 1.0);
         }
 
         // ---- Selection ----

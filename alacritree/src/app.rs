@@ -6,7 +6,7 @@ use egui::{Color32, Context, Frame, Margin, RichText, ScrollArea, SidePanel, Str
 
 use crate::bindings::{BindingAction, NamedAction};
 use crate::colors::rgb_to_color32;
-use crate::config::{self, Config};
+use crate::config::Config;
 use crate::git_status::{ChangeKind, FileChange, StatusCache};
 use crate::projects::{Project, Worktree};
 use crate::session::{Session, SessionId, TermSize};
@@ -109,8 +109,7 @@ pub struct AlacritreeApp {
 }
 
 impl AlacritreeApp {
-    pub fn new(cc: &CreationContext<'_>) -> Self {
-        let config = config::load();
+    pub fn new(cc: &CreationContext<'_>, config: Config) -> Self {
         let theme = Theme::from_config(&config);
 
         crate::fonts::install_terminal_font(&cc.egui_ctx, config.font.normal_family.as_deref());
@@ -987,12 +986,24 @@ impl AlacritreeApp {
 }
 
 impl eframe::App for AlacritreeApp {
+    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
+        let bg = self.theme.terminal_bg;
+        let n = |c: u8| c as f32 / 255.0;
+        [n(bg.r()), n(bg.g()), n(bg.b()), self.config.window.opacity]
+    }
+
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         self.handle_shortcuts(ctx);
 
         let theme = self.theme;
+        // GL clear is the sole source of the bg when opacity < 1; painting any
+        // panel fill on top would compound the alpha through egui's blend.
+        let translucent = self.config.window.opacity < 1.0;
+        let sidebar_fill = if translucent { Color32::TRANSPARENT } else { theme.sidebar_bg };
+        let central_fill = if translucent { Color32::TRANSPARENT } else { theme.terminal_bg };
+
         let panel_frame = Frame::default()
-            .fill(theme.sidebar_bg)
+            .fill(sidebar_fill)
             .stroke(Stroke::new(1.0, theme.sidebar_border))
             .inner_margin(Margin::same(8));
 
@@ -1005,7 +1016,7 @@ impl eframe::App for AlacritreeApp {
         }
 
         egui::CentralPanel::default()
-            .frame(Frame::default().fill(theme.terminal_bg).inner_margin(Margin::same(0)))
+            .frame(Frame::default().fill(central_fill).inner_margin(Margin::same(0)))
             .show(ctx, |ui| {
                 self.show_tab_strip(ui);
 

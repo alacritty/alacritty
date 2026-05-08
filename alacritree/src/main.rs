@@ -2,6 +2,7 @@
 
 mod app;
 mod bindings;
+mod clipboard;
 mod colors;
 mod config;
 mod fonts;
@@ -11,23 +12,31 @@ mod projects;
 mod session;
 mod state;
 mod terminal_view;
+mod worktree;
 
 use app::AlacritreeApp;
 
 fn main() -> eframe::Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    // egui_winit warns on every cold X11 clipboard probe even when it recovers.
+    let default_filter = "info,egui_winit::clipboard=error";
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(default_filter))
+        .init();
+
+    let config = config::load();
+    let translucent = config.window.opacity < 1.0;
 
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1280.0, 800.0])
             .with_min_inner_size([640.0, 400.0])
-            .with_title("Alacritree"),
+            .with_title("Alacritree")
+            .with_transparent(translucent),
         ..Default::default()
     };
 
     eframe::run_native(
         "Alacritree",
         native_options,
-        Box::new(|cc| Ok(Box::new(AlacritreeApp::new(cc)))),
+        Box::new(move |cc| Ok(Box::new(AlacritreeApp::new(cc, config)))),
     )
 }
