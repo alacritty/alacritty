@@ -99,7 +99,6 @@ pub struct UiTheme {
     pub sidebar_foreground: Option<Color32>,
     pub sidebar_border: Option<Color32>,
     pub sidebar_accent: Option<Color32>,
-    pub tab_active_background: Option<Color32>,
 }
 
 impl Default for Config {
@@ -496,7 +495,6 @@ struct RawUi {
     sidebar_foreground: Option<RgbStr>,
     sidebar_border: Option<RgbStr>,
     sidebar_accent: Option<RgbStr>,
-    tab_active_background: Option<RgbStr>,
 }
 
 /// Wrapper that parses `"0xrrggbb"`, `"#rrggbb"`, or `"rrggbb"` into an `Rgb`.
@@ -569,7 +567,6 @@ impl RawConfig {
             sidebar_foreground: self.ui.sidebar_foreground.map(|v| rgb_to_color32(v.0)),
             sidebar_border: self.ui.sidebar_border.map(|v| rgb_to_color32(v.0)),
             sidebar_accent: self.ui.sidebar_accent.map(|v| rgb_to_color32(v.0)),
-            tab_active_background: self.ui.tab_active_background.map(|v| rgb_to_color32(v.0)),
         };
 
         // ---- Font ----
