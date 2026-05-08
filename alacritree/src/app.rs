@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::mpsc::Receiver;
 
 use eframe::CreationContext;
 use egui::{Color32, Context, Frame, Margin, RichText, ScrollArea, SidePanel, Stroke};
@@ -13,15 +14,11 @@ use crate::projects::{Project, Worktree};
 use crate::session::{Session, SessionId, TermSize};
 use crate::state::{self, PersistedProject, PersistedState};
 use crate::terminal_view;
-use crate::worktree as wt;
+use crate::worktree::{self as wt, CreateRequest, Progress};
 
-/// Workspace identifier — the working directory of a worktree, or `None` for
-/// the implicit "home" workspace where sessions inherit `$PWD`.
+/// `None` is the home workspace (sessions inherit `$PWD`); `Some` is a worktree path.
 type WorkspaceKey = Option<PathBuf>;
 
-/// UI colors resolved against the user's config.  The sidebar background
-/// follows the terminal background by default; everything else is a small
-/// perceptual offset from it so panels read as panels.
 #[derive(Clone, Copy)]
 struct Theme {
     terminal_bg: Color32,
@@ -39,18 +36,11 @@ impl Theme {
     fn from_config(config: &Config) -> Self {
         let terminal_bg = rgb_to_color32(config.palette.bg);
         let sidebar_bg = config.ui.sidebar_background.unwrap_or(terminal_bg);
-        let text = config
-            .ui
-            .sidebar_foreground
-            .unwrap_or_else(|| rgb_to_color32(config.palette.fg));
-        let accent = config
-            .ui
-            .sidebar_accent
-            .unwrap_or_else(|| rgb_to_color32(config.palette.normal[4])); // ANSI blue
-        let border = config
-            .ui
-            .sidebar_border
-            .unwrap_or_else(|| lighten(sidebar_bg, 0.10));
+        let text =
+            config.ui.sidebar_foreground.unwrap_or_else(|| rgb_to_color32(config.palette.fg));
+        let accent =
+            config.ui.sidebar_accent.unwrap_or_else(|| rgb_to_color32(config.palette.normal[4])); // ANSI blue
+        let border = config.ui.sidebar_border.unwrap_or_else(|| lighten(sidebar_bg, 0.10));
         Self {
             terminal_bg,
             sidebar_bg,
@@ -65,8 +55,6 @@ impl Theme {
     }
 }
 
-/// Move `c` toward white by `amount` (0..1).  Used to derive panel-on-panel
-/// shades from a single base color.
 fn lighten(c: Color32, amount: f32) -> Color32 {
     let amount = amount.clamp(0.0, 1.0);
     let mix = |x: u8| -> u8 {
@@ -76,7 +64,12 @@ fn lighten(c: Color32, amount: f32) -> Color32 {
     Color32::from_rgb(mix(c.r()), mix(c.g()), mix(c.b()))
 }
 
-/// Blend `c` toward `target` by `amount` (0..1).
+fn paint_panel_border(ctx: &Context, x: f32, y_range: egui::Rangef, color: Color32) {
+    let layer =
+        egui::LayerId::new(egui::Order::Foreground, egui::Id::new(("sidebar_border", x.to_bits())));
+    ctx.layer_painter(layer).vline(x, y_range, Stroke::new(1.0, color));
+}
+
 fn blend_toward(c: Color32, target: Color32, amount: f32) -> Color32 {
     let amount = amount.clamp(0.0, 1.0);
     let mix = |a: u8, b: u8| -> u8 {
@@ -84,23 +77,14 @@ fn blend_toward(c: Color32, target: Color32, amount: f32) -> Color32 {
         let bv = b as f32;
         (av + (bv - av) * amount).round().clamp(0.0, 255.0) as u8
     };
-    Color32::from_rgb(
-        mix(c.r(), target.r()),
-        mix(c.g(), target.g()),
-        mix(c.b(), target.b()),
-    )
+    Color32::from_rgb(mix(c.r(), target.r()), mix(c.g(), target.g()), mix(c.b(), target.b()))
 }
 
 pub struct AlacritreeApp {
     show_left_sidebar: bool,
     show_right_sidebar: bool,
     sessions: Vec<Session>,
-    /// Currently visible workspace.  `None` means the home workspace (no
-    /// associated worktree).  Sessions are bucketed by their
-    /// `working_directory` matching this value.
     current_workspace: WorkspaceKey,
-    /// Per-workspace, the id of the last-active session.  Survives session
-    /// closures because we look up by id, not by index.
     active_session: HashMap<WorkspaceKey, SessionId>,
     projects: Vec<Project>,
     git_status: HashMap<PathBuf, StatusCache>,
@@ -109,14 +93,20 @@ pub struct AlacritreeApp {
     last_error: Option<String>,
     quit_dialog_open: bool,
     pending_delete: Option<DeleteRequest>,
+    pending_create: Option<CreateState>,
 }
 
-#[derive(Clone)]
 struct DeleteRequest {
-    project_root: PathBuf,
+    project_idx: usize,
     worktree_path: PathBuf,
     worktree_name: String,
     branch: Option<String>,
+}
+
+enum CreateState {
+    Prompt { project_idx: usize, branch: String, error: Option<String> },
+    Running { project_idx: usize, branch: String, steps: Vec<String>, rx: Receiver<Progress> },
+    Done { project_idx: usize, steps: Vec<String>, result: Result<PathBuf, String> },
 }
 
 impl AlacritreeApp {
@@ -157,6 +147,7 @@ impl AlacritreeApp {
             last_error: None,
             quit_dialog_open: false,
             pending_delete: None,
+            pending_create: None,
         };
 
         if let Err(e) = app.spawn_session(&cc.egui_ctx, None) {
@@ -197,22 +188,16 @@ impl AlacritreeApp {
         Ok(id)
     }
 
-    /// Switch the visible workspace to `path` and ensure it has at least one
-    /// session.  Existing sessions for `path` are kept alive — switching
-    /// preserves running processes.
     fn activate_worktree(&mut self, ctx: &Context, path: &Path) {
         self.current_workspace = Some(path.to_path_buf());
         self.ensure_active_session(ctx);
     }
 
-    /// Switch to the implicit home workspace.
     fn activate_home(&mut self, ctx: &Context) {
         self.current_workspace = None;
         self.ensure_active_session(ctx);
     }
 
-    /// Make sure `current_workspace` has an active, live session.  Fall back
-    /// to any other session in the workspace; spawn a fresh one if none exist.
     fn ensure_active_session(&mut self, ctx: &Context) {
         if self.active_session_index().is_some() {
             return;
@@ -235,21 +220,16 @@ impl AlacritreeApp {
         let workspace = self.sessions[idx].working_directory.clone();
         self.sessions.remove(idx);
 
-        // If this session was the active one for its workspace, fall back to
-        // any other session still running there.
         if self.active_session.get(&workspace).copied() == Some(id) {
-            let fallback = self
-                .sessions
-                .iter()
-                .find(|s| s.working_directory == workspace)
-                .map(|s| s.id);
+            let fallback =
+                self.sessions.iter().find(|s| s.working_directory == workspace).map(|s| s.id);
             match fallback {
                 Some(new_id) => {
                     self.active_session.insert(workspace, new_id);
-                }
+                },
                 None => {
                     self.active_session.remove(&workspace);
-                }
+                },
             }
         }
     }
@@ -276,8 +256,6 @@ impl AlacritreeApp {
         self.active_session.insert(self.current_workspace.clone(), id);
     }
 
-    /// Cycle through tabs in the current workspace.  `delta = +1` next,
-    /// `delta = -1` previous.  No-op if 0 or 1 tabs.
     fn cycle_tabs(&mut self, delta: i32) {
         let indices = self.current_session_indices();
         if indices.len() < 2 {
@@ -291,9 +269,6 @@ impl AlacritreeApp {
         self.set_active_in_current_workspace(id);
     }
 
-    /// Cycle through workspaces (Home + each project's worktrees, in sidebar
-    /// order).  `delta` is +1 / -1.  Spawns a new session for the destination
-    /// workspace if none exists, like clicking it in the sidebar would.
     fn cycle_workspaces(&mut self, ctx: &Context, delta: i32) {
         let order = self.workspace_order();
         if order.len() < 2 {
@@ -307,7 +282,7 @@ impl AlacritreeApp {
             Some(p) => {
                 let path = p.clone();
                 self.activate_worktree(ctx, &path);
-            }
+            },
         }
     }
 
@@ -330,27 +305,26 @@ impl AlacritreeApp {
         }
     }
 
+    fn is_modal_open(&self) -> bool {
+        self.quit_dialog_open || self.pending_delete.is_some() || self.pending_create.is_some()
+    }
+
     fn handle_shortcuts(&mut self, ctx: &Context) {
         let mut sidebars_changed = false;
         let mut cycle_tabs_delta: Option<i32> = None;
         let mut cycle_ws_delta: Option<i32> = None;
         let mut quit_requested = false;
         ctx.input_mut(|i| {
-            if i.consume_shortcut(&egui::KeyboardShortcut::new(
-                egui::Modifiers::CTRL,
-                egui::Key::B,
-            )) {
+            if i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::B))
+            {
                 self.show_left_sidebar = !self.show_left_sidebar;
                 sidebars_changed = true;
             }
-            if i.consume_shortcut(&egui::KeyboardShortcut::new(
-                egui::Modifiers::CTRL,
-                egui::Key::G,
-            )) {
+            if i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::G))
+            {
                 self.show_right_sidebar = !self.show_right_sidebar;
                 sidebars_changed = true;
             }
-            // Tab cycling within the current workspace.
             if i.consume_shortcut(&egui::KeyboardShortcut::new(
                 egui::Modifiers::CTRL,
                 egui::Key::Tab,
@@ -363,7 +337,6 @@ impl AlacritreeApp {
             )) {
                 cycle_tabs_delta = Some(-1);
             }
-            // Workspace cycling: Ctrl+Alt+Right / Ctrl+Alt+Left.
             if i.consume_shortcut(&egui::KeyboardShortcut::new(
                 egui::Modifiers::CTRL | egui::Modifiers::ALT,
                 egui::Key::ArrowRight,
@@ -376,26 +349,17 @@ impl AlacritreeApp {
             )) {
                 cycle_ws_delta = Some(-1);
             }
-            // Ctrl+Q: open the quit-confirmation dialog.
-            if i.consume_shortcut(&egui::KeyboardShortcut::new(
-                egui::Modifiers::CTRL,
-                egui::Key::Q,
-            )) {
+            if i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::Q))
+            {
                 quit_requested = true;
             }
         });
 
-        // Ctrl+T spawns a new session.  Done outside `consume_shortcut` so the
-        // PTY's input handler doesn't also see the keystroke.
+        // Split out so spawn_session can take &mut self without tripping the borrow.
         let ctrl_t = ctx.input_mut(|i| {
-            i.consume_shortcut(&egui::KeyboardShortcut::new(
-                egui::Modifiers::CTRL,
-                egui::Key::T,
-            ))
+            i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::T))
         });
         if ctrl_t {
-            // New tabs land in the currently visible workspace, so they share
-            // the worktree's working directory.
             let ws = self.current_workspace.clone();
             if let Err(e) = self.spawn_session(ctx, ws) {
                 self.last_error = Some(format!("failed to spawn shell: {e}"));
@@ -414,10 +378,8 @@ impl AlacritreeApp {
             self.persist();
         }
 
-        // User-defined keyboard.bindings from the alacritty config.  Run
-        // *after* built-in shortcuts so we don't shadow them, but *before*
-        // events flow through to the terminal so a binding takes precedence
-        // over plain text input.
+        // After built-in shortcuts (so we don't shadow them) but before the
+        // terminal sees raw events (so a binding wins over plain text input).
         self.dispatch_user_bindings(ctx);
     }
 
@@ -451,21 +413,21 @@ impl AlacritreeApp {
                 if let Some(idx) = self.active_session_index() {
                     self.sessions[idx].write(bytes);
                 }
-            }
+            },
             BindingAction::Named(NamedAction::Paste) => {
                 if let Some(text) = clipboard::read(Target::Clipboard) {
                     if let Some(idx) = self.active_session_index() {
                         self.sessions[idx].write(text.into_bytes());
                     }
                 }
-            }
+            },
             BindingAction::Named(NamedAction::PasteSelection) => {
                 if let Some(text) = clipboard::read(Target::Primary) {
                     if let Some(idx) = self.active_session_index() {
                         self.sessions[idx].write(text.into_bytes());
                     }
                 }
-            }
+            },
             BindingAction::Named(NamedAction::Copy) => {
                 if let Some(idx) = self.active_session_index() {
                     if let Some(text) = self.sessions[idx].term.lock().selection_to_string() {
@@ -474,23 +436,22 @@ impl AlacritreeApp {
                         }
                     }
                 }
-            }
+            },
             BindingAction::Named(NamedAction::SpawnNewInstance) => {
                 let ws = self.current_workspace.clone();
                 if let Err(e) = self.spawn_session(ctx, ws) {
                     self.last_error = Some(format!("failed to spawn shell: {e}"));
                 }
-            }
+            },
             BindingAction::Named(NamedAction::Quit) => {
                 self.quit_dialog_open = true;
-            }
+            },
             BindingAction::Named(other) => {
-                // Scroll / font-size actions: best-effort implementation.
                 self.dispatch_scroll_or_other(other);
-            }
+            },
             BindingAction::Unsupported(name) => {
                 log::debug!("unsupported keyboard binding action: {name}");
-            }
+            },
         }
     }
 
@@ -518,12 +479,6 @@ impl AlacritreeApp {
         }
     }
 
-    /// Thin tab indicator at the top of the terminal pane.
-    ///
-    /// Hidden when the current workspace has fewer than 2 tabs (so a single
-    /// shell looks chrome-free).  With multiple tabs, draws an N-segment
-    /// horizontal strip; the active segment is highlighted, others are dim.
-    /// Clicking a segment activates that tab.
     fn show_tab_strip(&mut self, ui: &mut egui::Ui) {
         let theme = self.theme;
         let indices = self.current_session_indices();
@@ -537,11 +492,10 @@ impl AlacritreeApp {
         let strip_height = 2.0;
         let gap = 4.0;
         let avail = ui.available_width();
-        let segment_width = ((avail - gap * (indices.len() as f32 - 1.0)) / indices.len() as f32).max(1.0);
-        let (rect, _) = ui.allocate_exact_size(
-            egui::vec2(avail, strip_height + 2.0),
-            egui::Sense::hover(),
-        );
+        let segment_width =
+            ((avail - gap * (indices.len() as f32 - 1.0)) / indices.len() as f32).max(1.0);
+        let (rect, _) =
+            ui.allocate_exact_size(egui::vec2(avail, strip_height + 2.0), egui::Sense::hover());
 
         let mut activate: Option<SessionId> = None;
         for (i, &session_idx) in indices.iter().enumerate() {
@@ -551,7 +505,7 @@ impl AlacritreeApp {
                 egui::vec2(segment_width, strip_height),
             );
             let is_active = active_idx == Some(session_idx);
-            // Expand the click target a few pixels above so it's easier to hit.
+            // 2px is too small to reliably click — expand the hit zone vertically.
             let click_rect = seg_rect.expand2(egui::vec2(0.0, 4.0));
             let id = ui.id().with(("tab_strip", self.sessions[session_idx].id));
             let resp = ui.interact(click_rect, id, egui::Sense::click());
@@ -566,7 +520,6 @@ impl AlacritreeApp {
             if resp.clicked() {
                 activate = Some(self.sessions[session_idx].id);
             }
-            // Show the tab title when hovered for a hint without taking space.
             if resp.hovered() {
                 resp.on_hover_text(&self.sessions[session_idx].title);
             }
@@ -577,9 +530,10 @@ impl AlacritreeApp {
         }
     }
 
-    fn show_project_sidebar(&mut self, ctx: &Context, panel_frame: Frame) {
+    fn show_project_sidebar(&mut self, ctx: &Context, panel_frame: Frame) -> egui::Rect {
         let activate_request: std::cell::Cell<Option<PathBuf>> = std::cell::Cell::new(None);
         let delete_request: std::cell::Cell<Option<DeleteRequest>> = std::cell::Cell::new(None);
+        let create_request: std::cell::Cell<Option<usize>> = std::cell::Cell::new(None);
         let mut add_project_clicked = false;
         let mut refresh_idx: Option<usize> = None;
         let mut remove_idx: Option<usize> = None;
@@ -587,7 +541,7 @@ impl AlacritreeApp {
         let mut home_clicked = false;
         let theme = self.theme;
 
-        SidePanel::left("left_sidebar")
+        let panel_resp = SidePanel::left("left_sidebar")
             .resizable(true)
             .default_width(240.0)
             .min_width(180.0)
@@ -597,7 +551,10 @@ impl AlacritreeApp {
                     ui.label(RichText::new("Projects").color(theme.text).strong());
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui
-                            .add(egui::Button::new(RichText::new("+").color(theme.text_dim)).frame(false))
+                            .add(
+                                egui::Button::new(RichText::new("+").color(theme.text_dim))
+                                    .frame(false),
+                            )
                             .on_hover_text("add project")
                             .clicked()
                         {
@@ -608,64 +565,91 @@ impl AlacritreeApp {
                 ui.separator();
 
                 ScrollArea::vertical().show(ui, |ui| {
-                    // Implicit "home" workspace — sessions with no working
-                    // directory live here.  Always visible so the user can
-                    // come back to it after entering a worktree.
                     if home_row(ui, self.current_workspace.is_none(), &theme).clicked() {
                         home_clicked = true;
                     }
                     ui.add_space(2.0);
 
                     if self.projects.is_empty() {
-                        ui.label(RichText::new("Click + to add a project.").color(theme.text_dim).small());
+                        ui.label(
+                            RichText::new("Click + to add a project.")
+                                .color(theme.text_dim)
+                                .small(),
+                        );
                         ui.add_space(4.0);
                         ui.label(RichText::new("Ctrl+B to toggle").small().color(theme.text_muted));
                     }
 
                     for (idx, project) in self.projects.iter_mut().enumerate() {
-                        let header_resp = ui.horizontal(|ui| {
-                            let arrow = if project.expanded { "▾" } else { "▸" };
-                            let toggle = ui
-                                .add(egui::Button::new(RichText::new(arrow).color(theme.text_dim)).frame(false));
-                            if toggle.clicked() {
-                                project.expanded = !project.expanded;
-                                expand_toggled = true;
-                            }
-                            ui.label(RichText::new(&project.name).color(theme.text).strong());
-                            ui.with_layout(
-                                egui::Layout::right_to_left(egui::Align::Center),
-                                |ui| {
-                                    if ui
-                                        .add(egui::Button::new(RichText::new("×").color(theme.text_muted)).frame(false))
-                                        .on_hover_text("remove from sidebar")
-                                        .clicked()
-                                    {
-                                        remove_idx = Some(idx);
-                                    }
-                                    if ui
-                                        .add(egui::Button::new(RichText::new("⟲").color(theme.text_muted)).frame(false))
-                                        .on_hover_text("refresh worktrees")
-                                        .clicked()
-                                    {
-                                        refresh_idx = Some(idx);
-                                    }
-                                },
-                            );
-                        });
-                        let _ = header_resp;
+                        row_with_trailing(
+                            ui,
+                            |ui| {
+                                let arrow = if project.expanded { "▾" } else { "▸" };
+                                let toggle = ui.add(
+                                    egui::Button::new(RichText::new(arrow).color(theme.text_dim))
+                                        .frame(false),
+                                );
+                                if toggle.clicked() {
+                                    project.expanded = !project.expanded;
+                                    expand_toggled = true;
+                                }
+                                ui.add(
+                                    egui::Label::new(
+                                        RichText::new(&project.name).color(theme.text).strong(),
+                                    )
+                                    .truncate(),
+                                );
+                            },
+                            |ui| {
+                                if ui
+                                    .add(
+                                        egui::Button::new(
+                                            RichText::new("×").color(theme.text_muted),
+                                        )
+                                        .frame(false),
+                                    )
+                                    .on_hover_text("remove from sidebar")
+                                    .clicked()
+                                {
+                                    remove_idx = Some(idx);
+                                }
+                                if ui
+                                    .add(
+                                        egui::Button::new(
+                                            RichText::new("⟲").color(theme.text_muted),
+                                        )
+                                        .frame(false),
+                                    )
+                                    .on_hover_text("refresh worktrees")
+                                    .clicked()
+                                {
+                                    refresh_idx = Some(idx);
+                                }
+                                if ui
+                                    .add(
+                                        egui::Button::new(
+                                            RichText::new("+").color(theme.text_muted),
+                                        )
+                                        .frame(false),
+                                    )
+                                    .on_hover_text("create new worktree")
+                                    .clicked()
+                                {
+                                    create_request.set(Some(idx));
+                                }
+                            },
+                        );
 
                         if project.expanded {
-                            let project_root = project.root.clone();
                             for wt in &project.worktrees {
-                                let is_active =
-                                    self.current_workspace.as_deref() == Some(&wt.path);
+                                let is_active = self.current_workspace.as_deref() == Some(&wt.path);
                                 let action = worktree_row(ui, wt, is_active, &theme);
                                 if action.activate {
                                     activate_request.set(Some(wt.path.clone()));
                                 }
                                 if action.delete {
                                     delete_request.set(Some(DeleteRequest {
-                                        project_root: project_root.clone(),
+                                        project_idx: idx,
                                         worktree_path: wt.path.clone(),
                                         worktree_name: wt.name.clone(),
                                         branch: wt.branch.clone(),
@@ -700,18 +684,18 @@ impl AlacritreeApp {
         if let Some(req) = delete_request.take() {
             self.pending_delete = Some(req);
         }
+        if let Some(idx) = create_request.take() {
+            self.pending_create =
+                Some(CreateState::Prompt { project_idx: idx, branch: String::new(), error: None });
+        }
+        panel_resp.response.rect
     }
 
     fn active_session_path(&self) -> Option<PathBuf> {
-        // The right sidebar tracks the visible workspace, not necessarily the
-        // active session — they're equivalent except in the "home" workspace
-        // where there's no path to show git status for.
         self.current_workspace.clone()
     }
 
     fn project_default_branch_for(&self, path: &Path) -> Option<String> {
-        // If the active session's path is inside or equal to a known project's
-        // worktree, use that project's default branch as a hint for the diff.
         for project in &self.projects {
             for wt in &project.worktrees {
                 if wt.path == path {
@@ -722,10 +706,10 @@ impl AlacritreeApp {
         None
     }
 
-    fn show_git_sidebar(&mut self, ctx: &Context, panel_frame: Frame) {
+    fn show_git_sidebar(&mut self, ctx: &Context, panel_frame: Frame) -> egui::Rect {
         let theme = self.theme;
         let palette = self.config.palette.clone();
-        SidePanel::right("right_sidebar")
+        let panel_resp = SidePanel::right("right_sidebar")
             .resizable(true)
             .default_width(300.0)
             .min_width(220.0)
@@ -746,10 +730,12 @@ impl AlacritreeApp {
                                     .small(),
                             );
                             ui.add_space(4.0);
-                            ui.label(RichText::new("Ctrl+G to toggle").small().color(theme.text_muted));
+                            ui.label(
+                                RichText::new("Ctrl+G to toggle").small().color(theme.text_muted),
+                            );
                         });
                         return;
-                    }
+                    },
                 };
 
                 let default_branch = self.project_default_branch_for(&path);
@@ -768,55 +754,57 @@ impl AlacritreeApp {
 
                 ScrollArea::vertical().show(ui, |ui| {
                     if let Some(err) = &status.error {
-                        ui.label(RichText::new(err).color(rgb_to_color32(palette.normal[1])).small());
+                        ui.label(
+                            RichText::new(err).color(rgb_to_color32(palette.normal[1])).small(),
+                        );
                         return;
                     }
 
-                    ui.label(
-                        RichText::new(path.display().to_string())
-                            .color(theme.text_muted)
-                            .small(),
+                    ui.add(
+                        egui::Label::new(
+                            RichText::new(path.display().to_string())
+                                .color(theme.text_muted)
+                                .small(),
+                        )
+                        .truncate(),
                     );
                     if let Some(branch) = &status.branch {
                         ui.horizontal(|ui| {
                             ui.label(RichText::new("on").color(theme.text_muted).small());
-                            ui.label(RichText::new(branch).color(theme.accent));
+                            ui.add(
+                                egui::Label::new(RichText::new(branch).color(theme.accent))
+                                    .truncate(),
+                            );
                             if let Some(default) = &status.default_branch {
                                 if Some(branch) != Some(default) {
                                     ui.label(RichText::new("vs").color(theme.text_muted).small());
-                                    ui.label(RichText::new(default).color(theme.text_dim).small());
+                                    ui.add(
+                                        egui::Label::new(
+                                            RichText::new(default).color(theme.text_dim).small(),
+                                        )
+                                        .truncate(),
+                                    );
                                 }
                             }
                         });
                     }
                     ui.add_space(6.0);
 
-                    section(
-                        ui,
-                        &theme,
-                        "Staged",
-                        status.staged.len(),
-                        |ui| {
-                            for f in &status.staged {
-                                file_row(ui, f, &theme, &palette);
-                            }
-                        },
-                    );
+                    section(ui, &theme, "Staged", status.staged.len(), |ui| {
+                        for f in &status.staged {
+                            file_row(ui, f, &theme, &palette);
+                        }
+                    });
 
-                    section(
-                        ui,
-                        &theme,
-                        "Unstaged",
-                        status.unstaged.len(),
-                        |ui| {
-                            for f in &status.unstaged {
-                                file_row(ui, f, &theme, &palette);
-                            }
-                        },
-                    );
+                    section(ui, &theme, "Unstaged", status.unstaged.len(), |ui| {
+                        for f in &status.unstaged {
+                            file_row(ui, f, &theme, &palette);
+                        }
+                    });
 
                     if !status.branch_diff.is_empty() {
-                        let label = match (&status.default_branch, &status.default_branch_resolved) {
+                        let label = match (&status.default_branch, &status.default_branch_resolved)
+                        {
                             (Some(b), _) => format!("Changes vs {}", b),
                             _ => "Changes vs default".to_string(),
                         };
@@ -824,35 +812,68 @@ impl AlacritreeApp {
                         let removed = rgb_to_color32(palette.normal[1]);
                         section(ui, &theme, &label, status.branch_diff.len(), |ui| {
                             for stat in &status.branch_diff {
-                                ui.horizontal(|ui| {
-                                    ui.label(RichText::new(&stat.path).color(theme.text_dim).monospace());
-                                    ui.with_layout(
-                                        egui::Layout::right_to_left(egui::Align::Center),
-                                        |ui| {
-                                            if stat.deletions > 0 {
-                                                ui.label(
-                                                    RichText::new(format!("-{}", stat.deletions))
-                                                        .color(removed)
-                                                        .small()
-                                                        .monospace(),
-                                                );
-                                            }
-                                            if stat.additions > 0 {
-                                                ui.label(
-                                                    RichText::new(format!("+{}", stat.additions))
-                                                        .color(added)
-                                                        .small()
-                                                        .monospace(),
-                                                );
-                                            }
-                                        },
-                                    );
-                                });
+                                row_with_trailing(
+                                    ui,
+                                    |ui| {
+                                        ui.add(
+                                            egui::Label::new(
+                                                RichText::new(&stat.path)
+                                                    .color(theme.text_dim)
+                                                    .monospace(),
+                                            )
+                                            .truncate(),
+                                        );
+                                    },
+                                    |ui| {
+                                        if stat.deletions > 0 {
+                                            ui.label(
+                                                RichText::new(format!("-{}", stat.deletions))
+                                                    .color(removed)
+                                                    .small()
+                                                    .monospace(),
+                                            );
+                                        }
+                                        if stat.additions > 0 {
+                                            ui.label(
+                                                RichText::new(format!("+{}", stat.additions))
+                                                    .color(added)
+                                                    .small()
+                                                    .monospace(),
+                                            );
+                                        }
+                                    },
+                                );
                             }
                         });
                     }
                 });
             });
+        panel_resp.response.rect
+    }
+}
+
+fn modal_frame(theme: &Theme) -> Frame {
+    Frame::default()
+        .fill(theme.sidebar_bg)
+        .stroke(Stroke::new(1.0, theme.sidebar_border))
+        .inner_margin(Margin { left: 16, right: 16, top: 12, bottom: 12 })
+}
+
+fn consume_modal_keys(ctx: &Context) -> (bool, bool) {
+    ctx.input_mut(|i| {
+        (
+            i.consume_key(egui::Modifiers::NONE, egui::Key::Escape),
+            i.consume_key(egui::Modifiers::NONE, egui::Key::Enter),
+        )
+    })
+}
+
+/// Move focus to `id` if no widget currently has it — gives the modal's
+/// primary control focus on open without stealing it from the user later.
+fn focus_default(ctx: &Context, id: egui::Id) {
+    let has_focus = ctx.memory(|m| m.focused().is_some());
+    if !has_focus {
+        ctx.memory_mut(|m| m.request_focus(id));
     }
 }
 
@@ -875,7 +896,12 @@ fn section<R>(
     ui.add_space(8.0);
 }
 
-fn file_row(ui: &mut egui::Ui, change: &FileChange, theme: &Theme, palette: &crate::config::Palette) {
+fn file_row(
+    ui: &mut egui::Ui,
+    change: &FileChange,
+    theme: &Theme,
+    palette: &crate::config::Palette,
+) {
     ui.horizontal(|ui| {
         let color = match change.kind {
             ChangeKind::Added | ChangeKind::Untracked => rgb_to_color32(palette.normal[2]),
@@ -885,12 +911,50 @@ fn file_row(ui: &mut egui::Ui, change: &FileChange, theme: &Theme, palette: &cra
             ChangeKind::Conflicted => rgb_to_color32(palette.bright[1]),
         };
         ui.label(RichText::new(change.kind.glyph()).color(color).monospace().small());
-        ui.label(RichText::new(&change.path).color(theme.text_dim).monospace().small());
+        ui.add(
+            egui::Label::new(RichText::new(&change.path).color(theme.text_dim).monospace().small())
+                .truncate(),
+        );
     });
 }
 
+/// Lay out a row whose `trailing` widgets pin to the right edge while `leading`
+/// fills the remaining width — so a `Label::truncate()` inside `leading` knows
+/// exactly how much space it has and ellipsizes cleanly when the panel is narrow.
+///
+/// The row is pre-sized to `interact_size.y` (mirroring `Ui::horizontal`'s own
+/// internals) so it doesn't claim the parent's full remaining height when nested
+/// in a vertical layout — without this, `Align::Center` would push the row's
+/// content to the middle of the column and leave a giant gap before the next row.
+fn row_with_trailing<L, T>(ui: &mut egui::Ui, leading: L, trailing: T)
+where
+    L: FnOnce(&mut egui::Ui),
+    T: FnOnce(&mut egui::Ui),
+{
+    let row_size = egui::vec2(ui.available_width(), ui.spacing().interact_size.y);
+    ui.allocate_ui_with_layout(
+        row_size,
+        egui::Layout::right_to_left(egui::Align::Center),
+        |ui| {
+            trailing(ui);
+            let remaining = ui.available_width();
+            if remaining <= 0.0 {
+                return;
+            }
+            let row_h = ui.available_height();
+            ui.allocate_ui_with_layout(
+                egui::vec2(remaining, row_h),
+                egui::Layout::left_to_right(egui::Align::Center),
+                leading,
+            );
+        },
+    );
+}
+
 fn home_row(ui: &mut egui::Ui, is_active: bool, theme: &Theme) -> egui::Response {
+    // Reserve a slot *before* the labels so the hover bg paints beneath them.
     let bg_idx = ui.painter().add(egui::Shape::Noop);
+    let panel_x = ui.max_rect().x_range();
 
     let frame = Frame::default().inner_margin(Margin { left: 6, right: 6, top: 3, bottom: 3 });
     let resp = frame
@@ -919,7 +983,8 @@ fn home_row(ui: &mut egui::Ui, is_active: bool, theme: &Theme) -> egui::Response
         Color32::TRANSPARENT
     };
     if bg != Color32::TRANSPARENT {
-        ui.painter().set(bg_idx, egui::Shape::rect_filled(resp.rect, 0.0, bg));
+        let rect = egui::Rect::from_x_y_ranges(panel_x, resp.rect.y_range());
+        ui.painter().set(bg_idx, egui::Shape::rect_filled(rect, 0.0, bg));
     }
     resp
 }
@@ -935,44 +1000,35 @@ fn worktree_row(
     is_active: bool,
     theme: &Theme,
 ) -> WorktreeAction {
-    // Reserve a paint slot *before* the row's content so the hover/active
-    // background can be filled in beneath the labels once we know the state.
-    // (Painting it after would put it on top of the text — the bug we're fixing.)
+    // Reserve a slot *before* the labels so the hover bg paints beneath them.
     let bg_idx = ui.painter().add(egui::Shape::Noop);
-    let mut delete_clicked = false;
+    let panel_x = ui.max_rect().x_range();
 
-    let frame = Frame::default()
-        .inner_margin(Margin { left: 16, right: 6, top: 3, bottom: 3 });
+    let mut delete_clicked = false;
+    let frame = Frame::default().inner_margin(Margin { left: 16, right: 6, top: 3, bottom: 3 });
     let resp = frame
         .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                let icon = if wt.is_main { "●" } else { "○" };
-                ui.label(
-                    RichText::new(icon)
-                        .color(if is_active { theme.accent } else { theme.text_muted })
-                        .small(),
-                );
-                ui.label(
-                    RichText::new(&wt.name)
-                        .color(if is_active { theme.text } else { theme.text_dim }),
-                );
-                ui.with_layout(
-                    egui::Layout::right_to_left(egui::Align::Center),
-                    |ui| {
-                        if !wt.is_main {
-                            let btn = ui
-                                .add(egui::Button::new(RichText::new("×").color(theme.text_muted)).frame(false))
-                                .on_hover_text("delete worktree and branch");
-                            if btn.clicked() {
-                                delete_clicked = true;
-                            }
+            let icon = if wt.is_main { "●" } else { "○" };
+            let icon_color = if is_active { theme.accent } else { theme.text_muted };
+            let name_color = if is_active { theme.text } else { theme.text_dim };
+            row_with_trailing(
+                ui,
+                |ui| {
+                    ui.label(RichText::new(icon).color(icon_color).small());
+                    ui.add(egui::Label::new(RichText::new(&wt.name).color(name_color)).truncate());
+                },
+                |ui| {
+                    if !wt.is_main {
+                        let btn = ui.add(
+                            egui::Button::new(RichText::new("×").color(theme.text_muted))
+                                .frame(false),
+                        );
+                        if btn.on_hover_text("delete worktree and branch").clicked() {
+                            delete_clicked = true;
                         }
-                        if let Some(branch) = &wt.branch {
-                            ui.label(RichText::new(branch).small().color(theme.text_muted));
-                        }
-                    },
-                );
-            });
+                    }
+                },
+            );
         })
         .response
         .interact(egui::Sense::click());
@@ -985,25 +1041,16 @@ fn worktree_row(
         Color32::TRANSPARENT
     };
     if bg != Color32::TRANSPARENT {
-        ui.painter()
-            .set(bg_idx, egui::Shape::rect_filled(resp.rect, 0.0, bg));
+        let rect = egui::Rect::from_x_y_ranges(panel_x, resp.rect.y_range());
+        ui.painter().set(bg_idx, egui::Shape::rect_filled(rect, 0.0, bg));
     }
-    WorktreeAction {
-        activate: resp.clicked() && !delete_clicked,
-        delete: delete_clicked,
-    }
+    WorktreeAction { activate: resp.clicked() && !delete_clicked, delete: delete_clicked }
 }
 
 impl AlacritreeApp {
-    /// Drop sessions whose child shell has exited.  We do this once per frame
-    /// after rendering so the just-emitted ChildExit event has been drained.
     fn reap_exited_sessions(&mut self) {
-        let exited_ids: Vec<SessionId> = self
-            .sessions
-            .iter()
-            .filter(|s| s.is_exited())
-            .map(|s| s.id)
-            .collect();
+        let exited_ids: Vec<SessionId> =
+            self.sessions.iter().filter(|s| s.is_exited()).map(|s| s.id).collect();
         for id in exited_ids {
             self.close_session(id);
         }
@@ -1012,7 +1059,7 @@ impl AlacritreeApp {
     fn show_delete_dialog(&mut self, ctx: &Context) {
         let theme = self.theme;
         let danger = rgb_to_color32(self.config.palette.normal[1]);
-        let Some(req) = self.pending_delete.clone() else {
+        let Some(req) = self.pending_delete.as_ref() else {
             return;
         };
         let title = format!("Delete worktree `{}`?", req.worktree_name);
@@ -1020,34 +1067,54 @@ impl AlacritreeApp {
             Some(b) => format!("Removes the worktree directory and deletes branch `{b}`."),
             None => "Removes the worktree directory.".to_string(),
         };
+        let warning = "Uncommitted changes in the worktree will be lost.";
 
+        let (cancel_via_key, confirm_via_key) = consume_modal_keys(ctx);
+
+        let frame = modal_frame(&theme);
         let mut confirmed = false;
         let mut cancelled = false;
-        let modal = egui::Modal::new(egui::Id::new("alacritree_delete_dialog")).show(ctx, |ui| {
-            ui.set_min_width(320.0);
-            ui.heading(RichText::new(title).color(theme.text));
-            ui.add_space(6.0);
-            ui.label(RichText::new(detail).color(theme.text_dim));
-            ui.add_space(4.0);
-            ui.label(
-                RichText::new("Uncommitted changes will block the delete.")
-                    .color(theme.text_muted)
-                    .small(),
-            );
-            ui.add_space(12.0);
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button(RichText::new("Delete").color(danger)).clicked() {
-                    confirmed = true;
-                }
-                if ui.button("Cancel").clicked() {
-                    cancelled = true;
-                }
-            });
-        });
 
-        if confirmed {
+        let modal = egui::Modal::new(egui::Id::new("alacritree_delete_dialog")).frame(frame).show(
+            ctx,
+            |ui| {
+                ui.set_width(360.0);
+                ui.spacing_mut().item_spacing.y = 6.0;
+                ui.label(RichText::new(title).color(theme.text).strong());
+                ui.label(RichText::new(detail).color(theme.text_muted).small());
+                ui.label(RichText::new(warning).color(danger).small());
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new("Enter to delete · Esc to cancel")
+                            .color(theme.text_muted)
+                            .small(),
+                    );
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let delete = ui.add(
+                            egui::Button::new(RichText::new("Delete").color(danger)).frame(false),
+                        );
+                        if delete.clicked() {
+                            confirmed = true;
+                        }
+                        let cancel = ui.add(
+                            egui::Button::new(RichText::new("Cancel").color(theme.text_dim))
+                                .frame(false),
+                        );
+                        if cancel.clicked() {
+                            cancelled = true;
+                        }
+                        focus_default(ui.ctx(), delete.id);
+                    });
+                });
+            },
+        );
+
+        if confirm_via_key || confirmed {
             self.run_pending_delete();
-        } else if cancelled || modal.should_close() {
+            return;
+        }
+        if cancel_via_key || cancelled || modal.should_close() {
             self.pending_delete = None;
         }
     }
@@ -1056,57 +1123,316 @@ impl AlacritreeApp {
         let Some(req) = self.pending_delete.take() else {
             return;
         };
-        if let Err(e) =
-            wt::delete_worktree(&req.project_root, &req.worktree_path, req.branch.as_deref())
-        {
-            self.last_error = Some(format!("delete worktree: {e}"));
-            return;
-        }
+        let project_root = self.projects[req.project_idx].root.clone();
 
-        // Drop sessions and cached state for the deleted workspace; the
-        // working directory no longer exists, so leaving them around just
-        // strands PTYs against a stale path.
-        let workspace: WorkspaceKey = Some(req.worktree_path.clone());
-        if self.current_workspace == workspace {
+        // Drop sessions whose cwd is the worktree before deleting it; the PTY
+        // would otherwise block the directory removal on some filesystems.
+        self.sessions.retain(|s| s.working_directory.as_deref() != Some(&req.worktree_path));
+        if self.current_workspace.as_deref() == Some(&req.worktree_path) {
             self.current_workspace = None;
         }
-        self.active_session.remove(&workspace);
-        self.sessions.retain(|s| s.working_directory != workspace);
-        self.git_status.remove(&req.worktree_path);
+        self.active_session.remove(&Some(req.worktree_path.clone()));
 
-        if let Some(project) = self.projects.iter_mut().find(|p| p.root == req.project_root) {
-            project.refresh();
+        if let Err(e) =
+            wt::delete_worktree(&project_root, &req.worktree_path, req.branch.as_deref())
+        {
+            self.last_error = Some(format!("delete failed: {e}"));
         }
+        self.projects[req.project_idx].refresh();
+    }
+
+    fn show_create_dialog(&mut self, ctx: &Context) {
+        let Some(state) = self.pending_create.take() else {
+            return;
+        };
+        let next = match state {
+            CreateState::Prompt { project_idx, branch, error } => {
+                self.show_create_prompt(ctx, project_idx, branch, error)
+            },
+            CreateState::Running { project_idx, branch, mut steps, rx } => {
+                let mut done: Option<Result<PathBuf, String>> = None;
+                while let Ok(p) = rx.try_recv() {
+                    match p {
+                        Progress::Step(s) => steps.push(s),
+                        Progress::Done(r) => done = Some(r),
+                    }
+                }
+                self.show_create_running(ctx, project_idx, &branch, &steps);
+                match done {
+                    Some(result) => Some(CreateState::Done { project_idx, steps, result }),
+                    None => Some(CreateState::Running { project_idx, branch, steps, rx }),
+                }
+            },
+            CreateState::Done { project_idx, steps, result } => {
+                if self.show_create_done(ctx, project_idx, &steps, &result) {
+                    if let Ok(path) = &result {
+                        self.projects[project_idx].refresh();
+                        let path = path.clone();
+                        self.activate_worktree(ctx, &path);
+                    }
+                    None
+                } else {
+                    Some(CreateState::Done { project_idx, steps, result })
+                }
+            },
+        };
+        self.pending_create = next;
+    }
+
+    fn show_create_prompt(
+        &mut self,
+        ctx: &Context,
+        project_idx: usize,
+        mut branch: String,
+        mut error: Option<String>,
+    ) -> Option<CreateState> {
+        let theme = self.theme;
+        let danger = rgb_to_color32(self.config.palette.normal[1]);
+        let project_name = self.projects[project_idx].name.clone();
+        let default_branch = self.projects[project_idx].default_branch.clone();
+        let project_root = self.projects[project_idx].root.clone();
+
+        let (cancel_via_key, confirm_via_key) = consume_modal_keys(ctx);
+        let frame = modal_frame(&theme);
+        let mut create_clicked = false;
+        let mut cancelled = false;
+
+        let modal = egui::Modal::new(egui::Id::new("alacritree_create_dialog")).frame(frame).show(
+            ctx,
+            |ui| {
+                ui.set_width(380.0);
+                ui.spacing_mut().item_spacing.y = 6.0;
+                ui.label(
+                    RichText::new(format!("New worktree in `{project_name}`"))
+                        .color(theme.text)
+                        .strong(),
+                );
+                ui.label(
+                    RichText::new(match default_branch.as_deref() {
+                        Some(b) => format!("Branched from origin/{b}"),
+                        None => "No default branch detected — create may fail.".to_string(),
+                    })
+                    .color(theme.text_muted)
+                    .small(),
+                );
+                let input_id = egui::Id::new("alacritree_create_input");
+                let edit = egui::TextEdit::singleline(&mut branch)
+                    .id(input_id)
+                    .hint_text("branch name")
+                    .desired_width(f32::INFINITY);
+                let resp = ui.add(edit);
+                focus_default(ui.ctx(), input_id);
+                if resp.lost_focus() && resp.ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+                    create_clicked = true;
+                }
+                if let Some(e) = &error {
+                    ui.label(RichText::new(e).color(danger).small());
+                }
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new("Enter to create · Esc to cancel")
+                            .color(theme.text_muted)
+                            .small(),
+                    );
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui
+                            .add(
+                                egui::Button::new(RichText::new("Create").color(theme.accent))
+                                    .frame(false),
+                            )
+                            .clicked()
+                        {
+                            create_clicked = true;
+                        }
+                        if ui
+                            .add(
+                                egui::Button::new(RichText::new("Cancel").color(theme.text_dim))
+                                    .frame(false),
+                            )
+                            .clicked()
+                        {
+                            cancelled = true;
+                        }
+                    });
+                });
+            },
+        );
+
+        if cancel_via_key || cancelled || modal.should_close() {
+            return None;
+        }
+        if confirm_via_key || create_clicked {
+            // Whitespace runs become single hyphens — `some text like this` → `some-text-like-this`.
+            let canonical: String = branch.split_whitespace().collect::<Vec<_>>().join("-");
+            if let Err(msg) = wt::validate_branch_name(&canonical) {
+                error = Some(msg);
+                return Some(CreateState::Prompt { project_idx, branch, error });
+            }
+            let req = CreateRequest { project_root, default_branch, branch: canonical.clone() };
+            let rx = wt::spawn_create(req, ctx.clone());
+            return Some(CreateState::Running {
+                project_idx,
+                branch: canonical,
+                steps: Vec::new(),
+                rx,
+            });
+        }
+        Some(CreateState::Prompt { project_idx, branch, error })
+    }
+
+    fn show_create_running(
+        &self,
+        ctx: &Context,
+        project_idx: usize,
+        branch: &str,
+        steps: &[String],
+    ) {
+        let theme = self.theme;
+        let project_name = self.projects[project_idx].name.clone();
+        let frame = modal_frame(&theme);
+        let _ = egui::Modal::new(egui::Id::new("alacritree_create_dialog")).frame(frame).show(
+            ctx,
+            |ui| {
+                ui.set_width(380.0);
+                ui.spacing_mut().item_spacing.y = 6.0;
+                ui.label(
+                    RichText::new(format!("Creating `{branch}` in `{project_name}`"))
+                        .color(theme.text)
+                        .strong(),
+                );
+                ui.add_space(4.0);
+                for (i, step) in steps.iter().enumerate() {
+                    let is_last = i + 1 == steps.len();
+                    let bullet_color = if is_last { theme.accent } else { theme.text_dim };
+                    let text_color = if is_last { theme.text } else { theme.text_dim };
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new("•").color(bullet_color));
+                        ui.label(RichText::new(step).color(text_color).small());
+                    });
+                }
+                if steps.is_empty() {
+                    ui.label(RichText::new("Starting…").color(theme.text_muted).small());
+                }
+            },
+        );
+    }
+
+    fn show_create_done(
+        &self,
+        ctx: &Context,
+        project_idx: usize,
+        steps: &[String],
+        result: &Result<PathBuf, String>,
+    ) -> bool {
+        let theme = self.theme;
+        let danger = rgb_to_color32(self.config.palette.normal[1]);
+        let ok = rgb_to_color32(self.config.palette.normal[2]);
+        let project_name = self.projects[project_idx].name.clone();
+        let frame = modal_frame(&theme);
+        let mut close = false;
+        let (cancel_via_key, confirm_via_key) = consume_modal_keys(ctx);
+
+        let modal = egui::Modal::new(egui::Id::new("alacritree_create_dialog")).frame(frame).show(
+            ctx,
+            |ui| {
+                ui.set_width(380.0);
+                ui.spacing_mut().item_spacing.y = 6.0;
+                let (title, color) = match result {
+                    Ok(_) => (format!("Created worktree in `{project_name}`"), ok),
+                    Err(_) => ("Worktree creation failed".to_string(), danger),
+                };
+                ui.label(RichText::new(title).color(color).strong());
+                let last = steps.len().saturating_sub(1);
+                for (i, step) in steps.iter().enumerate() {
+                    let failed_step = result.is_err() && i == last;
+                    let bullet_color = if failed_step { danger } else { ok };
+                    let text_color = if failed_step { danger } else { theme.text_dim };
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new("•").color(bullet_color));
+                        ui.label(RichText::new(step).color(text_color).small());
+                    });
+                }
+                if let Err(e) = result {
+                    ui.add_space(4.0);
+                    ui.label(RichText::new(e).color(danger).small());
+                }
+                ui.add_space(4.0);
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let label = if result.is_ok() { "Open" } else { "Close" };
+                    let btn = ui.add(
+                        egui::Button::new(RichText::new(label).color(theme.accent)).frame(false),
+                    );
+                    if btn.clicked() {
+                        close = true;
+                    }
+                    focus_default(ui.ctx(), btn.id);
+                });
+            },
+        );
+
+        if confirm_via_key || cancel_via_key || close || modal.should_close() {
+            return true;
+        }
+        false
     }
 
     fn show_quit_dialog(&mut self, ctx: &Context) {
         let theme = self.theme;
-        let modal = egui::Modal::new(egui::Id::new("alacritree_quit_dialog")).show(ctx, |ui| {
-            ui.set_min_width(280.0);
-            ui.heading(RichText::new("Quit alacritree?").color(theme.text));
-            ui.add_space(6.0);
-            let n = self.sessions.len();
-            let msg = if n == 0 {
-                "No sessions are running.".to_string()
-            } else if n == 1 {
-                "1 session will be terminated.".to_string()
-            } else {
-                format!("{n} sessions will be terminated.")
-            };
-            ui.label(RichText::new(msg).color(theme.text_dim));
-            ui.add_space(12.0);
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button(RichText::new("Quit").color(Color32::from_rgb(0xff, 0x6b, 0x6b))).clicked() {
-                    self.quit_dialog_open = false;
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                }
-                if ui.button("Cancel").clicked() {
-                    self.quit_dialog_open = false;
-                }
-            });
-        });
-        // Clicking outside the modal also dismisses.
-        if modal.should_close() {
+        let danger = rgb_to_color32(self.config.palette.normal[1]);
+        let n = self.sessions.len();
+
+        let (cancel_via_key, confirm_via_key) = consume_modal_keys(ctx);
+        let frame = modal_frame(&theme);
+        let mut quit_clicked = false;
+        let mut cancel_clicked = false;
+
+        let modal = egui::Modal::new(egui::Id::new("alacritree_quit_dialog")).frame(frame).show(
+            ctx,
+            |ui| {
+                ui.set_width(320.0);
+                ui.spacing_mut().item_spacing.y = 6.0;
+                ui.label(RichText::new("Quit alacritree?").color(theme.text).strong());
+                let msg = match n {
+                    0 => "No sessions running.".to_string(),
+                    1 => "1 session will be terminated.".to_string(),
+                    n => format!("{n} sessions will be terminated."),
+                };
+                ui.label(RichText::new(msg).color(theme.text_muted).small());
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new("Enter to quit · Esc to cancel")
+                            .color(theme.text_muted)
+                            .small(),
+                    );
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let quit_id = egui::Id::new("alacritree_quit_btn");
+                        let quit = ui.add(
+                            egui::Button::new(RichText::new("Quit").color(danger)).frame(false),
+                        );
+                        if quit.clicked() {
+                            quit_clicked = true;
+                        }
+                        if ui
+                            .add(
+                                egui::Button::new(RichText::new("Cancel").color(theme.text_dim))
+                                    .frame(false),
+                            )
+                            .clicked()
+                        {
+                            cancel_clicked = true;
+                        }
+                        focus_default(ui.ctx(), quit_id);
+                    });
+                });
+            },
+        );
+
+        if confirm_via_key || quit_clicked {
+            self.quit_dialog_open = false;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        } else if cancel_via_key || cancel_clicked || modal.should_close() {
             self.quit_dialog_open = false;
         }
     }
@@ -1120,8 +1446,10 @@ impl eframe::App for AlacritreeApp {
     }
 
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        self.handle_shortcuts(ctx);
-
+        let modal_open = self.is_modal_open();
+        if !modal_open {
+            self.handle_shortcuts(ctx);
+        }
         let theme = self.theme;
         // GL clear is the sole source of the bg when opacity < 1; painting any
         // panel fill on top would compound the alpha through egui's blend.
@@ -1129,17 +1457,16 @@ impl eframe::App for AlacritreeApp {
         let sidebar_fill = if translucent { Color32::TRANSPARENT } else { theme.sidebar_bg };
         let central_fill = if translucent { Color32::TRANSPARENT } else { theme.terminal_bg };
 
-        let panel_frame = Frame::default()
-            .fill(sidebar_fill)
-            .stroke(Stroke::new(1.0, theme.sidebar_border))
-            .inner_margin(Margin::same(8));
+        let panel_frame = Frame::default().fill(sidebar_fill).inner_margin(Margin::same(8));
 
         if self.show_left_sidebar {
-            self.show_project_sidebar(ctx, panel_frame.clone());
+            let r = self.show_project_sidebar(ctx, panel_frame.clone());
+            paint_panel_border(ctx, r.right(), r.y_range(), theme.sidebar_border);
         }
 
         if self.show_right_sidebar {
-            self.show_git_sidebar(ctx, panel_frame);
+            let r = self.show_git_sidebar(ctx, panel_frame);
+            paint_panel_border(ctx, r.left(), r.y_range(), theme.sidebar_border);
         }
 
         egui::CentralPanel::default()
@@ -1156,9 +1483,6 @@ impl eframe::App for AlacritreeApp {
                     return;
                 }
 
-                // If the visible workspace has no live session yet, spawn one
-                // lazily — happens on first launch and after closing the last
-                // tab in a workspace.
                 if self.active_session_index().is_none() {
                     self.ensure_active_session(ctx);
                 }
@@ -1170,9 +1494,12 @@ impl eframe::App for AlacritreeApp {
                     return;
                 };
                 let session = &mut self.sessions[idx];
-                let _ = terminal_view::show(ui, session, &self.config);
+                let _ = terminal_view::show(ui, session, &self.config, !modal_open);
             });
 
+        if self.pending_create.is_some() {
+            self.show_create_dialog(ctx);
+        }
         if self.pending_delete.is_some() {
             self.show_delete_dialog(ctx);
         }

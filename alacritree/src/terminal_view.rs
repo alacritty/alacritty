@@ -12,8 +12,7 @@ use crate::config::Config;
 use crate::input::event_to_bytes;
 use crate::session::{EventProxy, Session, TermSize};
 
-pub fn show(ui: &mut Ui, session: &mut Session, config: &Config) -> Response {
-    let allow_focus = true;
+pub fn show(ui: &mut Ui, session: &mut Session, config: &Config, allow_focus: bool) -> Response {
     let font_id = FontId::monospace(config.font.size);
     let (cell_w, cell_h) = ui.ctx().fonts(|f| {
         let w = f.glyph_width(&font_id, 'M');
@@ -52,7 +51,7 @@ pub fn show(ui: &mut Ui, session: &mut Session, config: &Config) -> Response {
     let painter = ui.painter_at(rect);
 
     drain_pty_events(session);
-    handle_selection(ui, &response, session, rect, cell_w, cell_h, cols, rows);
+    handle_selection(ui, &response, session, config, rect, cell_w, cell_h, cols, rows);
     paint_grid(&painter, rect, session, config, &font_id, cell_w, cell_h);
 
     if allow_focus && response.has_focus() {
@@ -86,6 +85,7 @@ fn handle_selection(
     ui: &Ui,
     response: &Response,
     session: &Session,
+    config: &Config,
     rect: Rect,
     cell_w: f32,
     cell_h: f32,
@@ -117,7 +117,7 @@ fn handle_selection(
                 if let Some(sel) = term.selection.as_mut() {
                     sel.update(point, side);
                 }
-                copy_active_selection(&term);
+                copy_active_selection(&term, config);
             }
         }
         return;
@@ -127,7 +127,7 @@ fn handle_selection(
     if response.triple_clicked_by(primary) {
         if let Some(pos) = click_position(ui, response) {
             start_selection_at(
-                session, rect, cell_w, cell_h, cols, rows, pos,
+                session, config, rect, cell_w, cell_h, cols, rows, pos,
                 SelectionType::Lines,
             );
         }
@@ -136,7 +136,7 @@ fn handle_selection(
     if response.double_clicked_by(primary) {
         if let Some(pos) = click_position(ui, response) {
             start_selection_at(
-                session, rect, cell_w, cell_h, cols, rows, pos,
+                session, config, rect, cell_w, cell_h, cols, rows, pos,
                 SelectionType::Semantic,
             );
         }
@@ -161,7 +161,7 @@ fn handle_selection(
             }
         }
     } else if response.drag_stopped_by(primary) {
-        copy_active_selection(&session.term.lock());
+        copy_active_selection(&session.term.lock(), config);
     } else if response.clicked_by(primary) {
         // Bare click outside an existing drag clears the selection, matching alacritty.
         session.term.lock().selection = None;
@@ -171,6 +171,7 @@ fn handle_selection(
 #[allow(clippy::too_many_arguments)]
 fn start_selection_at(
     session: &Session,
+    config: &Config,
     rect: Rect,
     cell_w: f32,
     cell_h: f32,
@@ -183,7 +184,7 @@ fn start_selection_at(
     let display_offset = term.grid().display_offset() as i32;
     let (point, side) = cell_at_pos(pos, rect, cell_w, cell_h, cols, rows, display_offset);
     term.selection = Some(Selection::new(ty, point, side));
-    copy_active_selection(&term);
+    copy_active_selection(&term, config);
 }
 
 /// Pointer position to use for click handlers.  Triple/double click are
@@ -213,7 +214,7 @@ fn cell_at_pos(
     (Point::new(Line(row as i32 - display_offset), Column(col)), side)
 }
 
-fn copy_active_selection(term: &Term<EventProxy>) {
+fn copy_active_selection(term: &Term<EventProxy>, config: &Config) {
     let Some(text) = term.selection_to_string() else {
         return;
     };
@@ -221,10 +222,12 @@ fn copy_active_selection(term: &Term<EventProxy>) {
         return;
     }
     // alacritty default: drag-select feeds the PRIMARY (middle-click) buffer.
-    // We also mirror to the regular clipboard so Ctrl+V works without requiring
-    // the user to set `selection.save_to_clipboard`.
+    // The regular clipboard is mirrored only when `selection.save_to_clipboard`
+    // is on.
     clipboard::write(Target::Primary, &text);
-    clipboard::write(Target::Clipboard, &text);
+    if config.selection.save_to_clipboard {
+        clipboard::write(Target::Clipboard, &text);
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -364,10 +367,23 @@ fn paint_run(
         &config.palette,
         false,
     );
-    // Highlight by swapping the cell's fg/bg, so the selection is visible
-    // against any palette without needing a configured selection color.
+    // When `colors.selection.background` is set we honor it; otherwise we swap
+    // fg/bg of the underlying cell so the highlight is always visible without
+    // requiring a config entry.
     let (fg, bg) = if selected {
-        (rgb_to_color32(cell_bg), rgb_to_color32(cell_fg))
+        let sel_bg = config
+            .palette
+            .selection_bg
+            .map(rgb_to_color32)
+            .unwrap_or_else(|| rgb_to_color32(cell_fg));
+        let sel_fg = config.palette.selection_fg.map(rgb_to_color32).unwrap_or_else(|| {
+            if config.palette.selection_bg.is_some() {
+                rgb_to_color32(cell_fg)
+            } else {
+                rgb_to_color32(cell_bg)
+            }
+        });
+        (sel_fg, sel_bg)
     } else {
         (rgb_to_color32(cell_fg), rgb_to_color32(cell_bg))
     };
