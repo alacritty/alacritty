@@ -264,9 +264,15 @@ pub fn delete_worktree(
     project_root: &Path,
     worktree_path: &Path,
     branch: Option<&str>,
+    force: bool,
 ) -> Result<(), String> {
     let path_str = worktree_path.to_str().ok_or_else(|| "invalid worktree path".to_string())?;
-    run_git(project_root, &["worktree", "remove", path_str])?;
+    let mut args: Vec<&str> = vec!["worktree", "remove"];
+    if force {
+        args.push("--force");
+    }
+    args.push(path_str);
+    run_git(project_root, &args)?;
     if let Some(branch) = branch {
         // Branch may already be gone (e.g. detached HEAD) — ignore errors here.
         let _ = run_git(project_root, &["branch", "-D", branch]);

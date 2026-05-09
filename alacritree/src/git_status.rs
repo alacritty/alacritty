@@ -43,6 +43,54 @@ pub struct DiffStat {
     pub deletions: usize,
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub struct DirtyCounts {
+    pub staged: usize,
+    pub modified: usize,
+    pub untracked: usize,
+}
+
+impl DirtyCounts {
+    pub fn is_dirty(&self) -> bool {
+        self.staged + self.modified + self.untracked > 0
+    }
+}
+
+/// Cheap dirty check used by the delete modal: avoids the branch-diff work
+/// that `compute` does, since we only need to know whether `git worktree
+/// remove` will refuse the path.
+pub fn dirty_counts(path: &Path) -> DirtyCounts {
+    let Ok(repo) = Repository::open(path) else {
+        return DirtyCounts::default();
+    };
+    let mut opts = StatusOptions::new();
+    opts.include_untracked(true);
+    opts.recurse_untracked_dirs(true);
+    let Ok(statuses) = repo.statuses(Some(&mut opts)) else {
+        return DirtyCounts::default();
+    };
+    let mut counts = DirtyCounts::default();
+    let staged_mask = Status::INDEX_NEW
+        | Status::INDEX_MODIFIED
+        | Status::INDEX_DELETED
+        | Status::INDEX_RENAMED
+        | Status::INDEX_TYPECHANGE;
+    let modified_mask =
+        Status::WT_MODIFIED | Status::WT_DELETED | Status::WT_RENAMED | Status::WT_TYPECHANGE;
+    for entry in statuses.iter() {
+        let s = entry.status();
+        if s.intersects(staged_mask) {
+            counts.staged += 1;
+        }
+        if s.contains(Status::WT_NEW) {
+            counts.untracked += 1;
+        } else if s.intersects(modified_mask) {
+            counts.modified += 1;
+        }
+    }
+    counts
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct GitStatus {
     pub branch: Option<String>,

@@ -9,7 +9,7 @@ use crate::bindings::{BindingAction, NamedAction};
 use crate::clipboard::{self, Target};
 use crate::colors::rgb_to_color32;
 use crate::config::Config;
-use crate::git_status::{ChangeKind, FileChange, StatusCache};
+use crate::git_status::{self, ChangeKind, DirtyCounts, FileChange, StatusCache};
 use crate::projects::{Project, Worktree};
 use crate::session::{Session, SessionId, TermSize};
 use crate::state::{self, PersistedProject, PersistedState};
@@ -101,6 +101,7 @@ struct DeleteRequest {
     worktree_path: PathBuf,
     worktree_name: String,
     branch: Option<String>,
+    dirty: DirtyCounts,
 }
 
 enum CreateState {
@@ -338,18 +339,12 @@ impl AlacritreeApp {
             if consume_exact(i, egui::Modifiers::CTRL, egui::Key::Tab) {
                 cycle_tabs_delta = Some(1);
             }
-            if consume_exact(
-                i,
-                egui::Modifiers::CTRL | egui::Modifiers::ALT,
-                egui::Key::ArrowRight,
-            ) {
+            if consume_exact(i, egui::Modifiers::CTRL | egui::Modifiers::ALT, egui::Key::ArrowRight)
+            {
                 cycle_ws_delta = Some(1);
             }
-            if consume_exact(
-                i,
-                egui::Modifiers::CTRL | egui::Modifiers::ALT,
-                egui::Key::ArrowLeft,
-            ) {
+            if consume_exact(i, egui::Modifiers::CTRL | egui::Modifiers::ALT, egui::Key::ArrowLeft)
+            {
                 cycle_ws_delta = Some(-1);
             }
             if consume_exact(i, egui::Modifiers::CTRL, egui::Key::Q) {
@@ -628,6 +623,7 @@ impl AlacritreeApp {
                                         worktree_path: wt.path.clone(),
                                         worktree_name: wt.name.clone(),
                                         branch: wt.branch.clone(),
+                                        dirty: git_status::dirty_counts(&wt.path),
                                     }));
                                 }
                             }
@@ -748,10 +744,7 @@ impl AlacritreeApp {
                             ui.label(RichText::new("on").color(theme.text_muted).small());
                             ui.add(
                                 egui::Label::new(
-                                    RichText::new(branch)
-                                        .color(theme.accent)
-                                        .small()
-                                        .strong(),
+                                    RichText::new(branch).color(theme.accent).small().strong(),
                                 )
                                 .truncate(),
                             );
@@ -831,6 +824,26 @@ impl AlacritreeApp {
             });
         panel_resp.response.rect
     }
+}
+
+fn dirty_warning(counts: &DirtyCounts) -> Option<String> {
+    if !counts.is_dirty() {
+        return None;
+    }
+    let mut parts = Vec::new();
+    if counts.staged > 0 {
+        parts.push(format!("{} staged", counts.staged));
+    }
+    if counts.modified > 0 {
+        parts.push(format!("{} modified", counts.modified));
+    }
+    if counts.untracked > 0 {
+        parts.push(format!("{} untracked", counts.untracked));
+    }
+    Some(format!(
+        "Working tree has {} file(s) — they will be discarded with --force.",
+        parts.join(", ")
+    ))
 }
 
 fn modal_frame(theme: &Theme) -> Frame {
@@ -963,23 +976,19 @@ where
     T: FnOnce(&mut egui::Ui),
 {
     let row_size = egui::vec2(ui.available_width(), ui.spacing().interact_size.y);
-    ui.allocate_ui_with_layout(
-        row_size,
-        egui::Layout::right_to_left(egui::Align::Center),
-        |ui| {
-            trailing(ui);
-            let remaining = ui.available_width();
-            if remaining <= 0.0 {
-                return;
-            }
-            let row_h = ui.available_height();
-            ui.allocate_ui_with_layout(
-                egui::vec2(remaining, row_h),
-                egui::Layout::left_to_right(egui::Align::Center),
-                leading,
-            );
-        },
-    );
+    ui.allocate_ui_with_layout(row_size, egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        trailing(ui);
+        let remaining = ui.available_width();
+        if remaining <= 0.0 {
+            return;
+        }
+        let row_h = ui.available_height();
+        ui.allocate_ui_with_layout(
+            egui::vec2(remaining, row_h),
+            egui::Layout::left_to_right(egui::Align::Center),
+            leading,
+        );
+    });
 }
 
 fn home_row(ui: &mut egui::Ui, is_active: bool, theme: &Theme) -> egui::Response {
@@ -1112,7 +1121,7 @@ impl AlacritreeApp {
             Some(b) => format!("Removes the worktree directory and deletes branch `{b}`."),
             None => "Removes the worktree directory.".to_string(),
         };
-        let warning = "Uncommitted changes in the worktree will be lost.";
+        let warning = dirty_warning(&req.dirty);
 
         let (cancel_via_key, confirm_via_key) = consume_modal_keys(ctx);
 
@@ -1127,7 +1136,9 @@ impl AlacritreeApp {
                 ui.spacing_mut().item_spacing.y = 6.0;
                 ui.label(RichText::new(title).color(theme.text).strong());
                 ui.label(RichText::new(detail).color(theme.text_muted).small());
-                ui.label(RichText::new(warning).color(danger).small());
+                if let Some(w) = &warning {
+                    ui.label(RichText::new(w).color(danger).small());
+                }
                 ui.add_space(4.0);
                 ui.horizontal(|ui| {
                     ui.label(
@@ -1178,8 +1189,9 @@ impl AlacritreeApp {
         }
         self.active_session.remove(&Some(req.worktree_path.clone()));
 
+        let force = req.dirty.is_dirty();
         if let Err(e) =
-            wt::delete_worktree(&project_root, &req.worktree_path, req.branch.as_deref())
+            wt::delete_worktree(&project_root, &req.worktree_path, req.branch.as_deref(), force)
         {
             self.last_error = Some(format!("delete failed: {e}"));
         }
