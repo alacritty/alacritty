@@ -25,7 +25,7 @@ pub fn write(target: Target, text: &str) {
         Err(e) => {
             log::warn!("clipboard unavailable: {e}");
             return;
-        }
+        },
     };
     let res = match target {
         Target::Clipboard => clip.set_text(text.to_owned()),
@@ -45,7 +45,7 @@ pub fn read(target: Target) -> Option<String> {
         Err(e) => {
             log::warn!("clipboard unavailable: {e}");
             return None;
-        }
+        },
     };
     let res = match target {
         Target::Clipboard => clip.get_text(),
@@ -60,6 +60,6 @@ pub fn read(target: Target) -> Option<String> {
         Err(e) => {
             log::warn!("clipboard read ({:?}) failed: {e}", target);
             None
-        }
+        },
     }
 }

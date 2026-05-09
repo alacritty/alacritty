@@ -259,9 +259,7 @@ fn installed_config(stem: &str, suffix: &str) -> Option<PathBuf> {
 #[cfg(windows)]
 fn installed_config(stem: &str, suffix: &str) -> Option<PathBuf> {
     let file_name = format!("{stem}.{suffix}");
-    dirs::config_dir()
-        .map(|p| p.join("alacritty").join(&file_name))
-        .filter(|p| p.exists())
+    dirs::config_dir().map(|p| p.join("alacritty").join(&file_name)).filter(|p| p.exists())
 }
 
 pub fn load() -> Config {
@@ -272,19 +270,16 @@ pub fn load() -> Config {
     let mut merged = match alacritty_path.as_deref().map(read_toml_value) {
         Some(Ok(Some(v))) => v,
         Some(Err(e)) => {
-            log::warn!(
-                "failed to load {}: {e}",
-                alacritty_path.as_deref().unwrap().display()
-            );
+            log::warn!("failed to load {}: {e}", alacritty_path.as_deref().unwrap().display());
             empty()
-        }
+        },
         _ => empty(),
     };
 
     if let Some(path) = alacritree_path.as_deref() {
         match read_toml_value(path) {
             Ok(Some(over)) => merged = merge(merged, over),
-            Ok(None) => {}
+            Ok(None) => {},
             Err(e) => log::warn!("failed to load {}: {e}", path.display()),
         }
     }
@@ -294,7 +289,7 @@ pub fn load() -> Config {
         Err(e) => {
             log::warn!("invalid alacritty/alacritree config, using defaults: {e}");
             return Config::default();
-        }
+        },
     };
 
     raw.into_config()
@@ -313,7 +308,7 @@ fn read_toml_value(path: &std::path::Path) -> std::io::Result<Option<toml::Value
                 Ok(v) => Ok(Some(v)),
                 Err(e) => Err(std::io::Error::new(std::io::ErrorKind::InvalidData, e)),
             }
-        }
+        },
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(e) => Err(e),
     }
@@ -330,13 +325,16 @@ fn merge(base: toml::Value, replacement: toml::Value) -> toml::Value {
         (Value::Array(mut base), Value::Array(mut over)) => {
             base.append(&mut over);
             Value::Array(base)
-        }
+        },
         (Value::Table(base), Value::Table(over)) => Value::Table(merge_tables(base, over)),
         (_, value) => value,
     }
 }
 
-fn merge_tables(mut base: toml::value::Table, replacement: toml::value::Table) -> toml::value::Table {
+fn merge_tables(
+    mut base: toml::value::Table,
+    replacement: toml::value::Table,
+) -> toml::value::Table {
     for (key, value) in replacement {
         let value = match base.remove(&key) {
             Some(existing) => merge(existing, value),
@@ -437,7 +435,11 @@ struct RawTerminal {
 #[serde(untagged)]
 enum RawShell {
     Program(String),
-    Detailed { program: String, #[serde(default)] args: Vec<String> },
+    Detailed {
+        program: String,
+        #[serde(default)]
+        args: Vec<String>,
+    },
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -550,15 +552,20 @@ impl RawConfig {
         let mut palette = config.palette;
         let c = self.colors;
 
-        if let Some(v) = c.primary.foreground { palette.fg = v.0; }
-        if let Some(v) = c.primary.background { palette.bg = v.0; }
+        if let Some(v) = c.primary.foreground {
+            palette.fg = v.0;
+        }
+        if let Some(v) = c.primary.background {
+            palette.bg = v.0;
+        }
         palette.bright_fg = c.primary.bright_foreground.map(|v| v.0);
         palette.dim_fg = c.primary.dim_foreground.map(|v| v.0);
 
         // Cursor: alacritty's [colors.cursor] uses {text, cursor} for {fg, bg};
         // we accept the literal {foreground, background} too.
         palette.cursor_fg = c.cursor.text.map(|v| v.0).or_else(|| c.cursor.foreground.map(|v| v.0));
-        palette.cursor_bg = c.cursor.cursor.map(|v| v.0).or_else(|| c.cursor.background.map(|v| v.0));
+        palette.cursor_bg =
+            c.cursor.cursor.map(|v| v.0).or_else(|| c.cursor.background.map(|v| v.0));
 
         palette.selection_fg =
             c.selection.text.map(|v| v.0).or_else(|| c.selection.foreground.map(|v| v.0));
@@ -597,10 +604,8 @@ impl RawConfig {
             family: self.font.normal.family.clone(),
             style: self.font.normal.style.clone(),
         };
-        font.bold = FontFace {
-            family: self.font.bold.family.clone(),
-            style: self.font.bold.style.clone(),
-        };
+        font.bold =
+            FontFace { family: self.font.bold.family.clone(), style: self.font.bold.style.clone() };
         font.italic = FontFace {
             family: self.font.italic.family.clone(),
             style: self.font.italic.style.clone(),
@@ -689,7 +694,7 @@ fn apply_cursor_style(cursor: &mut CursorConfig, style: RawCursorStyle) {
             other => {
                 log::warn!("unknown cursor shape: {other}");
                 cursor.shape
-            }
+            },
         };
     }
     if let Some(b) = blinking.as_deref() {
@@ -698,7 +703,8 @@ fn apply_cursor_style(cursor: &mut CursorConfig, style: RawCursorStyle) {
 }
 
 fn apply_set(target: &mut [Rgb; 8], set: RawSet) {
-    let names = [set.black, set.red, set.green, set.yellow, set.blue, set.magenta, set.cyan, set.white];
+    let names =
+        [set.black, set.red, set.green, set.yellow, set.blue, set.magenta, set.cyan, set.white];
     for (slot, val) in target.iter_mut().zip(names) {
         if let Some(v) = val {
             *slot = v.0;

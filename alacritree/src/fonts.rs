@@ -75,18 +75,10 @@ pub fn install_terminal_fonts(
     let italic_family = italic.family.as_deref().unwrap_or(family);
     let bold_italic_family = bold_italic.family.as_deref().unwrap_or(family);
 
-    let bold_bytes = load_variant(
-        bold_family,
-        bold.style.as_deref(),
-        Variant::Bold,
-        &normal_match.path,
-    );
-    let italic_bytes = load_variant(
-        italic_family,
-        italic.style.as_deref(),
-        Variant::Italic,
-        &normal_match.path,
-    );
+    let bold_bytes =
+        load_variant(bold_family, bold.style.as_deref(), Variant::Bold, &normal_match.path);
+    let italic_bytes =
+        load_variant(italic_family, italic.style.as_deref(), Variant::Italic, &normal_match.path);
     let bold_italic_bytes = load_variant(
         bold_italic_family,
         bold_italic.style.as_deref(),
@@ -130,8 +122,7 @@ fn register_variant(
 ) {
     let bytes = bytes.unwrap_or_else(|| fallback.to_vec());
     insert_face(defs, font_id, bytes);
-    defs.families
-        .insert(FontFamily::Name(family_name.into()), vec![font_id.to_string()]);
+    defs.families.insert(FontFamily::Name(family_name.into()), vec![font_id.to_string()]);
 }
 
 /// Returns the bytes of the variant face if a *real* variant exists, or
@@ -169,7 +160,11 @@ struct ResolvedFace {
 }
 
 #[cfg(unix)]
-fn resolve_face(family_or_path: &str, style: Option<&str>, variant: Variant) -> Option<ResolvedFace> {
+fn resolve_face(
+    family_or_path: &str,
+    style: Option<&str>,
+    variant: Variant,
+) -> Option<ResolvedFace> {
     if let Some(face) = resolve_via_path(family_or_path) {
         return Some(face);
     }
@@ -182,7 +177,11 @@ fn resolve_face(family_or_path: &str, style: Option<&str>, variant: Variant) -> 
 }
 
 #[cfg(not(unix))]
-fn resolve_face(family_or_path: &str, _style: Option<&str>, variant: Variant) -> Option<ResolvedFace> {
+fn resolve_face(
+    family_or_path: &str,
+    _style: Option<&str>,
+    variant: Variant,
+) -> Option<ResolvedFace> {
     if let Some(face) = resolve_via_path(family_or_path) {
         return Some(face);
     }
@@ -233,8 +232,8 @@ mod fontconfig_resolve {
     use std::path::PathBuf;
 
     use fontconfig::{
-        FC_FAMILY, FC_SLANT, FC_SLANT_ITALIC, FC_SLANT_ROMAN, FC_STYLE, FC_WEIGHT,
-        FC_WEIGHT_BOLD, FC_WEIGHT_REGULAR, Fontconfig, Pattern,
+        FC_FAMILY, FC_SLANT, FC_SLANT_ITALIC, FC_SLANT_ROMAN, FC_STYLE, FC_WEIGHT, FC_WEIGHT_BOLD,
+        FC_WEIGHT_REGULAR, Fontconfig, Pattern,
     };
 
     use super::{ResolvedFace, Variant};

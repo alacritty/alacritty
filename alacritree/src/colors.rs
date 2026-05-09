@@ -68,9 +68,9 @@ fn resolve_indexed(index: u8, runtime: &Colors, palette: &Palette) -> Rgb {
 fn resolve_indexed_fg(idx: u8, flags: Flags, runtime: &Colors, palette: &Palette) -> Rgb {
     let dim_bold = flags & (Flags::DIM | Flags::BOLD);
     let promote_bright = palette.draw_bold_with_bright && dim_bold == Flags::BOLD && idx < 8;
-    let dim_to_normal = !palette.draw_bold_with_bright && dim_bold == Flags::DIM && (8..=15).contains(&idx);
-    let dim_to_dim_named =
-        !palette.draw_bold_with_bright && dim_bold == Flags::DIM && idx < 8;
+    let dim_to_normal =
+        !palette.draw_bold_with_bright && dim_bold == Flags::DIM && (8..=15).contains(&idx);
+    let dim_to_dim_named = !palette.draw_bold_with_bright && dim_bold == Flags::DIM && idx < 8;
 
     if promote_bright {
         return resolve_indexed(idx + 8, runtime, palette);
@@ -101,34 +101,27 @@ fn resolve_named_raw(named: NamedColor, runtime: &Colors, palette: &Palette) -> 
     palette_named(named, palette).unwrap_or_else(|| named_fallback(named, palette))
 }
 
-fn resolve_named_fg(
-    named: NamedColor,
-    flags: Flags,
-    runtime: &Colors,
-    palette: &Palette,
-) -> Rgb {
+fn resolve_named_fg(named: NamedColor, flags: Flags, runtime: &Colors, palette: &Palette) -> Rgb {
     let dim_bold = flags & (Flags::DIM | Flags::BOLD);
     let bold_only = dim_bold == Flags::BOLD;
     let dim_only = dim_bold == Flags::DIM;
     let dim_bold_combined = dim_bold == (Flags::DIM | Flags::BOLD);
 
-    let promoted = if dim_bold_combined
-        && named == NamedColor::Foreground
-        && palette.bright_fg.is_none()
-    {
-        // Without a configured bright foreground, alacritty drops the bold and dims.
-        NamedColor::DimForeground
-    } else if palette.draw_bold_with_bright && bold_only && (named as usize) < 8 {
-        named.to_bright()
-    } else if (dim_only || (dim_bold_combined && !palette.draw_bold_with_bright))
-        && (named as usize) < 8
-    {
-        named.to_dim()
-    } else if dim_only && named == NamedColor::Foreground {
-        NamedColor::DimForeground
-    } else {
-        named
-    };
+    let promoted =
+        if dim_bold_combined && named == NamedColor::Foreground && palette.bright_fg.is_none() {
+            // Without a configured bright foreground, alacritty drops the bold and dims.
+            NamedColor::DimForeground
+        } else if palette.draw_bold_with_bright && bold_only && (named as usize) < 8 {
+            named.to_bright()
+        } else if (dim_only || (dim_bold_combined && !palette.draw_bold_with_bright))
+            && (named as usize) < 8
+        {
+            named.to_dim()
+        } else if dim_only && named == NamedColor::Foreground {
+            NamedColor::DimForeground
+        } else {
+            named
+        };
 
     if let Some(rgb) = runtime[promoted] {
         return rgb;
@@ -139,11 +132,7 @@ fn resolve_named_fg(
 
 fn apply_dim(c: Rgb) -> Rgb {
     // alacritty's DIM_FACTOR.
-    Rgb {
-        r: (c.r as f32 * 0.66) as u8,
-        g: (c.g as f32 * 0.66) as u8,
-        b: (c.b as f32 * 0.66) as u8,
-    }
+    Rgb { r: (c.r as f32 * 0.66) as u8, g: (c.g as f32 * 0.66) as u8, b: (c.b as f32 * 0.66) as u8 }
 }
 
 fn ansi16(index: usize, palette: &Palette) -> Rgb {

@@ -4,7 +4,9 @@ use alacritty_terminal::selection::{Selection, SelectionRange, SelectionType};
 use alacritty_terminal::term::Term;
 use alacritty_terminal::term::cell::{Cell, Flags};
 use alacritty_terminal::vte::ansi::Color as AnsiColor;
-use egui::{Color32, FontFamily, FontId, PointerButton, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2};
+use egui::{
+    Color32, FontFamily, FontId, PointerButton, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2,
+};
 
 use crate::clipboard::{self, Target};
 use crate::colors::{background, foreground, resolve, rgb_to_color32};
@@ -136,7 +138,14 @@ fn handle_selection(
     if response.triple_clicked_by(primary) {
         if let Some(pos) = click_position(ui, response) {
             start_selection_at(
-                session, config, rect, cell_w, cell_h, cols, rows, pos,
+                session,
+                config,
+                rect,
+                cell_w,
+                cell_h,
+                cols,
+                rows,
+                pos,
                 SelectionType::Lines,
             );
         }
@@ -145,7 +154,14 @@ fn handle_selection(
     if response.double_clicked_by(primary) {
         if let Some(pos) = click_position(ui, response) {
             start_selection_at(
-                session, config, rect, cell_w, cell_h, cols, rows, pos,
+                session,
+                config,
+                rect,
+                cell_w,
+                cell_h,
+                cols,
+                rows,
+                pos,
                 SelectionType::Semantic,
             );
         }
