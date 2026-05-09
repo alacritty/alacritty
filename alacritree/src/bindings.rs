@@ -132,9 +132,21 @@ fn default_bindings() -> Vec<KeyBinding> {
             KeyBinding { key: Key::N, mods: cmd, action: BindingAction::Named(SpawnNewInstance) },
             KeyBinding { key: Key::T, mods: cmd, action: BindingAction::Named(SpawnNewInstance) },
             KeyBinding { key: Key::Num0, mods: cmd, action: BindingAction::Named(ResetFontSize) },
-            KeyBinding { key: Key::Equals, mods: cmd, action: BindingAction::Named(IncreaseFontSize) },
-            KeyBinding { key: Key::Plus, mods: cmd, action: BindingAction::Named(IncreaseFontSize) },
-            KeyBinding { key: Key::Minus, mods: cmd, action: BindingAction::Named(DecreaseFontSize) },
+            KeyBinding {
+                key: Key::Equals,
+                mods: cmd,
+                action: BindingAction::Named(IncreaseFontSize),
+            },
+            KeyBinding {
+                key: Key::Plus,
+                mods: cmd,
+                action: BindingAction::Named(IncreaseFontSize),
+            },
+            KeyBinding {
+                key: Key::Minus,
+                mods: cmd,
+                action: BindingAction::Named(DecreaseFontSize),
+            },
             KeyBinding { key: Key::Q, mods: cmd, action: BindingAction::Named(Quit) },
         ]);
     }
@@ -273,6 +285,9 @@ fn is_silent_unsupported_key(name: &str) -> bool {
             | "VolumeUp"
             | "VolumeDown"
             | "VolumeMute"
+            // `parse_key` already logs a dedicated message explaining why
+            // NumpadEnter is dropped; suppress the generic "unknown key" follow-up.
+            | "NumpadEnter"
     )
 }
 
