@@ -128,6 +128,14 @@ impl AlacritreeApp {
         visuals.extreme_bg_color = theme.terminal_bg;
         cc.egui_ctx.set_visuals(visuals);
 
+        // Match egui's `Small` text style to the terminal font size — `.small()`
+        // defaults to 10pt, which reads as cramped next to the grid.
+        let mut style = (*cc.egui_ctx.style()).clone();
+        style
+            .text_styles
+            .insert(egui::TextStyle::Small, egui::FontId::proportional(config.font.size));
+        cc.egui_ctx.set_style(style);
+
         alacritty_terminal::tty::setup_env();
 
         let persisted = state::load();
@@ -582,7 +590,10 @@ impl AlacritreeApp {
                                 }
                                 ui.add(
                                     egui::Label::new(
-                                        RichText::new(&project.name).color(theme.text).strong(),
+                                        RichText::new(&project.name)
+                                            .color(theme.text)
+                                            .strong()
+                                            .small(),
                                     )
                                     .truncate(),
                                 );
@@ -1003,12 +1014,13 @@ fn home_row(ui: &mut egui::Ui, is_active: bool, theme: &Theme) -> egui::Response
                 ui.label(
                     RichText::new("⌂")
                         .color(if is_active { theme.accent } else { theme.text_muted })
-                        .small(),
+                        .size(10.0),
                 );
                 ui.label(
                     RichText::new("Home")
                         .color(if is_active { theme.text } else { theme.text_dim })
-                        .strong(),
+                        .strong()
+                        .small(),
                 );
             });
         })
@@ -1057,8 +1069,11 @@ fn worktree_row(
             row_with_trailing(
                 ui,
                 |ui| {
-                    ui.label(RichText::new(icon).color(icon_color).small());
-                    ui.add(egui::Label::new(RichText::new(&wt.name).color(name_color)).truncate());
+                    ui.label(RichText::new(icon).color(icon_color).size(10.0));
+                    ui.add(
+                        egui::Label::new(RichText::new(&wt.name).color(name_color).small())
+                            .truncate(),
+                    );
                 },
                 |ui| {
                     if !wt.is_main {

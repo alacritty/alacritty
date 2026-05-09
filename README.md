@@ -32,6 +32,14 @@ optional `alacritree.toml` for sidebar-specific UI overrides.
 [egui]: https://github.com/emilk/egui
 [eframe]: https://github.com/emilk/egui/tree/master/crates/eframe
 
+## Screenshots
+
+<p align="center">
+    <img alt="Alacritree with project sidebar" src="alacritree/assets/screenshot1.png">
+    <img alt="Alacritree with git status sidebar" src="alacritree/assets/screenshot2.png">
+    <img alt="Alacritree with both sidebars" src="alacritree/assets/screenshot3.png">
+</p>
+
 > **Status:** early, single-author project. Linux is the only supported
 > platform today (the GUI deps currently target Linux); macOS/Windows builds
 > are not wired up.
