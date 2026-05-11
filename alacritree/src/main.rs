@@ -2,6 +2,7 @@
 
 mod app;
 mod bindings;
+mod builtin_font;
 mod clipboard;
 mod colors;
 mod config;

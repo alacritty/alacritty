@@ -31,11 +31,22 @@ pub enum NamedAction {
     ScrollLineDown,
     ScrollToTop,
     ScrollToBottom,
+    ClearHistory,
     SpawnNewInstance,
     IncreaseFontSize,
     DecreaseFontSize,
     ResetFontSize,
+    ToggleFullscreen,
+    ToggleMaximized,
+    Minimize,
+    SelectNextTab,
+    SelectPreviousTab,
+    /// 1-indexed.
+    SelectTab(u8),
+    SelectLastTab,
     Quit,
+    /// Used to unbind a key — consumes the press without acting on it.
+    NoOp,
 }
 
 #[derive(Debug, Deserialize)]
@@ -126,6 +137,8 @@ fn default_bindings() -> Vec<KeyBinding> {
     #[cfg(target_os = "macos")]
     {
         let cmd = Modifiers::COMMAND;
+        let cmd_shift = Modifiers::COMMAND | Modifiers::SHIFT;
+        let cmd_ctrl = Modifiers::COMMAND | Modifiers::CTRL;
         b.extend([
             KeyBinding { key: Key::V, mods: cmd, action: BindingAction::Named(Paste) },
             KeyBinding { key: Key::C, mods: cmd, action: BindingAction::Named(Copy) },
@@ -147,6 +160,32 @@ fn default_bindings() -> Vec<KeyBinding> {
                 mods: cmd,
                 action: BindingAction::Named(DecreaseFontSize),
             },
+            KeyBinding {
+                key: Key::CloseBracket,
+                mods: cmd_shift,
+                action: BindingAction::Named(SelectNextTab),
+            },
+            KeyBinding {
+                key: Key::OpenBracket,
+                mods: cmd_shift,
+                action: BindingAction::Named(SelectPreviousTab),
+            },
+            KeyBinding { key: Key::Num1, mods: cmd, action: BindingAction::Named(SelectTab(1)) },
+            KeyBinding { key: Key::Num2, mods: cmd, action: BindingAction::Named(SelectTab(2)) },
+            KeyBinding { key: Key::Num3, mods: cmd, action: BindingAction::Named(SelectTab(3)) },
+            KeyBinding { key: Key::Num4, mods: cmd, action: BindingAction::Named(SelectTab(4)) },
+            KeyBinding { key: Key::Num5, mods: cmd, action: BindingAction::Named(SelectTab(5)) },
+            KeyBinding { key: Key::Num6, mods: cmd, action: BindingAction::Named(SelectTab(6)) },
+            KeyBinding { key: Key::Num7, mods: cmd, action: BindingAction::Named(SelectTab(7)) },
+            KeyBinding { key: Key::Num8, mods: cmd, action: BindingAction::Named(SelectTab(8)) },
+            KeyBinding { key: Key::Num9, mods: cmd, action: BindingAction::Named(SelectLastTab) },
+            KeyBinding {
+                key: Key::F,
+                mods: cmd_ctrl,
+                action: BindingAction::Named(ToggleFullscreen),
+            },
+            KeyBinding { key: Key::M, mods: cmd, action: BindingAction::Named(Minimize) },
+            KeyBinding { key: Key::K, mods: cmd, action: BindingAction::Named(ClearHistory) },
             KeyBinding { key: Key::Q, mods: cmd, action: BindingAction::Named(Quit) },
         ]);
     }
@@ -345,13 +384,30 @@ fn parse_action(name: &str) -> BindingAction {
         "ScrollLineDown" => BindingAction::Named(ScrollLineDown),
         "ScrollToTop" => BindingAction::Named(ScrollToTop),
         "ScrollToBottom" => BindingAction::Named(ScrollToBottom),
+        "ClearHistory" => BindingAction::Named(ClearHistory),
         "SpawnNewInstance" | "CreateNewWindow" | "CreateNewTab" => {
             BindingAction::Named(SpawnNewInstance)
         },
         "IncreaseFontSize" => BindingAction::Named(IncreaseFontSize),
         "DecreaseFontSize" => BindingAction::Named(DecreaseFontSize),
         "ResetFontSize" => BindingAction::Named(ResetFontSize),
+        "ToggleFullscreen" => BindingAction::Named(ToggleFullscreen),
+        "ToggleMaximized" => BindingAction::Named(ToggleMaximized),
+        "Minimize" => BindingAction::Named(Minimize),
+        "SelectNextTab" => BindingAction::Named(SelectNextTab),
+        "SelectPreviousTab" => BindingAction::Named(SelectPreviousTab),
+        "SelectTab1" => BindingAction::Named(SelectTab(1)),
+        "SelectTab2" => BindingAction::Named(SelectTab(2)),
+        "SelectTab3" => BindingAction::Named(SelectTab(3)),
+        "SelectTab4" => BindingAction::Named(SelectTab(4)),
+        "SelectTab5" => BindingAction::Named(SelectTab(5)),
+        "SelectTab6" => BindingAction::Named(SelectTab(6)),
+        "SelectTab7" => BindingAction::Named(SelectTab(7)),
+        "SelectTab8" => BindingAction::Named(SelectTab(8)),
+        "SelectTab9" => BindingAction::Named(SelectTab(9)),
+        "SelectLastTab" => BindingAction::Named(SelectLastTab),
         "Quit" => BindingAction::Named(Quit),
+        "None" => BindingAction::Named(NoOp),
         other => BindingAction::Unsupported(other.to_string()),
     }
 }

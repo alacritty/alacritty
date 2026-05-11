@@ -121,6 +121,8 @@ pub struct AlacritreeApp {
     pending_delete: Option<DeleteRequest>,
     pending_create: Option<CreateState>,
     notify_rx: Receiver<WorkspaceKey>,
+    /// Shared across sessions; auto-invalidated when cell size changes.
+    builtin_glyphs: crate::builtin_font::BuiltinGlyphCache,
 }
 
 struct DeleteRequest {
@@ -225,6 +227,7 @@ impl AlacritreeApp {
             pending_delete: None,
             pending_create: None,
             notify_rx,
+            builtin_glyphs: crate::builtin_font::BuiltinGlyphCache::new(),
         };
 
         if let Err(e) = app.spawn_session(&cc.egui_ctx, None) {
@@ -391,6 +394,7 @@ impl AlacritreeApp {
         let mut cycle_tabs_delta: Option<i32> = None;
         let mut cycle_ws_delta: Option<i32> = None;
         let mut quit_requested = false;
+        let mut add_project_requested = false;
         ctx.input_mut(|i| {
             if consume_exact(i, egui::Modifiers::CTRL, egui::Key::B) {
                 self.show_left_sidebar = !self.show_left_sidebar;
@@ -409,13 +413,14 @@ impl AlacritreeApp {
             if consume_exact(i, egui::Modifiers::CTRL, egui::Key::Tab) {
                 cycle_tabs_delta = Some(1);
             }
-            if consume_exact(i, egui::Modifiers::CTRL | egui::Modifiers::ALT, egui::Key::ArrowRight)
-            {
+            if consume_exact(i, egui::Modifiers::ALT, egui::Key::ArrowRight) {
                 cycle_ws_delta = Some(1);
             }
-            if consume_exact(i, egui::Modifiers::CTRL | egui::Modifiers::ALT, egui::Key::ArrowLeft)
-            {
+            if consume_exact(i, egui::Modifiers::ALT, egui::Key::ArrowLeft) {
                 cycle_ws_delta = Some(-1);
+            }
+            if consume_exact(i, egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::O) {
+                add_project_requested = true;
             }
             if consume_exact(i, egui::Modifiers::CTRL, egui::Key::Q) {
                 quit_requested = true;
@@ -429,6 +434,9 @@ impl AlacritreeApp {
             if let Err(e) = self.spawn_session(ctx, ws) {
                 self.last_error = Some(format!("failed to spawn shell: {e}"));
             }
+        }
+        if add_project_requested {
+            self.add_project_via_dialog();
         }
         if let Some(d) = cycle_tabs_delta {
             self.cycle_tabs(d);
@@ -511,6 +519,28 @@ impl AlacritreeApp {
             BindingAction::Named(NamedAction::Quit) => {
                 self.quit_dialog_open = true;
             },
+            BindingAction::Named(NamedAction::ClearHistory) => {
+                use alacritty_terminal::vte::ansi::{ClearMode, Handler};
+                if let Some(idx) = self.active_session_index() {
+                    self.sessions[idx].term.lock().clear_screen(ClearMode::Saved);
+                }
+            },
+            BindingAction::Named(NamedAction::ToggleFullscreen) => {
+                let on = ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!on));
+            },
+            BindingAction::Named(NamedAction::ToggleMaximized) => {
+                let on = ctx.input(|i| i.viewport().maximized.unwrap_or(false));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(!on));
+            },
+            BindingAction::Named(NamedAction::Minimize) => {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+            },
+            BindingAction::Named(NamedAction::SelectNextTab) => self.cycle_tabs(1),
+            BindingAction::Named(NamedAction::SelectPreviousTab) => self.cycle_tabs(-1),
+            BindingAction::Named(NamedAction::SelectTab(n)) => self.select_tab(n),
+            BindingAction::Named(NamedAction::SelectLastTab) => self.select_last_tab(),
+            BindingAction::Named(NamedAction::NoOp) => {},
             BindingAction::Named(other) => {
                 self.dispatch_scroll_or_other(other);
             },
@@ -542,6 +572,27 @@ impl AlacritreeApp {
         if let Some(s) = scroll {
             term.scroll_display(s);
         }
+    }
+
+    fn select_tab(&mut self, n: u8) {
+        if n == 0 {
+            return;
+        }
+        let indices = self.current_session_indices();
+        let Some(&session_idx) = indices.get((n - 1) as usize) else {
+            return;
+        };
+        let id = self.sessions[session_idx].id;
+        self.set_active_in_current_workspace(id);
+    }
+
+    fn select_last_tab(&mut self) {
+        let indices = self.current_session_indices();
+        let Some(&session_idx) = indices.last() else {
+            return;
+        };
+        let id = self.sessions[session_idx].id;
+        self.set_active_in_current_workspace(id);
     }
 
     fn show_tab_strip(&mut self, ui: &mut egui::Ui) {
@@ -1826,7 +1877,13 @@ impl eframe::App for AlacritreeApp {
                     return;
                 };
                 let session = &mut self.sessions[idx];
-                let _ = terminal_view::show(ui, session, &self.config, !modal_open);
+                let _ = terminal_view::show(
+                    ui,
+                    session,
+                    &self.config,
+                    !modal_open,
+                    &mut self.builtin_glyphs,
+                );
             });
 
         if self.pending_create.is_some() {
