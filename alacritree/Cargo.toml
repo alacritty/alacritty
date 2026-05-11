@@ -20,7 +20,7 @@ toml = { workspace = true }
 xdg = "3.0.0"
 home = "0.5.5"
 fontdb = { version = "0.23", default-features = false, features = ["fontconfig", "memmap"] }
-arboard = { version = "3", default-features = false, features = ["wayland-data-control"] }
+arboard = { version = "3", default-features = false, features = ["wayland-data-control", "image-data"] }
 png = "0.17"
 
 [target.'cfg(unix)'.dependencies]
