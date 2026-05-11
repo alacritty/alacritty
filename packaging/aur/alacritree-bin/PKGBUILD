@@ -30,6 +30,8 @@ package() {
   install -Dm755 "$srcdir/alacritree" "$pkgdir/usr/bin/alacritree"
   install -Dm644 "$srcdir/alacritree.desktop" \
     "$pkgdir/usr/share/applications/alacritree.desktop"
-  install -Dm644 "$srcdir/alacritree.png" \
+  install -Dm644 "$srcdir/alacritree-256.png" \
     "$pkgdir/usr/share/icons/hicolor/256x256/apps/alacritree.png"
+  install -Dm644 "$srcdir/alacritree-512.png" \
+    "$pkgdir/usr/share/icons/hicolor/512x512/apps/alacritree.png"
 }

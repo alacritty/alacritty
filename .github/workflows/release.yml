@@ -87,7 +87,8 @@ jobs:
           # consume these files, so we only bundle them on Linux.
           if [[ "${{ runner.os }}" == "Linux" ]]; then
             cp alacritree/assets/alacritree.desktop "$stage/"
-            cp alacritree/assets/icon-256.png "$stage/alacritree.png"
+            cp alacritree/assets/icon-256.png "$stage/alacritree-256.png"
+            cp alacritree/assets/icon-512.png "$stage/alacritree-512.png"
           fi
           tar -C "$stage" -czf "$asset" .
           echo "ASSET=$asset" >> "$GITHUB_ENV"
