@@ -22,6 +22,8 @@ home = "0.5.5"
 fontdb = { version = "0.23", default-features = false, features = ["fontconfig", "memmap"] }
 arboard = { version = "3", default-features = false, features = ["wayland-data-control"] }
 png = "0.17"
+# Desktop notifications when a background session rings the bell.
+notify-rust = "4"
 
 [target.'cfg(unix)'.dependencies]
 # Used for font matching: matches what alacritty does via crossfont so that

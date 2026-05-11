@@ -30,6 +30,11 @@ struct Theme {
     text_dim: Color32,
     text_muted: Color32,
     accent: Color32,
+    /// Highlight color for "this session rang the bell while you weren't
+    /// looking" indicators (sidebar dots, tab segments).  Kept distinct from
+    /// `accent` (which means "this is the active workspace") so the two
+    /// signals don't read as the same thing.
+    attention: Color32,
     /// Logical-pixel size for headings (titles like "Projects", "Git").
     /// `FontConfig::UI_HEADING_RATIO` of the terminal font size.
     font_heading: f32,
@@ -63,6 +68,7 @@ impl Theme {
             text_dim: blend_toward(text, sidebar_bg, 0.35),
             text_muted: blend_toward(text, sidebar_bg, 0.55),
             accent,
+            attention: rgb_to_color32(config.palette.normal[3]), // ANSI yellow
             font_heading: config.font.ui_heading_px(),
             font_normal: config.font.ui_normal_px(),
             ui_scale: config.font.ui_normal_px() / 11.25,
@@ -554,7 +560,11 @@ impl AlacritreeApp {
             let click_rect = seg_rect.expand2(egui::vec2(0.0, 4.0));
             let id = ui.id().with(("tab_strip", self.sessions[session_idx].id));
             let resp = ui.interact(click_rect, id, egui::Sense::click());
-            let color = if is_active {
+            // Attention wins over the active/inactive shading so a bell from a
+            // non-active tab pulls the eye even when another tab is selected.
+            let color = if self.sessions[session_idx].needs_attention {
+                theme.attention
+            } else if is_active {
                 theme.text
             } else if resp.hovered() {
                 theme.text_dim
@@ -586,6 +596,22 @@ impl AlacritreeApp {
         let mut home_clicked = false;
         let theme = self.theme;
 
+        // Snapshot attention flags up-front so the `iter_mut` over projects
+        // below isn't blocked from calling back into `&self` helpers.
+        let home_attention = self.workspace_needs_attention(&None);
+        let project_attention: Vec<bool> =
+            self.projects.iter().map(|p| self.project_needs_attention(p)).collect();
+        let worktree_attention: Vec<Vec<bool>> = self
+            .projects
+            .iter()
+            .map(|p| {
+                p.worktrees
+                    .iter()
+                    .map(|wt| self.workspace_needs_attention(&Some(wt.path.clone())))
+                    .collect()
+            })
+            .collect();
+
         let panel_resp = SidePanel::left("left_sidebar")
             .resizable(true)
             .default_width(240.0 * theme.ui_scale)
@@ -606,7 +632,9 @@ impl AlacritreeApp {
                 ui.separator();
 
                 ScrollArea::vertical().show(ui, |ui| {
-                    if home_row(ui, self.current_workspace.is_none(), &theme).clicked() {
+                    if home_row(ui, self.current_workspace.is_none(), home_attention, &theme)
+                        .clicked()
+                    {
                         home_clicked = true;
                     }
                     ui.add_space(2.0);
@@ -622,6 +650,12 @@ impl AlacritreeApp {
                     }
 
                     for (idx, project) in self.projects.iter_mut().enumerate() {
+                        let proj_attention = project_attention.get(idx).copied().unwrap_or(false);
+                        // Bubble attention up to the project row only when the
+                        // project is collapsed — once expanded, the actual
+                        // worktree rows already show the dot, and doubling it
+                        // on the parent reads as noise.
+                        let show_proj_dot = proj_attention && !project.expanded;
                         row_with_trailing(
                             ui,
                             |ui| {
@@ -660,13 +694,21 @@ impl AlacritreeApp {
                                 {
                                     create_request.set(Some(idx));
                                 }
+                                if show_proj_dot {
+                                    attention_dot(ui, &theme);
+                                }
                             },
                         );
 
                         if project.expanded {
-                            for wt in &project.worktrees {
+                            for (wt_idx, wt) in project.worktrees.iter().enumerate() {
                                 let is_active = self.current_workspace.as_deref() == Some(&wt.path);
-                                let action = worktree_row(ui, wt, is_active, &theme);
+                                let wt_attention = worktree_attention
+                                    .get(idx)
+                                    .and_then(|v| v.get(wt_idx))
+                                    .copied()
+                                    .unwrap_or(false);
+                                let action = worktree_row(ui, wt, is_active, wt_attention, &theme);
                                 if action.activate {
                                     activate_request.set(Some(wt.path.clone()));
                                 }
@@ -1004,6 +1046,17 @@ fn file_row(
 /// glyphs of different intrinsic heights (e.g. `+` vs `↻`) end up on different
 /// baselines. `painter.text` with `CENTER_CENTER` centers the galley in the
 /// rect, giving real grid alignment.
+/// Small filled circle used as a "this session rang the bell" indicator.
+/// Painted (rather than a `RichText("●")`) so its size is independent of the
+/// font metrics — `RichText("●")` renders inconsistently across fallback fonts.
+fn attention_dot(ui: &mut egui::Ui, theme: &Theme) {
+    let s = theme.ui_scale;
+    let size = egui::vec2(10.0 * s, 14.0 * s);
+    let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+    let radius = 3.0 * s;
+    ui.painter().circle_filled(rect.center(), radius, theme.attention);
+}
+
 fn icon_button(ui: &mut egui::Ui, glyph: &str, color: Color32, theme: &Theme) -> egui::Response {
     let s = theme.ui_scale;
     let size = egui::vec2(16.0 * s, 16.0 * s);
@@ -1048,7 +1101,7 @@ where
     });
 }
 
-fn home_row(ui: &mut egui::Ui, is_active: bool, theme: &Theme) -> egui::Response {
+fn home_row(ui: &mut egui::Ui, is_active: bool, attention: bool, theme: &Theme) -> egui::Response {
     // Reserve a slot *before* the labels so the hover bg paints beneath them.
     let bg_idx = ui.painter().add(egui::Shape::Noop);
     let panel_x = ui.max_rect().x_range();
@@ -1068,6 +1121,9 @@ fn home_row(ui: &mut egui::Ui, is_active: bool, theme: &Theme) -> egui::Response
                         .strong()
                         .small(),
                 );
+                if attention {
+                    attention_dot(ui, theme);
+                }
             });
         })
         .response
@@ -1096,6 +1152,7 @@ fn worktree_row(
     ui: &mut egui::Ui,
     wt: &Worktree,
     is_active: bool,
+    attention: bool,
     theme: &Theme,
 ) -> WorktreeAction {
     // Reserve a slot *before* the labels so the hover bg paints beneath them.
@@ -1129,6 +1186,9 @@ fn worktree_row(
                         if btn.clicked() {
                             delete_clicked = true;
                         }
+                    }
+                    if attention {
+                        attention_dot(ui, theme);
                     }
                 },
             );
@@ -1169,6 +1229,50 @@ impl AlacritreeApp {
         for id in exited_ids {
             self.close_session(id);
         }
+    }
+
+    /// Drain pending PTY events from every session — including ones the user
+    /// isn't currently looking at — and translate background bells into
+    /// sidebar attention dots + (optional) desktop notifications.  When the
+    /// session ringing the bell is the visible-and-focused one, the user has
+    /// already seen it, so we suppress both signals.
+    fn process_session_events(&mut self, ctx: &Context) {
+        let visible_idx = self.active_session_index();
+        // `viewport().focused` is `None` on platforms that don't report focus;
+        // treat unknown as "focused" so we don't pile up stale attention dots.
+        let focused = ctx.input(|i| i.viewport().focused).unwrap_or(true);
+
+        for idx in 0..self.sessions.len() {
+            let outcome = self.sessions[idx].drain_events();
+            if !outcome.bell {
+                continue;
+            }
+            let is_visible_to_user = Some(idx) == visible_idx && focused;
+            if is_visible_to_user {
+                continue;
+            }
+            self.sessions[idx].needs_attention = true;
+            if self.config.ui.notifications {
+                notify_bell(&self.sessions[idx]);
+            }
+        }
+
+        // Visible session shouldn't keep an attention marker once the user is
+        // actually looking at it — covers tab switches, workspace switches,
+        // and refocusing the window after stepping away.
+        if focused {
+            if let Some(idx) = visible_idx {
+                self.sessions[idx].needs_attention = false;
+            }
+        }
+    }
+
+    fn workspace_needs_attention(&self, ws: &WorkspaceKey) -> bool {
+        self.sessions.iter().any(|s| s.working_directory == *ws && s.needs_attention)
+    }
+
+    fn project_needs_attention(&self, project: &Project) -> bool {
+        project.worktrees.iter().any(|wt| self.workspace_needs_attention(&Some(wt.path.clone())))
     }
 
     fn show_delete_dialog(&mut self, ctx: &Context) {
@@ -1573,6 +1677,7 @@ impl eframe::App for AlacritreeApp {
         if !modal_open {
             self.handle_shortcuts(ctx);
         }
+        self.process_session_events(ctx);
         let theme = self.theme;
         // GL clear is the sole source of the bg when opacity < 1; painting any
         // panel fill on top would compound the alpha through egui's blend.
@@ -1632,4 +1737,31 @@ impl eframe::App for AlacritreeApp {
 
         self.reap_exited_sessions();
     }
+}
+
+/// Fire a desktop notification for a session that rang the bell.  Runs on a
+/// throwaway thread because `notify-rust` performs synchronous D-Bus / WinRT
+/// calls and we don't want to stall the egui paint loop on a slow notifier.
+fn notify_bell(session: &Session) {
+    let where_label = session
+        .working_directory
+        .as_ref()
+        .and_then(|p| p.file_name())
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| session.title.clone());
+    let body = if where_label.is_empty() {
+        "Session is waiting for input".to_string()
+    } else {
+        format!("{where_label} is waiting for input")
+    };
+    std::thread::Builder::new()
+        .name("alacritree-notify".into())
+        .spawn(move || {
+            if let Err(e) =
+                notify_rust::Notification::new().summary("alacritree").body(&body).show()
+            {
+                log::debug!("desktop notification failed: {e}");
+            }
+        })
+        .ok();
 }

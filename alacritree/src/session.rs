@@ -69,9 +69,23 @@ pub struct Session {
     pub cell_size: (f32, f32),
     pub term: Arc<FairMutex<Term<EventProxy>>>,
     pub events: mpsc::Receiver<TermEvent>,
+    /// Bell rang while the user wasn't looking — surfaced as a sidebar
+    /// indicator until they switch to or refocus this session.  Claude Code
+    /// (and most CLIs that solicit input) ring the bell to flag "I'm done /
+    /// I need you", which is exactly the cue we want.
+    pub needs_attention: bool,
     notifier: Notifier,
     sender: EventLoopSender,
     exited: bool,
+}
+
+/// Outcome of draining one session's pending PTY events for a single frame.
+#[derive(Default)]
+pub struct DrainOutcome {
+    /// At least one `Event::Bell` was observed.  Caller decides whether the
+    /// user can already see the session (visible + focused) or it warrants a
+    /// notification.
+    pub bell: bool,
 }
 
 impl Session {
@@ -126,6 +140,7 @@ impl Session {
             cell_size,
             term,
             events,
+            needs_attention: false,
             notifier: Notifier(sender.clone()),
             sender,
             exited: false,
@@ -134,6 +149,23 @@ impl Session {
 
     pub fn write(&self, bytes: Vec<u8>) {
         self.notifier.notify(bytes);
+    }
+
+    /// Pull every pending event out of the PTY channel.  Called once per frame
+    /// for every session — including background ones — so bells, title
+    /// changes, and child-exits from non-visible sessions don't pile up.
+    pub fn drain_events(&mut self) -> DrainOutcome {
+        let mut outcome = DrainOutcome::default();
+        while let Ok(event) = self.events.try_recv() {
+            match event {
+                TermEvent::PtyWrite(s) => self.write(s.into_bytes()),
+                TermEvent::Title(t) => self.title = t,
+                TermEvent::ChildExit(_) => self.exited = true,
+                TermEvent::Bell => outcome.bell = true,
+                _ => {},
+            }
+        }
+        outcome
     }
 
     pub fn resize(&mut self, size: TermSize, cell_size: (f32, f32)) {
@@ -148,10 +180,6 @@ impl Session {
         let ws = window_size(size, cell_size);
         let _ = self.sender.send(Msg::Resize(ws));
         self.term.lock().resize(size);
-    }
-
-    pub fn mark_exited(&mut self) {
-        self.exited = true;
     }
 
     pub fn is_exited(&self) -> bool {

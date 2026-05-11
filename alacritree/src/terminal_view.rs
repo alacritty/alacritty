@@ -61,7 +61,6 @@ pub fn show(ui: &mut Ui, session: &mut Session, config: &Config, allow_focus: bo
 
     let painter = ui.painter_at(rect);
 
-    drain_pty_events(session);
     handle_selection(ui, &response, session, config, rect, cell_w, cell_h, cols, rows);
     paint_grid(&painter, rect, session, config, &font_id, cell_w, cell_h);
 
@@ -78,18 +77,6 @@ pub fn show(ui: &mut Ui, session: &mut Session, config: &Config, allow_focus: bo
     }
 
     response
-}
-
-fn drain_pty_events(session: &mut Session) {
-    use alacritty_terminal::event::Event as TermEvent;
-    while let Ok(event) = session.events.try_recv() {
-        match event {
-            TermEvent::PtyWrite(s) => session.write(s.into_bytes()),
-            TermEvent::Title(t) => session.title = t,
-            TermEvent::ChildExit(_) => session.mark_exited(),
-            _ => {},
-        }
-    }
 }
 
 fn handle_selection(
