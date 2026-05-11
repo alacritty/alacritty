@@ -48,7 +48,7 @@ dependencies = [
 
 [[package]]
 name = "alacritree"
-version = "0.1.0-dev"
+version = "0.1.2"
 dependencies = [
  "alacritty_terminal",
  "arboard",
