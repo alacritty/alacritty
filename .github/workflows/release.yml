@@ -25,8 +25,10 @@ jobs:
             triple: x86_64-unknown-linux-gnu
             archive: tar.gz
             bin: alacritree
+          # Cross-compile x86_64 from an M1 runner: GitHub is winding the
+          # `macos-13` (Intel) image down and queues there can sit for hours.
           - name: x86_64-macos
-            runner: macos-13
+            runner: macos-14
             triple: x86_64-apple-darwin
             archive: tar.gz
             bin: alacritree
