@@ -97,10 +97,7 @@ This is a Cargo workspace:
 ## Relationship to upstream Alacritty
 
 Alacritree is not a competitor to or replacement for Alacritty. It depends on
-upstream's terminal crate and would not exist without it. Upstream's
-`CONTRIBUTING.md` (kept in this repo for the vendored crates) includes a "no
-LLM contributions" policy — that policy applies to upstream Alacritty, not to
-the `alacritree/` crate.
+upstream's terminal crate and would not exist without it.
 
 ## License
 
