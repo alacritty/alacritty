@@ -1,6 +1,8 @@
+use std::cell::Cell;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::mpsc;
+use std::time::{Duration, Instant};
 
 use alacritty_terminal::event::{Event as TermEvent, EventListener, Notify, WindowSize};
 use alacritty_terminal::event_loop::{EventLoop, EventLoopSender, Msg, Notifier};
@@ -71,10 +73,39 @@ pub struct Session {
     pub events: mpsc::Receiver<TermEvent>,
     /// Latched attention flag, cleared when the user views this session.
     pub needs_attention: bool,
+    /// Shell pid spawned for this PTY.  Used to walk to the foreground
+    /// process group when identifying which agent is running.  None on
+    /// platforms where we don't yet capture it (Windows).
+    shell_pid: Option<u32>,
+    /// Cached result of the last foreground-process probe — refreshed on a
+    /// timer instead of polling `/proc` every frame.  `Cell` is enough since
+    /// `Session` isn't `Sync` and the values are `Copy`.
+    agent_cache: Cell<AgentCache>,
     notifier: Notifier,
     sender: EventLoopSender,
     exited: bool,
 }
+
+#[derive(Clone, Copy, Default)]
+struct AgentCache {
+    polled_at: Option<Instant>,
+    /// Static glyph for the foreground process if it's a recognized agent.
+    process_glyph: Option<char>,
+}
+
+const AGENT_CACHE_TTL: Duration = Duration::from_millis(1000);
+
+/// Map a foreground process name (from `/proc/<pid>/comm`) to its static
+/// sidebar glyph.  `comm` is kernel-truncated to 15 bytes, so we compare with
+/// `starts_with` — `cursor-agent` would otherwise miss.
+const AGENT_PROCESS_GLYPHS: &[(&str, char)] = &[
+    ("claude", '✳'),
+    ("codex", '◇'),
+    ("gemini", '✦'),
+    ("aider", '▲'),
+    ("cursor-agent", '❖'),
+    ("continue", '⊕'),
+];
 
 #[derive(Default)]
 pub struct DrainOutcome {
@@ -94,11 +125,91 @@ fn is_spinner_title(title: &str) -> bool {
     })
 }
 
-/// Substrings that identify an LLM-agent CLI by its OSC 0/2 title.  Listed in
-/// match-priority order; the first match wins.  Extend cautiously — a false
-/// positive turns a random shell title into an "agent icon" in the sidebar.
-const AGENT_TITLE_MARKERS: &[&str] =
-    &["Claude Code", "Gemini", "Codex", "Aider", "Cursor", "Continue"];
+/// `<glyph> <text>` titles are the universal agent-CLI shape: a non-ASCII
+/// leading glyph followed by whitespace.  Plain titles (`~/foo`, `bash`)
+/// fail both checks.
+fn title_decorative_glyph(title: &str) -> Option<char> {
+    let trimmed = title.trim_start();
+    let mut chars = trimmed.chars();
+    let first = chars.next()?;
+    if (first as u32) < 0x80 {
+        return None;
+    }
+    if !chars.next().is_some_and(|c| c.is_whitespace()) {
+        return None;
+    }
+    Some(first)
+}
+
+#[cfg(unix)]
+fn pty_shell_pid(pty: &alacritty_terminal::tty::Pty) -> Option<u32> {
+    Some(pty.child().id())
+}
+
+#[cfg(not(unix))]
+fn pty_shell_pid(_pty: &alacritty_terminal::tty::Pty) -> Option<u32> {
+    None
+}
+
+#[cfg(target_os = "linux")]
+fn foreground_process_glyph(shell_pid: u32) -> Option<char> {
+    let tpgid = read_tpgid(shell_pid)?;
+    if tpgid <= 0 {
+        return None;
+    }
+    let comm = std::fs::read_to_string(format!("/proc/{tpgid}/comm")).ok();
+    let cmdline = read_cmdline(tpgid as u32);
+    let comm_trim = comm.as_deref().map(str::trim).unwrap_or("");
+
+    // Match `comm` first (cheap), then anywhere in `cmdline` — picks up
+    // `node /path/to/agent-cli.js`-style wrappers that hide behind their
+    // runtime's name.
+    let by_comm =
+        AGENT_PROCESS_GLYPHS.iter().find(|(name, _)| comm_trim.starts_with(name)).map(|(_, g)| *g);
+    if by_comm.is_some() {
+        return by_comm;
+    }
+    if let Some(cmd) = &cmdline {
+        let glyph =
+            AGENT_PROCESS_GLYPHS.iter().find(|(name, _)| cmd.contains(name)).map(|(_, g)| *g);
+        if glyph.is_some() {
+            return glyph;
+        }
+        log::debug!("foreground process not matched: comm={comm_trim:?} cmdline={cmd:?}");
+    }
+    None
+}
+
+#[cfg(target_os = "linux")]
+fn read_cmdline(pid: u32) -> Option<String> {
+    // `cmdline` is NUL-separated argv; rendering with spaces is good enough
+    // for substring matching and human-readable logging.
+    let bytes = std::fs::read(format!("/proc/{pid}/cmdline")).ok()?;
+    if bytes.is_empty() {
+        return None;
+    }
+    let s: String = bytes.iter().map(|&b| if b == 0 { ' ' } else { b as char }).collect();
+    Some(s.trim().to_string())
+}
+
+/// `/proc/<pid>/stat` is `pid (comm) state ppid pgrp session tty_nr tpgid …`.
+/// `comm` may contain spaces and unmatched parens, so split on the *last* `)`
+/// before tokenizing the rest.
+#[cfg(target_os = "linux")]
+fn read_tpgid(shell_pid: u32) -> Option<i32> {
+    let stat = std::fs::read_to_string(format!("/proc/{shell_pid}/stat")).ok()?;
+    let close = stat.rfind(')')?;
+    let after = &stat[close + 1..];
+    // After `comm`: state(0) ppid(1) pgrp(2) session(3) tty_nr(4) tpgid(5).
+    after.split_whitespace().nth(5)?.parse::<i32>().ok()
+}
+
+#[cfg(not(target_os = "linux"))]
+fn foreground_process_glyph(_shell_pid: u32) -> Option<char> {
+    // macOS would use `libproc::proc_pidfdinfo` / `tcgetpgrp` on the master
+    // FD; Windows is its own world.  Not wired up yet.
+    None
+}
 
 impl Session {
     pub fn spawn(
@@ -134,6 +245,7 @@ impl Session {
         // alacritty routes OSC 7 / signals by this id, so each session needs its own.
         let window_id = next_window_id();
         let pty = tty::new(&pty_options, window_size, window_id)?;
+        let shell_pid = pty_shell_pid(&pty);
 
         let event_loop = EventLoop::new(term.clone(), proxy, pty, false, false)?;
         let sender = event_loop.channel();
@@ -153,6 +265,8 @@ impl Session {
             term,
             events,
             needs_attention: false,
+            shell_pid,
+            agent_cache: Cell::new(AgentCache::default()),
             notifier: Notifier(sender.clone()),
             sender,
             exited: false,
@@ -206,17 +320,31 @@ impl Session {
         self.exited
     }
 
-    /// Leading glyph of this session's title if the title looks like a
-    /// recognized LLM-agent CLI.  Painting this each frame gives a free
-    /// spinner animation because the agent rewrites its title each tick.
+    /// Sidebar glyph for the agent running here.  Identity comes from the
+    /// PTY's foreground process (`/proc` on Linux); the displayed glyph
+    /// prefers the title's current leading char so the agent's own spinner
+    /// frames animate for free, falling back to a per-agent static glyph
+    /// when the title is plain ASCII.  When proc identification yields
+    /// nothing, accept a decorative title as a permissive fallback so
+    /// agents we don't have in the process map still show *something*.
     pub fn agent_glyph(&self) -> Option<char> {
-        let matches_agent = AGENT_TITLE_MARKERS.iter().any(|m| self.title.contains(m));
-        if !matches_agent {
-            return None;
+        let proc_glyph = self.process_agent_glyph();
+        let title_glyph = title_decorative_glyph(&self.title);
+        if proc_glyph.is_some() {
+            return title_glyph.or(proc_glyph);
         }
-        let first = self.title.trim_start().chars().next()?;
-        // Skip alphanumeric leads (bare names like "Codex") — would render as a plain letter.
-        if first.is_alphanumeric() { None } else { Some(first) }
+        title_glyph
+    }
+
+    fn process_agent_glyph(&self) -> Option<char> {
+        let cached = self.agent_cache.get();
+        let fresh = cached.polled_at.is_some_and(|t| t.elapsed() < AGENT_CACHE_TTL);
+        if fresh {
+            return cached.process_glyph;
+        }
+        let glyph = self.shell_pid.and_then(foreground_process_glyph);
+        self.agent_cache.set(AgentCache { polled_at: Some(Instant::now()), process_glyph: glyph });
+        glyph
     }
 
     pub fn shutdown(&self) {
