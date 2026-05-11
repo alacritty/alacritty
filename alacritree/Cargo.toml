@@ -16,6 +16,7 @@ env_logger = "0.11"
 git2 = { version = "0.20", default-features = false }
 rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "async-std"] }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 toml = { workspace = true }
 xdg = "3.0.0"
 home = "0.5.5"

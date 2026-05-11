@@ -141,9 +141,9 @@ pub struct UiTheme {
     pub sidebar_foreground: Option<Color32>,
     pub sidebar_border: Option<Color32>,
     pub sidebar_accent: Option<Color32>,
-    /// Fire a desktop notification when a non-visible session rings the bell.
-    /// On by default — CLIs like Claude Code ring BEL when they finish or
-    /// need input, which is exactly the cue worth surfacing.
+    /// Fire a desktop notification when a non-visible session asks for the
+    /// user's attention (rings BEL, or its title transitions out of a spinner
+    /// state — the way Claude Code says "done thinking").
     pub notifications: bool,
 }
 

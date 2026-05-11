@@ -1244,16 +1244,20 @@ impl AlacritreeApp {
 
         for idx in 0..self.sessions.len() {
             let outcome = self.sessions[idx].drain_events();
-            if !outcome.bell {
+            if !outcome.attention {
                 continue;
             }
             let is_visible_to_user = Some(idx) == visible_idx && focused;
             if is_visible_to_user {
                 continue;
             }
+            // Only toast on the *transition* into needs_attention — otherwise
+            // BEL + title-transition firing in the same idle cycle would
+            // produce two toasts for the same "Claude is done" event.
+            let was_attending = self.sessions[idx].needs_attention;
             self.sessions[idx].needs_attention = true;
-            if self.config.ui.notifications {
-                notify_bell(&self.sessions[idx]);
+            if !was_attending && self.config.ui.notifications {
+                notify_attention(&self.sessions[idx]);
             }
         }
 
@@ -1739,10 +1743,12 @@ impl eframe::App for AlacritreeApp {
     }
 }
 
-/// Fire a desktop notification for a session that rang the bell.  Runs on a
-/// throwaway thread because `notify-rust` performs synchronous D-Bus / WinRT
-/// calls and we don't want to stall the egui paint loop on a slow notifier.
-fn notify_bell(session: &Session) {
+/// Fire a desktop notification for a session that's asking for the user's
+/// attention (bell, or title transitioning out of a working spinner).  Runs
+/// on a throwaway thread because `notify-rust` performs synchronous D-Bus /
+/// WinRT calls and we don't want to stall the egui paint loop on a slow
+/// notifier.
+fn notify_attention(session: &Session) {
     let where_label = session
         .working_directory
         .as_ref()

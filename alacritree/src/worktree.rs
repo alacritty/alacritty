@@ -105,7 +105,37 @@ fn run_create(
         send(&format!("Copied {copied} LLM config item(s)"));
     }
 
+    // Force Claude Code to ring BEL on completion / waiting-for-input so the
+    // sidebar attention indicator + desktop notification fire without the
+    // user having to configure each worktree by hand.  We only ever overwrite
+    // this one key, preserving anything else the user copied over.
+    if let Err(e) = enable_claude_terminal_bell(&target) {
+        log::warn!("failed to write Claude bell config in {}: {e}", target.display());
+    } else {
+        send("Enabled Claude Code terminal bell");
+    }
+
     Ok(target)
+}
+
+fn enable_claude_terminal_bell(worktree_root: &Path) -> std::io::Result<()> {
+    let dir = worktree_root.join(".claude");
+    std::fs::create_dir_all(&dir)?;
+    let path = dir.join("settings.local.json");
+
+    let mut value: serde_json::Value = match std::fs::read_to_string(&path) {
+        Ok(s) => serde_json::from_str(&s).unwrap_or_else(|_| serde_json::json!({})),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => serde_json::json!({}),
+        Err(e) => return Err(e),
+    };
+    if !value.is_object() {
+        value = serde_json::json!({});
+    }
+    value["preferredNotifChannel"] = serde_json::json!("terminal_bell");
+
+    let pretty = serde_json::to_string_pretty(&value)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+    std::fs::write(path, pretty)
 }
 
 fn run_git(cwd: &Path, args: &[&str]) -> Result<(), String> {

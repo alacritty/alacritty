@@ -69,10 +69,9 @@ pub struct Session {
     pub cell_size: (f32, f32),
     pub term: Arc<FairMutex<Term<EventProxy>>>,
     pub events: mpsc::Receiver<TermEvent>,
-    /// Bell rang while the user wasn't looking — surfaced as a sidebar
-    /// indicator until they switch to or refocus this session.  Claude Code
-    /// (and most CLIs that solicit input) ring the bell to flag "I'm done /
-    /// I need you", which is exactly the cue we want.
+    /// Session asked for the user's attention (BEL, or title transitioning
+    /// out of a working spinner) while they weren't looking.  Surfaced as a
+    /// sidebar indicator until they switch to or refocus this session.
     pub needs_attention: bool,
     notifier: Notifier,
     sender: EventLoopSender,
@@ -82,10 +81,25 @@ pub struct Session {
 /// Outcome of draining one session's pending PTY events for a single frame.
 #[derive(Default)]
 pub struct DrainOutcome {
-    /// At least one `Event::Bell` was observed.  Caller decides whether the
-    /// user can already see the session (visible + focused) or it warrants a
-    /// notification.
-    pub bell: bool,
+    /// Something this session emitted suggests it wants the user's attention.
+    /// Sources:
+    /// - `Event::Bell` (the universal signal — any CLI ringing BEL).
+    /// - Title transitioning out of a braille-spinner state (the pattern
+    ///   Claude Code uses to indicate "done thinking" since it doesn't ring
+    ///   BEL).  Caller still decides whether the session is currently
+    ///   visible+focused (in which case the signal is suppressed).
+    pub attention: bool,
+}
+
+/// Heuristic for "this title looks like a working/spinner state".  Matches
+/// any title containing a Braille glyph (`U+2800..=U+28FF`), which is the
+/// near-universal spinner alphabet (Claude Code, oh-my-posh, ollama, cargo's
+/// progress indicator, etc.).
+fn is_spinner_title(title: &str) -> bool {
+    title.chars().any(|c| {
+        let n = c as u32;
+        (0x2800..=0x28FF).contains(&n)
+    })
 }
 
 impl Session {
@@ -159,9 +173,17 @@ impl Session {
         while let Ok(event) = self.events.try_recv() {
             match event {
                 TermEvent::PtyWrite(s) => self.write(s.into_bytes()),
-                TermEvent::Title(t) => self.title = t,
+                TermEvent::Title(t) => {
+                    // A spinner-shaped title transitioning to a non-spinner one
+                    // is how Claude Code (and similar tools that don't ring
+                    // BEL) signal "done — your turn".  Treat it like a bell.
+                    if is_spinner_title(&self.title) && !is_spinner_title(&t) {
+                        outcome.attention = true;
+                    }
+                    self.title = t;
+                },
                 TermEvent::ChildExit(_) => self.exited = true,
-                TermEvent::Bell => outcome.bell = true,
+                TermEvent::Bell => outcome.attention = true,
                 _ => {},
             }
         }
