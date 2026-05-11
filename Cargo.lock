@@ -54,6 +54,7 @@ dependencies = [
  "arboard",
  "eframe",
  "egui",
+ "embed-resource",
  "env_logger",
  "fontconfig",
  "fontdb",
