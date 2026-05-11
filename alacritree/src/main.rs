@@ -2,12 +2,14 @@
 
 mod app;
 mod bindings;
+mod builtin_font;
 mod clipboard;
 mod colors;
 mod config;
 mod fonts;
 mod git_status;
 mod input;
+mod links;
 mod projects;
 mod session;
 mod state;

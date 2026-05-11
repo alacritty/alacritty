@@ -36,6 +36,27 @@ pub struct FontConfig {
     pub bold: FontFace,
     pub italic: FontFace,
     pub bold_italic: FontFace,
+    /// Extra spacing per cell, mirroring alacritty's `font.offset`.  Added to
+    /// the per-cell width/height after the egui glyph metrics have been
+    /// floored to whole device pixels.
+    pub offset: FontDelta,
+    /// Pixel offset applied when painting glyphs inside the cell, mirroring
+    /// alacritty's `font.glyph_offset`.  Built-in glyphs deliberately ignore
+    /// this offset (they already align to the cell), matching alacritty.
+    pub glyph_offset: FontDelta,
+    /// When true, render box drawing / block / Powerline / Symbols-for-Legacy-
+    /// Computing characters from the built-in renderer instead of the font.
+    /// Default `true` matches alacritty.
+    pub builtin_box_drawing: bool,
+}
+
+/// Pixel delta with x/y, mirroring alacritty's `Delta<i8>` for `font.offset`
+/// and `font.glyph_offset`.  Kept as `i8` because that's the type alacritty's
+/// schema accepts and going wider would silently lose round-trip equivalence.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct FontDelta {
+    pub x: i8,
+    pub y: i8,
 }
 
 impl FontConfig {
@@ -135,12 +156,26 @@ pub struct Palette {
     pub draw_bold_with_bright: bool,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct UiTheme {
     pub sidebar_background: Option<Color32>,
     pub sidebar_foreground: Option<Color32>,
     pub sidebar_border: Option<Color32>,
     pub sidebar_accent: Option<Color32>,
+    /// Fire a desktop notification when a non-visible session needs attention.
+    pub notifications: bool,
+}
+
+impl Default for UiTheme {
+    fn default() -> Self {
+        Self {
+            sidebar_background: None,
+            sidebar_foreground: None,
+            sidebar_border: None,
+            sidebar_accent: None,
+            notifications: true,
+        }
+    }
 }
 
 impl Default for Config {
@@ -170,6 +205,9 @@ impl Default for FontConfig {
             bold: FontFace::default(),
             italic: FontFace::default(),
             bold_italic: FontFace::default(),
+            offset: FontDelta::default(),
+            glyph_offset: FontDelta::default(),
+            builtin_box_drawing: true,
         }
     }
 }
@@ -411,6 +449,9 @@ struct RawFont {
     bold: RawFontFace,
     italic: RawFontFace,
     bold_italic: RawFontFace,
+    offset: RawFontDelta,
+    glyph_offset: RawFontDelta,
+    builtin_box_drawing: Option<bool>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -418,6 +459,13 @@ struct RawFont {
 struct RawFontFace {
     family: Option<String>,
     style: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct RawFontDelta {
+    x: Option<i8>,
+    y: Option<i8>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -550,6 +598,7 @@ struct RawUi {
     sidebar_foreground: Option<RgbStr>,
     sidebar_border: Option<RgbStr>,
     sidebar_accent: Option<RgbStr>,
+    notifications: Option<bool>,
 }
 
 /// Wrapper that parses `"0xrrggbb"`, `"#rrggbb"`, or `"rrggbb"` into an `Rgb`.
@@ -627,6 +676,7 @@ impl RawConfig {
             sidebar_foreground: self.ui.sidebar_foreground.map(|v| rgb_to_color32(v.0)),
             sidebar_border: self.ui.sidebar_border.map(|v| rgb_to_color32(v.0)),
             sidebar_accent: self.ui.sidebar_accent.map(|v| rgb_to_color32(v.0)),
+            notifications: self.ui.notifications.unwrap_or(true),
         };
 
         // ---- Font ----
@@ -648,6 +698,17 @@ impl RawConfig {
             family: self.font.bold_italic.family.clone(),
             style: self.font.bold_italic.style.clone(),
         };
+        font.offset = FontDelta {
+            x: self.font.offset.x.unwrap_or(font.offset.x),
+            y: self.font.offset.y.unwrap_or(font.offset.y),
+        };
+        font.glyph_offset = FontDelta {
+            x: self.font.glyph_offset.x.unwrap_or(font.glyph_offset.x),
+            y: self.font.glyph_offset.y.unwrap_or(font.glyph_offset.y),
+        };
+        if let Some(b) = self.font.builtin_box_drawing {
+            font.builtin_box_drawing = b;
+        }
 
         // ---- Cursor ----
         let mut cursor = config.cursor;
