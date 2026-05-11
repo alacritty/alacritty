@@ -9,6 +9,7 @@ mod config;
 mod fonts;
 mod git_status;
 mod input;
+mod links;
 mod projects;
 mod session;
 mod state;

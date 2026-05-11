@@ -3,9 +3,11 @@ use alacritty_terminal::index::{Column, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionRange, SelectionType};
 use alacritty_terminal::term::Term;
 use alacritty_terminal::term::cell::{Cell, Flags};
+use alacritty_terminal::term::search::Match;
 use alacritty_terminal::vte::ansi::Color as AnsiColor;
 use egui::{
-    Color32, FontFamily, FontId, PointerButton, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2,
+    Color32, CursorIcon, FontFamily, FontId, PointerButton, Pos2, Rect, Response, Sense, Stroke,
+    Ui, Vec2,
 };
 
 use crate::builtin_font::{BuiltinGlyphCache, Metrics, is_builtin_glyph};
@@ -14,6 +16,7 @@ use crate::colors::{background, foreground, resolve, rgb_to_color32};
 use crate::config::Config;
 use crate::fonts::{BOLD_FAMILY, BOLD_ITALIC_FAMILY, ITALIC_FAMILY};
 use crate::input::event_to_bytes;
+use crate::links::{self, Link};
 use crate::session::{EventProxy, Session, TermSize};
 
 pub fn show(
@@ -72,7 +75,22 @@ pub fn show(
 
     let painter = ui.painter_at(rect);
 
-    handle_selection(ui, &response, session, config, rect, cell_w, cell_h, cols, rows);
+    let hovered_link = hovered_link(ui, &response, session, rect, cell_w, cell_h, cols, rows);
+    if hovered_link.is_some() {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    handle_selection(
+        ui,
+        &response,
+        session,
+        config,
+        rect,
+        cell_w,
+        cell_h,
+        cols,
+        rows,
+        hovered_link.as_ref(),
+    );
     // Built-in renderer expects the *unadjusted* pixel cell size so it can
     // re-apply `font.offset` itself — passing `cell_w * ppp` (which already
     // includes the offset) would double-add it.  Descent is zero here: the
@@ -96,6 +114,7 @@ pub fn show(
         &metrics,
         builtin_glyphs,
         ui.ctx(),
+        hovered_link.as_ref().map(|l| &l.bounds),
     );
 
     if allow_focus && response.has_focus() {
@@ -113,6 +132,34 @@ pub fn show(
     response
 }
 
+/// Resolve the link under the mouse pointer, if any.  Returns `None` when the
+/// pointer is outside the grid, when no link covers that cell, or when the
+/// pointer is being used for an active drag (so click-to-open never fights
+/// with text selection).
+fn hovered_link(
+    ui: &Ui,
+    response: &Response,
+    session: &Session,
+    rect: Rect,
+    cell_w: f32,
+    cell_h: f32,
+    cols: usize,
+    rows: usize,
+) -> Option<Link> {
+    if response.dragged() {
+        return None;
+    }
+    let pos = ui.input(|i| i.pointer.hover_pos())?;
+    if !rect.contains(pos) {
+        return None;
+    }
+    let term = session.term.lock();
+    let display_offset = term.grid().display_offset() as i32;
+    let (point, _) = cell_at_pos(pos, rect, cell_w, cell_h, cols, rows, display_offset);
+    links::link_at(&term, point)
+}
+
+#[allow(clippy::too_many_arguments)]
 fn handle_selection(
     ui: &Ui,
     response: &Response,
@@ -123,6 +170,7 @@ fn handle_selection(
     cell_h: f32,
     cols: usize,
     rows: usize,
+    hovered_link: Option<&Link>,
 ) {
     let primary = PointerButton::Primary;
     let secondary = PointerButton::Secondary;
@@ -209,6 +257,13 @@ fn handle_selection(
     } else if response.drag_stopped_by(primary) {
         copy_active_selection(&session.term.lock(), config);
     } else if response.clicked_by(primary) {
+        // A bare primary click on a link follows it instead of clearing the
+        // selection.  That matches alacritty's default URL hint, which fires
+        // on release without any modifier.
+        if let Some(link) = hovered_link {
+            links::open(&link.uri);
+            return;
+        }
         // Bare click outside an existing drag clears the selection, matching alacritty.
         session.term.lock().selection = None;
     }
@@ -284,8 +339,12 @@ struct Style {
 }
 
 impl Style {
-    fn from_cell(cell: &Cell) -> Self {
-        Self { fg: cell.fg, bg: cell.bg, flags: cell.flags }
+    fn from_cell(cell: &Cell, underline_link: bool) -> Self {
+        let mut flags = cell.flags;
+        if underline_link {
+            flags.insert(Flags::UNDERLINE);
+        }
+        Self { fg: cell.fg, bg: cell.bg, flags }
     }
 }
 
@@ -302,6 +361,7 @@ fn paint_grid(
     metrics: &Metrics,
     builtin_glyphs: &mut BuiltinGlyphCache,
     ctx: &egui::Context,
+    link_bounds: Option<&Match>,
 ) {
     let term = session.term.lock();
     let runtime_palette = term.colors();
@@ -317,6 +377,9 @@ fn paint_grid(
     // Resolve the active selection once per frame; the per-cell range checks
     // are cheap and avoid relocking inside paint_run.
     let selection_range = term.selection.as_ref().and_then(|s| s.to_range(&term));
+    let in_link = |line: Line, column: Column| {
+        link_bounds.is_some_and(|b| b.contains(&Point::new(line, column)))
+    };
 
     for row_idx in 0..screen_lines {
         let line = Line(row_idx - display_offset);
@@ -326,12 +389,12 @@ fn paint_grid(
         let mut col = 0;
         while col < cols {
             let start = col;
-            let style = Style::from_cell(&row[Column(col)]);
+            let style = Style::from_cell(&row[Column(col)], in_link(line, Column(col)));
             let selected = is_selected(selection_range.as_ref(), line, Column(col));
             let mut run = String::new();
             while col < cols {
                 let cell = &row[Column(col)];
-                if Style::from_cell(cell) != style
+                if Style::from_cell(cell, in_link(line, Column(col))) != style
                     || is_selected(selection_range.as_ref(), line, Column(col)) != selected
                 {
                     break;
