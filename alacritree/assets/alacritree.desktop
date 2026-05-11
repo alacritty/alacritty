@@ -1,12 +1,11 @@
 [Desktop Entry]
 Type=Application
 Name=Alacritree
-GenericName=Terminal
-Comment=Alacritty fork with worktree-aware sidebars
+Comment=Worktree-aware shell with embedded terminals
 TryExec=alacritree
 Exec=alacritree
 Icon=alacritree
 Terminal=false
-Categories=System;TerminalEmulator;
+Categories=Development;
 StartupNotify=true
 StartupWMClass=Alacritree
