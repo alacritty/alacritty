@@ -16,7 +16,7 @@ use crate::input::event_to_bytes;
 use crate::session::{EventProxy, Session, TermSize};
 
 pub fn show(ui: &mut Ui, session: &mut Session, config: &Config, allow_focus: bool) -> Response {
-    let font_id = FontId::monospace(config.font.size);
+    let font_id = FontId::monospace(config.font.egui_size());
     let (cell_w_pt, cell_h_pt) = ui.ctx().fonts(|f| {
         let w = f.glyph_width(&font_id, 'M');
         let h = f.row_height(&font_id);

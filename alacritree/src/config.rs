@@ -38,6 +38,35 @@ pub struct FontConfig {
     pub bold_italic: FontFace,
 }
 
+impl FontConfig {
+    /// Sidebar/modal titles use this fraction of the terminal font size.
+    /// Headings stay close to the grid's size for visual weight without
+    /// crowding the chrome.
+    pub const UI_HEADING_RATIO: f32 = 0.9;
+
+    /// Normal UI text (rows, captions, button labels) is this fraction of the
+    /// terminal font size so the chrome reads as secondary to the grid.
+    pub const UI_NORMAL_RATIO: f32 = 0.8;
+
+    /// Convert the user-configured size (typographic points, matching
+    /// alacritty's `font.size`) into the logical-pixel value egui's `FontId`
+    /// expects.  Without this step egui treats the number as logical pixels
+    /// and renders 25% smaller than alacritty for the same config value.
+    pub fn egui_size(&self) -> f32 {
+        self.size * 96.0 / 72.0
+    }
+
+    /// Logical-pixel size for sidebar/modal titles.
+    pub fn ui_heading_px(&self) -> f32 {
+        self.egui_size() * Self::UI_HEADING_RATIO
+    }
+
+    /// Logical-pixel size for the dominant non-heading UI text.
+    pub fn ui_normal_px(&self) -> f32 {
+        self.egui_size() * Self::UI_NORMAL_RATIO
+    }
+}
+
 /// A single weight/style face.  `family` mirrors alacritty's `[font.*].family`;
 /// `style` mirrors `[font.*].style` (e.g. "Bold", "Italic", "Bold Italic"), and
 /// is used both as a hint to the font matcher and to disambiguate faces that
@@ -133,8 +162,8 @@ impl Default for Config {
 
 impl Default for FontConfig {
     fn default() -> Self {
-        // Match alacritty's default of 11.25pt; egui's logical points map
-        // 1:1 to pt, modulo HiDPI scale.
+        // Match alacritty's default of 11.25pt.  See `FontConfig::egui_size`
+        // for the pt-to-logical-pixel conversion applied at use sites.
         Self {
             size: 11.25,
             normal: FontFace::default(),

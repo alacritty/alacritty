@@ -30,6 +30,18 @@ struct Theme {
     text_dim: Color32,
     text_muted: Color32,
     accent: Color32,
+    /// Logical-pixel size for headings (titles like "Projects", "Git").
+    /// `FontConfig::UI_HEADING_RATIO` of the terminal font size.
+    font_heading: f32,
+    /// Logical-pixel size for normal UI text (rows, captions, button labels).
+    /// `FontConfig::UI_NORMAL_RATIO` of the terminal font size — keeps the
+    /// chrome secondary to the grid.
+    font_normal: f32,
+    /// Multiplier applied to hard-coded UI sizes (icons, paddings, modal
+    /// widths) so the chrome scales with `font.size`.  Anchored to the
+    /// historical 11.25-logical-pixel baseline so unmodified config keeps the
+    /// existing layout proportions.
+    ui_scale: f32,
 }
 
 impl Theme {
@@ -51,6 +63,9 @@ impl Theme {
             text_dim: blend_toward(text, sidebar_bg, 0.35),
             text_muted: blend_toward(text, sidebar_bg, 0.55),
             accent,
+            font_heading: config.font.ui_heading_px(),
+            font_normal: config.font.ui_normal_px(),
+            ui_scale: config.font.ui_normal_px() / 11.25,
         }
     }
 }
@@ -128,12 +143,34 @@ impl AlacritreeApp {
         visuals.extreme_bg_color = theme.terminal_bg;
         cc.egui_ctx.set_visuals(visuals);
 
-        // Match egui's `Small` text style to the terminal font size — `.small()`
-        // defaults to 10pt, which reads as cramped next to the grid.
+        // Anchor every text style to the terminal font: titles (unmodified
+        // labels) use `Body`/`Heading` at 100% of the grid's text size, and
+        // every other UI label (`.small()`, buttons) drops to 80% via
+        // `font_normal`.  Spacing knobs scale with the normal-text size so
+        // paddings/widths track changes to `font.size`.
         let mut style = (*cc.egui_ctx.style()).clone();
-        style
-            .text_styles
-            .insert(egui::TextStyle::Small, egui::FontId::proportional(config.font.size));
+        let scale = theme.ui_scale;
+        let heading_px = theme.font_heading;
+        let normal_px = theme.font_normal;
+        style.text_styles.insert(egui::TextStyle::Heading, egui::FontId::proportional(heading_px));
+        style.text_styles.insert(egui::TextStyle::Body, egui::FontId::proportional(heading_px));
+        style.text_styles.insert(egui::TextStyle::Small, egui::FontId::proportional(normal_px));
+        style.text_styles.insert(egui::TextStyle::Button, egui::FontId::proportional(normal_px));
+        style.text_styles.insert(egui::TextStyle::Monospace, egui::FontId::monospace(normal_px));
+        let s = &mut style.spacing;
+        s.item_spacing *= scale;
+        s.button_padding *= scale;
+        s.indent *= scale;
+        s.interact_size *= scale;
+        s.icon_width *= scale;
+        s.icon_width_inner *= scale;
+        s.icon_spacing *= scale;
+        s.text_edit_width *= scale;
+        // egui's debug build paints "Unaligned" labels next to widgets whose
+        // edges land on fractional physical pixels.  Our chrome scaling
+        // produces non-integer sizes by design (matching `font.size`), so the
+        // warning is noise rather than signal — silence it everywhere.
+        style.debug.show_unaligned = false;
         cc.egui_ctx.set_style(style);
 
         alacritty_terminal::tty::setup_env();
@@ -546,14 +583,14 @@ impl AlacritreeApp {
 
         let panel_resp = SidePanel::left("left_sidebar")
             .resizable(true)
-            .default_width(240.0)
-            .min_width(180.0)
+            .default_width(240.0 * theme.ui_scale)
+            .min_width(180.0 * theme.ui_scale)
             .frame(panel_frame)
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new("Projects").color(theme.text).strong());
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if icon_button(ui, "+", theme.text_dim)
+                        if icon_button(ui, "+", theme.text_dim, &theme)
                             .on_hover_text("add project")
                             .clicked()
                         {
@@ -584,7 +621,7 @@ impl AlacritreeApp {
                             ui,
                             |ui| {
                                 let arrow = if project.expanded { "▾" } else { "▸" };
-                                if icon_button(ui, arrow, theme.text_dim).clicked() {
+                                if icon_button(ui, arrow, theme.text_dim, &theme).clicked() {
                                     project.expanded = !project.expanded;
                                     expand_toggled = true;
                                 }
@@ -600,19 +637,19 @@ impl AlacritreeApp {
                             },
                             |ui| {
                                 ui.spacing_mut().item_spacing.x = 2.0;
-                                if icon_button(ui, "×", theme.text_muted)
+                                if icon_button(ui, "×", theme.text_muted, &theme)
                                     .on_hover_text("remove from sidebar")
                                     .clicked()
                                 {
                                     remove_idx = Some(idx);
                                 }
-                                if icon_button(ui, "↻", theme.text_muted)
+                                if icon_button(ui, "↻", theme.text_muted, &theme)
                                     .on_hover_text("refresh worktrees")
                                     .clicked()
                                 {
                                     refresh_idx = Some(idx);
                                 }
-                                if icon_button(ui, "+", theme.text_muted)
+                                if icon_button(ui, "+", theme.text_muted, &theme)
                                     .on_hover_text("create new worktree")
                                     .clicked()
                                 {
@@ -693,8 +730,8 @@ impl AlacritreeApp {
         let palette = self.config.palette.clone();
         let panel_resp = SidePanel::right("right_sidebar")
             .resizable(true)
-            .default_width(300.0)
-            .min_width(220.0)
+            .default_width(300.0 * theme.ui_scale)
+            .min_width(220.0 * theme.ui_scale)
             .frame(panel_frame)
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
@@ -858,10 +895,13 @@ fn dirty_warning(counts: &DirtyCounts) -> Option<String> {
 }
 
 fn modal_frame(theme: &Theme) -> Frame {
+    let s = theme.ui_scale;
+    let pad_x = (16.0 * s).round() as i8;
+    let pad_y = (12.0 * s).round() as i8;
     Frame::default()
         .fill(theme.sidebar_bg)
         .stroke(Stroke::new(1.0, theme.sidebar_border))
-        .inner_margin(Margin { left: 16, right: 16, top: 12, bottom: 12 })
+        .inner_margin(Margin { left: pad_x, right: pad_x, top: pad_y, bottom: pad_y })
 }
 
 /// `InputState::consume_shortcut` matches modifiers as a *subset*: `Ctrl+G`
@@ -959,8 +999,9 @@ fn file_row(
 /// glyphs of different intrinsic heights (e.g. `+` vs `↻`) end up on different
 /// baselines. `painter.text` with `CENTER_CENTER` centers the galley in the
 /// rect, giving real grid alignment.
-fn icon_button(ui: &mut egui::Ui, glyph: &str, color: Color32) -> egui::Response {
-    let size = egui::vec2(16.0, 16.0);
+fn icon_button(ui: &mut egui::Ui, glyph: &str, color: Color32, theme: &Theme) -> egui::Response {
+    let s = theme.ui_scale;
+    let size = egui::vec2(16.0 * s, 16.0 * s);
     let (rect, resp) = ui.allocate_exact_size(size, egui::Sense::click());
     let painted = if resp.hovered() {
         Color32::from_rgb(
@@ -975,7 +1016,7 @@ fn icon_button(ui: &mut egui::Ui, glyph: &str, color: Color32) -> egui::Response
         rect.center(),
         egui::Align2::CENTER_CENTER,
         glyph,
-        egui::FontId::proportional(12.0),
+        egui::FontId::proportional(12.0 * s),
         painted,
     );
     resp
@@ -1014,7 +1055,7 @@ fn home_row(ui: &mut egui::Ui, is_active: bool, theme: &Theme) -> egui::Response
                 ui.label(
                     RichText::new("⌂")
                         .color(if is_active { theme.accent } else { theme.text_muted })
-                        .size(10.0),
+                        .size(10.0 * theme.ui_scale),
                 );
                 ui.label(
                     RichText::new("Home")
@@ -1069,7 +1110,7 @@ fn worktree_row(
             row_with_trailing(
                 ui,
                 |ui| {
-                    ui.label(RichText::new(icon).color(icon_color).size(10.0));
+                    ui.label(RichText::new(icon).color(icon_color).size(10.0 * theme.ui_scale));
                     ui.add(
                         egui::Label::new(RichText::new(&wt.name).color(name_color).small())
                             .truncate(),
@@ -1077,7 +1118,7 @@ fn worktree_row(
                 },
                 |ui| {
                     if !wt.is_main {
-                        let btn = icon_button(ui, "×", theme.text_muted)
+                        let btn = icon_button(ui, "×", theme.text_muted, theme)
                             .on_hover_text("delete worktree and branch");
                         delete_rect = Some(btn.rect);
                         if btn.clicked() {
@@ -1144,17 +1185,18 @@ impl AlacritreeApp {
         let mut confirmed = false;
         let mut cancelled = false;
 
+        let s = theme.ui_scale;
         let modal = egui::Modal::new(egui::Id::new("alacritree_delete_dialog")).frame(frame).show(
             ctx,
             |ui| {
-                ui.set_width(360.0);
-                ui.spacing_mut().item_spacing.y = 6.0;
+                ui.set_width(360.0 * s);
+                ui.spacing_mut().item_spacing.y = 6.0 * s;
                 ui.label(RichText::new(title).color(theme.text).strong());
                 ui.label(RichText::new(detail).color(theme.text_muted).small());
                 if let Some(w) = &warning {
                     ui.label(RichText::new(w).color(danger).small());
                 }
-                ui.add_space(4.0);
+                ui.add_space(4.0 * s);
                 ui.horizontal(|ui| {
                     ui.label(
                         RichText::new("Enter to delete · Esc to cancel")
@@ -1269,11 +1311,12 @@ impl AlacritreeApp {
         let mut create_clicked = false;
         let mut cancelled = false;
 
+        let s = theme.ui_scale;
         let modal = egui::Modal::new(egui::Id::new("alacritree_create_dialog")).frame(frame).show(
             ctx,
             |ui| {
-                ui.set_width(380.0);
-                ui.spacing_mut().item_spacing.y = 6.0;
+                ui.set_width(380.0 * s);
+                ui.spacing_mut().item_spacing.y = 6.0 * s;
                 ui.label(
                     RichText::new(format!("New worktree in `{project_name}`"))
                         .color(theme.text)
@@ -1300,7 +1343,7 @@ impl AlacritreeApp {
                 if let Some(e) = &error {
                     ui.label(RichText::new(e).color(danger).small());
                 }
-                ui.add_space(4.0);
+                ui.add_space(4.0 * s);
                 ui.horizontal(|ui| {
                     ui.label(
                         RichText::new("Enter to create · Esc to cancel")
@@ -1363,17 +1406,18 @@ impl AlacritreeApp {
         let theme = self.theme;
         let project_name = self.projects[project_idx].name.clone();
         let frame = modal_frame(&theme);
+        let s = theme.ui_scale;
         let _ = egui::Modal::new(egui::Id::new("alacritree_create_dialog")).frame(frame).show(
             ctx,
             |ui| {
-                ui.set_width(380.0);
-                ui.spacing_mut().item_spacing.y = 6.0;
+                ui.set_width(380.0 * s);
+                ui.spacing_mut().item_spacing.y = 6.0 * s;
                 ui.label(
                     RichText::new(format!("Creating `{branch}` in `{project_name}`"))
                         .color(theme.text)
                         .strong(),
                 );
-                ui.add_space(4.0);
+                ui.add_space(4.0 * s);
                 for (i, step) in steps.iter().enumerate() {
                     let is_last = i + 1 == steps.len();
                     let bullet_color = if is_last { theme.accent } else { theme.text_dim };
@@ -1405,11 +1449,12 @@ impl AlacritreeApp {
         let mut close = false;
         let (cancel_via_key, confirm_via_key) = consume_modal_keys(ctx);
 
+        let s = theme.ui_scale;
         let modal = egui::Modal::new(egui::Id::new("alacritree_create_dialog")).frame(frame).show(
             ctx,
             |ui| {
-                ui.set_width(380.0);
-                ui.spacing_mut().item_spacing.y = 6.0;
+                ui.set_width(380.0 * s);
+                ui.spacing_mut().item_spacing.y = 6.0 * s;
                 let (title, color) = match result {
                     Ok(_) => (format!("Created worktree in `{project_name}`"), ok),
                     Err(_) => ("Worktree creation failed".to_string(), danger),
@@ -1426,10 +1471,10 @@ impl AlacritreeApp {
                     });
                 }
                 if let Err(e) = result {
-                    ui.add_space(4.0);
+                    ui.add_space(4.0 * s);
                     ui.label(RichText::new(e).color(danger).small());
                 }
-                ui.add_space(4.0);
+                ui.add_space(4.0 * s);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     let label = if result.is_ok() { "Open" } else { "Close" };
                     let btn = ui.add(
@@ -1459,11 +1504,12 @@ impl AlacritreeApp {
         let mut quit_clicked = false;
         let mut cancel_clicked = false;
 
+        let s = theme.ui_scale;
         let modal = egui::Modal::new(egui::Id::new("alacritree_quit_dialog")).frame(frame).show(
             ctx,
             |ui| {
-                ui.set_width(320.0);
-                ui.spacing_mut().item_spacing.y = 6.0;
+                ui.set_width(320.0 * s);
+                ui.spacing_mut().item_spacing.y = 6.0 * s;
                 ui.label(RichText::new("Quit alacritree?").color(theme.text).strong());
                 let msg = match n {
                     0 => "No sessions running.".to_string(),
@@ -1471,7 +1517,7 @@ impl AlacritreeApp {
                     n => format!("{n} sessions will be terminated."),
                 };
                 ui.label(RichText::new(msg).color(theme.text_muted).small());
-                ui.add_space(4.0);
+                ui.add_space(4.0 * s);
                 ui.horizontal(|ui| {
                     ui.label(
                         RichText::new("Enter to quit · Esc to cancel")
