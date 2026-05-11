@@ -7,10 +7,6 @@
 #[cfg(target_os = "linux")]
 use arboard::{GetExtLinux, LinuxClipboardKind, SetExtLinux};
 
-/// Sentinel text that smuggles a Ctrl+V keystroke past egui_winit's
-/// text-only paste handler when the real clipboard holds an image.
-pub const IMAGE_PASTE_MARKER: &str = "\u{1}alacritree-image-paste\u{1}";
-
 #[derive(Copy, Clone, Debug)]
 pub enum Target {
     /// `Ctrl+V` clipboard.
@@ -65,54 +61,5 @@ pub fn read(target: Target) -> Option<String> {
             log::warn!("clipboard read ({:?}) failed: {e}", target);
             None
         },
-    }
-}
-
-#[derive(Clone)]
-pub struct PendingImage {
-    pub width: usize,
-    pub height: usize,
-    pub bytes: Vec<u8>,
-}
-
-pub fn stash_image_and_mark() -> Option<PendingImage> {
-    let mut clip = arboard::Clipboard::new().ok()?;
-    if let Ok(text) = clip.get_text() {
-        if !text.is_empty() {
-            return None;
-        }
-    }
-    let image = match clip.get_image() {
-        Ok(img) => img,
-        Err(arboard::Error::ContentNotAvailable) => return None,
-        Err(e) => {
-            log::warn!("clipboard image read failed: {e}");
-            return None;
-        },
-    };
-    let stash =
-        PendingImage { width: image.width, height: image.height, bytes: image.bytes.into_owned() };
-    if let Err(e) = clip.set_text(IMAGE_PASTE_MARKER.to_owned()) {
-        log::warn!("clipboard marker write failed: {e}");
-        return None;
-    }
-    Some(stash)
-}
-
-pub fn restore_image(image: &PendingImage) {
-    let mut clip = match arboard::Clipboard::new() {
-        Ok(c) => c,
-        Err(e) => {
-            log::warn!("clipboard unavailable for image restore: {e}");
-            return;
-        },
-    };
-    let res = clip.set_image(arboard::ImageData {
-        width: image.width,
-        height: image.height,
-        bytes: std::borrow::Cow::Borrowed(&image.bytes),
-    });
-    if let Err(e) = res {
-        log::warn!("clipboard image restore failed: {e}");
     }
 }

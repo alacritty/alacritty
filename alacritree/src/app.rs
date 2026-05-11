@@ -120,8 +120,6 @@ pub struct AlacritreeApp {
     quit_dialog_open: bool,
     pending_delete: Option<DeleteRequest>,
     pending_create: Option<CreateState>,
-    pending_image: Option<clipboard::PendingImage>,
-    last_clipboard_poll: Option<std::time::Instant>,
     notify_rx: Receiver<WorkspaceKey>,
     /// Shared across sessions; auto-invalidated when cell size changes.
     builtin_glyphs: crate::builtin_font::BuiltinGlyphCache,
@@ -228,8 +226,6 @@ impl AlacritreeApp {
             quit_dialog_open: false,
             pending_delete: None,
             pending_create: None,
-            pending_image: None,
-            last_clipboard_poll: None,
             notify_rx,
             builtin_glyphs: crate::builtin_font::BuiltinGlyphCache::new(),
         };
@@ -481,60 +477,6 @@ impl AlacritreeApp {
         });
         for action in actions {
             self.dispatch_action(ctx, action);
-        }
-    }
-
-    /// Two-phase shim around egui_winit's text-only Ctrl+V: while focused we
-    /// poll the clipboard and swap any image for a sentinel text; on the
-    /// matching `Event::Paste` we put the image back and write raw 0x16 to the
-    /// PTY so the inner TUI does its own `wl-paste` read (same effect as
-    /// alacritty's bare Ctrl+V).  Polling rather than reacting to Ctrl-down
-    /// avoids the compositor-propagation race: smithay-clipboard reads
-    /// happen-before our new selection is observable otherwise.
-    fn process_clipboard_image_paste(&mut self, ctx: &Context) {
-        let (focus_lost, marker_pasted, focused) = ctx.input_mut(|i| {
-            let mut focus_lost = false;
-            let mut marker = false;
-            i.events.retain(|ev| match ev {
-                egui::Event::WindowFocused(false) => {
-                    focus_lost = true;
-                    true
-                },
-                egui::Event::Paste(s) if s == clipboard::IMAGE_PASTE_MARKER => {
-                    marker = true;
-                    false
-                },
-                _ => true,
-            });
-            (focus_lost, marker, i.viewport().focused.unwrap_or(false))
-        });
-
-        const POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(150);
-        if focused {
-            let now = std::time::Instant::now();
-            let due =
-                self.last_clipboard_poll.is_none_or(|t| now.duration_since(t) >= POLL_INTERVAL);
-            if due {
-                if let Some(image) = clipboard::stash_image_and_mark() {
-                    self.pending_image = Some(image);
-                }
-                self.last_clipboard_poll = Some(now);
-            }
-            ctx.request_repaint_after(POLL_INTERVAL);
-        }
-
-        if marker_pasted {
-            if let Some(image) = self.pending_image.take() {
-                clipboard::restore_image(&image);
-            }
-            if let Some(idx) = self.active_session_index() {
-                self.sessions[idx].write(vec![0x16]);
-            }
-        }
-        if focus_lost {
-            if let Some(image) = self.pending_image.take() {
-                clipboard::restore_image(&image);
-            }
         }
     }
 
@@ -1885,7 +1827,6 @@ impl eframe::App for AlacritreeApp {
     }
 
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        self.process_clipboard_image_paste(ctx);
         let modal_open = self.is_modal_open();
         if !modal_open {
             self.handle_shortcuts(ctx);
