@@ -108,7 +108,10 @@ jobs:
     if: always() && needs.build.result != 'cancelled'
     needs: build
     permissions:
+      # `actions: write` is required so the final step can dispatch the
+      # scoop-update and aur-bin-publish workflows via `gh workflow run`.
       contents: write
+      actions: write
 
     steps:
       - name: Resolve release tag
@@ -150,3 +153,18 @@ jobs:
               --generate-notes \
               "${assets[@]}"
           fi
+
+      - name: Fan out to downstream publish workflows
+        # `release: published` events fired by GITHUB_TOKEN don't trigger
+        # other workflows (loop-prevention), so we explicitly dispatch the
+        # scoop and aur-bin bumps here. `workflow_dispatch` is the one
+        # event class that IS allowed to chain.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.value }}
+        run: |
+          set -euo pipefail
+          for wf in scoop-update.yml aur-bin-publish.yml; do
+            echo "Dispatching $wf for $TAG"
+            gh workflow run "$wf" --repo "$GITHUB_REPOSITORY" --ref master -f "tag=$TAG"
+          done
