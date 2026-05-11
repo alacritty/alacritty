@@ -3,21 +3,49 @@ name: Release
 on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish (must already exist)"
+        required: true
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  linux:
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
+  build:
+    name: Build ${{ matrix.target.name }}
+    runs-on: ${{ matrix.target.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - name: x86_64-linux
+            runner: ubuntu-latest
+            triple: x86_64-unknown-linux-gnu
+            archive: tar.gz
+            bin: alacritree
+          - name: x86_64-macos
+            runner: macos-13
+            triple: x86_64-apple-darwin
+            archive: tar.gz
+            bin: alacritree
+          - name: aarch64-macos
+            runner: macos-14
+            triple: aarch64-apple-darwin
+            archive: tar.gz
+            bin: alacritree
+          - name: x86_64-windows
+            runner: windows-latest
+            triple: x86_64-pc-windows-msvc
+            archive: zip
+            bin: alacritree.exe
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Install system dependencies
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -26,17 +54,99 @@ jobs:
             libxkbcommon-dev libxcb-shape0-dev libxcb-xfixes0-dev \
             libwayland-dev libgl1-mesa-dev libegl1-mesa-dev
 
-      - name: Build
-        run: cargo build -p alacritree --release --locked
+      - name: Install macOS system dependencies
+        if: runner.os == 'macOS'
+        run: brew install cmake pkg-config fontconfig freetype
 
-      - name: Package
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target.triple }}
+
+      - name: Build
+        run: cargo build -p alacritree --release --locked --target ${{ matrix.target.triple }}
+
+      - name: Resolve release tag
+        id: tag
+        shell: bash
         run: |
-          tag="${GITHUB_REF##*/}"
-          asset="alacritree-${tag}-x86_64-linux.tar.gz"
-          tar -C target/release -czf "$asset" alacritree
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "value=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Package (tar.gz)
+        if: matrix.target.archive == 'tar.gz'
+        shell: bash
+        run: |
+          asset="alacritree-${{ steps.tag.outputs.value }}-${{ matrix.target.name }}.tar.gz"
+          tar -C "target/${{ matrix.target.triple }}/release" -czf "$asset" "${{ matrix.target.bin }}"
           echo "ASSET=$asset" >> "$GITHUB_ENV"
 
-      - name: Upload to release
+      - name: Package (zip)
+        if: matrix.target.archive == 'zip'
+        shell: pwsh
+        run: |
+          $asset = "alacritree-${{ steps.tag.outputs.value }}-${{ matrix.target.name }}.zip"
+          Compress-Archive `
+            -Path "target/${{ matrix.target.triple }}/release/${{ matrix.target.bin }}" `
+            -DestinationPath $asset
+          "ASSET=$asset" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: alacritree-${{ matrix.target.name }}
+          path: ${{ env.ASSET }}
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish release
+    runs-on: ubuntu-latest
+    # `always()` so a partial matrix (e.g. only Linux building cleanly today)
+    # still produces a release with whatever artifacts succeeded.
+    if: always() && needs.build.result != 'cancelled'
+    needs: build
+    permissions:
+      contents: write
+
+    steps:
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "value=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la dist/
+
+      - name: Create or update GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${GITHUB_REF##*/}" "$ASSET" --clobber
+          TAG: ${{ steps.tag.outputs.value }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          assets=(dist/*)
+          if [[ ${#assets[@]} -eq 0 ]]; then
+            echo "No artifacts to publish; aborting." >&2
+            exit 1
+          fi
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$TAG" \
+              --generate-notes \
+              "${assets[@]}"
+          fi

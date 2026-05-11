@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # eframe (winit + glow), arboard (X11/Wayland clipboard), and the unix
       # fontconfig dep all need C headers that aren't on the runner by default.

@@ -15,10 +15,12 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Publish alacritree-git to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v2.7.2
+        # v4.x fixes a runuser/-c → bash --command translation bug that hit
+        # v2.7.2; inputs are unchanged.
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.3
         with:
           pkgname: alacritree-git
           pkgbuild: packaging/aur/alacritree-git/PKGBUILD
