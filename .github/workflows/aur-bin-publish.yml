@@ -1,0 +1,66 @@
+name: Publish alacritree-bin to AUR
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish (e.g. v0.2.0)"
+        required: true
+
+# Avoid two simultaneous publishes if a manual dispatch races a release event.
+concurrency:
+  group: aur-bin-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Stamp PKGBUILD with version and asset hashes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          pkgbuild=packaging/aur/alacritree-bin/PKGBUILD
+
+          for arch in x86_64 aarch64; do
+            asset="alacritree-${TAG}-${arch}-linux.tar.gz"
+            if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+                  --json assets --jq '.assets[].name' \
+                  | grep -qx "$asset"; then
+              echo "Release $TAG is missing $asset; refusing to publish a broken alacritree-bin." >&2
+              exit 1
+            fi
+            url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${asset}"
+            curl --fail --location --output "/tmp/${asset}" "$url"
+            declare "hash_${arch}=$(sha256sum "/tmp/${asset}" | cut -d' ' -f1)"
+          done
+
+          sed -i \
+            -e "s/^pkgver=.*/pkgver=${version}/" \
+            -e "s/^pkgrel=.*/pkgrel=1/" \
+            -e "s/^sha256sums_x86_64=.*/sha256sums_x86_64=('${hash_x86_64}')/" \
+            -e "s/^sha256sums_aarch64=.*/sha256sums_aarch64=('${hash_aarch64}')/" \
+            "$pkgbuild"
+
+          echo "--- stamped PKGBUILD ---"
+          cat "$pkgbuild"
+
+      - name: Publish to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.3
+        with:
+          pkgname: alacritree-bin
+          pkgbuild: packaging/aur/alacritree-bin/PKGBUILD
+          commit_username: ${{ github.actor }}
+          commit_email: ${{ github.actor }}@users.noreply.github.com
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Bump alacritree-bin to ${{ github.event.release.tag_name || inputs.tag }}"
+          ssh_keyscan_types: rsa,ecdsa,ed25519
+          force_push: false
+          allow_empty_commits: false

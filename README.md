@@ -49,14 +49,14 @@ optional `alacritree.toml` for sidebar-specific UI overrides.
 
 ### Linux
 
-**Arch (AUR)** — VCS package, builds from the latest `master`:
+**Arch (AUR)** — two flavours:
+
+- `alacritree-bin` — prebuilt binary from the latest GitHub release, no
+  Rust toolchain required, supports `x86_64` and `aarch64`.
+- `alacritree-git` — VCS package that compiles the latest `master` locally.
 
 ```sh
-# with an AUR helper such as paru or yay
-paru -S alacritree-git
-# or, manually
-git clone https://aur.archlinux.org/alacritree-git.git
-cd alacritree-git && makepkg -si
+yay -S alacritree-bin      # or `alacritree-git`
 ```
 
 **Prebuilt tarball** — every tagged release publishes Linux tarballs

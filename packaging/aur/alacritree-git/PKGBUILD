@@ -23,7 +23,7 @@ makedepends=(
   'pkgconf'
 )
 provides=("$_pkgname")
-conflicts=("$_pkgname")
+conflicts=("$_pkgname" 'alacritree-bin')
 source=("$_pkgname::git+$url.git#branch=master")
 sha256sums=('SKIP')
 
