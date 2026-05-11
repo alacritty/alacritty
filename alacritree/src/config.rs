@@ -156,12 +156,26 @@ pub struct Palette {
     pub draw_bold_with_bright: bool,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct UiTheme {
     pub sidebar_background: Option<Color32>,
     pub sidebar_foreground: Option<Color32>,
     pub sidebar_border: Option<Color32>,
     pub sidebar_accent: Option<Color32>,
+    /// Fire a desktop notification when a non-visible session needs attention.
+    pub notifications: bool,
+}
+
+impl Default for UiTheme {
+    fn default() -> Self {
+        Self {
+            sidebar_background: None,
+            sidebar_foreground: None,
+            sidebar_border: None,
+            sidebar_accent: None,
+            notifications: true,
+        }
+    }
 }
 
 impl Default for Config {
@@ -584,6 +598,7 @@ struct RawUi {
     sidebar_foreground: Option<RgbStr>,
     sidebar_border: Option<RgbStr>,
     sidebar_accent: Option<RgbStr>,
+    notifications: Option<bool>,
 }
 
 /// Wrapper that parses `"0xrrggbb"`, `"#rrggbb"`, or `"rrggbb"` into an `Rgb`.
@@ -661,6 +676,7 @@ impl RawConfig {
             sidebar_foreground: self.ui.sidebar_foreground.map(|v| rgb_to_color32(v.0)),
             sidebar_border: self.ui.sidebar_border.map(|v| rgb_to_color32(v.0)),
             sidebar_accent: self.ui.sidebar_accent.map(|v| rgb_to_color32(v.0)),
+            notifications: self.ui.notifications.unwrap_or(true),
         };
 
         // ---- Font ----

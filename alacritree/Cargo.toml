@@ -16,12 +16,15 @@ env_logger = "0.11"
 git2 = { version = "0.20", default-features = false }
 rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "async-std"] }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 toml = { workspace = true }
 xdg = "3.0.0"
 home = "0.5.5"
 fontdb = { version = "0.23", default-features = false, features = ["fontconfig", "memmap"] }
 arboard = { version = "3", default-features = false, features = ["wayland-data-control"] }
 png = "0.17"
+# Desktop notifications when a background session rings the bell.
+notify-rust = "4"
 
 [target.'cfg(unix)'.dependencies]
 # Used for font matching: matches what alacritty does via crossfont so that

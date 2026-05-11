@@ -72,7 +72,6 @@ pub fn show(
 
     let painter = ui.painter_at(rect);
 
-    drain_pty_events(session);
     handle_selection(ui, &response, session, config, rect, cell_w, cell_h, cols, rows);
     // Built-in renderer expects the *unadjusted* pixel cell size so it can
     // re-apply `font.offset` itself — passing `cell_w * ppp` (which already
@@ -112,18 +111,6 @@ pub fn show(
     }
 
     response
-}
-
-fn drain_pty_events(session: &mut Session) {
-    use alacritty_terminal::event::Event as TermEvent;
-    while let Ok(event) = session.events.try_recv() {
-        match event {
-            TermEvent::PtyWrite(s) => session.write(s.into_bytes()),
-            TermEvent::Title(t) => session.title = t,
-            TermEvent::ChildExit(_) => session.mark_exited(),
-            _ => {},
-        }
-    }
 }
 
 fn handle_selection(

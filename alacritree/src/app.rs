@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::Receiver;
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Mutex, OnceLock};
 
 use eframe::CreationContext;
 use egui::{Color32, Context, Frame, Margin, RichText, ScrollArea, SidePanel, Stroke};
@@ -19,6 +20,12 @@ use crate::worktree::{self as wt, CreateRequest, Progress};
 /// `None` is the home workspace (sessions inherit `$PWD`); `Some` is a worktree path.
 type WorkspaceKey = Option<PathBuf>;
 
+/// Channel from notification-worker threads back to the app.  Set once by
+/// `AlacritreeApp::new`; each worker reads it to deliver the workspace the
+/// user clicked on.  Static because the worker has no other handle to the
+/// app and there's only ever one app instance per process.
+static NOTIFY_TX: OnceLock<Mutex<Sender<WorkspaceKey>>> = OnceLock::new();
+
 #[derive(Clone, Copy)]
 struct Theme {
     terminal_bg: Color32,
@@ -30,6 +37,9 @@ struct Theme {
     text_dim: Color32,
     text_muted: Color32,
     accent: Color32,
+    /// "Needs attention" highlight.  Distinct from `accent` ("active
+    /// workspace") so the two signals don't read as the same thing.
+    attention: Color32,
     /// Logical-pixel size for headings (titles like "Projects", "Git").
     /// `FontConfig::UI_HEADING_RATIO` of the terminal font size.
     font_heading: f32,
@@ -63,6 +73,7 @@ impl Theme {
             text_dim: blend_toward(text, sidebar_bg, 0.35),
             text_muted: blend_toward(text, sidebar_bg, 0.55),
             accent,
+            attention: rgb_to_color32(config.palette.normal[3]), // ANSI yellow
             font_heading: config.font.ui_heading_px(),
             font_normal: config.font.ui_normal_px(),
             ui_scale: config.font.ui_normal_px() / 11.25,
@@ -109,6 +120,7 @@ pub struct AlacritreeApp {
     quit_dialog_open: bool,
     pending_delete: Option<DeleteRequest>,
     pending_create: Option<CreateState>,
+    notify_rx: Receiver<WorkspaceKey>,
     /// Shared across sessions; auto-invalidated when cell size changes.
     builtin_glyphs: crate::builtin_font::BuiltinGlyphCache,
 }
@@ -193,6 +205,13 @@ impl AlacritreeApp {
             })
             .collect();
 
+        let (notify_tx, notify_rx) = mpsc::channel();
+        // `set` may fail only if a previous instance already initialized the
+        // static (e.g. tests).  In that case the old sender points at a dead
+        // app, so overwriting via `Mutex` would be ideal — but since we only
+        // ever spawn one app per process, ignoring the error is fine.
+        let _ = NOTIFY_TX.set(Mutex::new(notify_tx));
+
         let mut app = Self {
             show_left_sidebar: persisted.show_left_sidebar,
             show_right_sidebar: persisted.show_right_sidebar,
@@ -207,6 +226,7 @@ impl AlacritreeApp {
             quit_dialog_open: false,
             pending_delete: None,
             pending_create: None,
+            notify_rx,
             builtin_glyphs: crate::builtin_font::BuiltinGlyphCache::new(),
         };
 
@@ -605,7 +625,11 @@ impl AlacritreeApp {
             let click_rect = seg_rect.expand2(egui::vec2(0.0, 4.0));
             let id = ui.id().with(("tab_strip", self.sessions[session_idx].id));
             let resp = ui.interact(click_rect, id, egui::Sense::click());
-            let color = if is_active {
+            // Attention wins over the active/inactive shading so a bell from a
+            // non-active tab pulls the eye even when another tab is selected.
+            let color = if self.sessions[session_idx].needs_attention {
+                theme.attention
+            } else if is_active {
                 theme.text
             } else if resp.hovered() {
                 theme.text_dim
@@ -637,6 +661,34 @@ impl AlacritreeApp {
         let mut home_clicked = false;
         let theme = self.theme;
 
+        // Snapshot attention + agent-glyph state up-front so the `iter_mut`
+        // over projects below isn't blocked from calling back into `&self`
+        // helpers.
+        let home_attention = self.workspace_needs_attention(&None);
+        let home_agent_glyph = self.workspace_agent_glyph(&None);
+        let project_attention: Vec<bool> =
+            self.projects.iter().map(|p| self.project_needs_attention(p)).collect();
+        let worktree_attention: Vec<Vec<bool>> = self
+            .projects
+            .iter()
+            .map(|p| {
+                p.worktrees
+                    .iter()
+                    .map(|wt| self.workspace_needs_attention(&Some(wt.path.clone())))
+                    .collect()
+            })
+            .collect();
+        let worktree_agent: Vec<Vec<Option<char>>> = self
+            .projects
+            .iter()
+            .map(|p| {
+                p.worktrees
+                    .iter()
+                    .map(|wt| self.workspace_agent_glyph(&Some(wt.path.clone())))
+                    .collect()
+            })
+            .collect();
+
         let panel_resp = SidePanel::left("left_sidebar")
             .resizable(true)
             .default_width(240.0 * theme.ui_scale)
@@ -657,7 +709,15 @@ impl AlacritreeApp {
                 ui.separator();
 
                 ScrollArea::vertical().show(ui, |ui| {
-                    if home_row(ui, self.current_workspace.is_none(), &theme).clicked() {
+                    if home_row(
+                        ui,
+                        self.current_workspace.is_none(),
+                        home_attention,
+                        home_agent_glyph,
+                        &theme,
+                    )
+                    .clicked()
+                    {
                         home_clicked = true;
                     }
                     ui.add_space(2.0);
@@ -673,6 +733,12 @@ impl AlacritreeApp {
                     }
 
                     for (idx, project) in self.projects.iter_mut().enumerate() {
+                        let proj_attention = project_attention.get(idx).copied().unwrap_or(false);
+                        // Bubble attention up to the project row only when the
+                        // project is collapsed — once expanded, the actual
+                        // worktree rows already show the dot, and doubling it
+                        // on the parent reads as noise.
+                        let show_proj_dot = proj_attention && !project.expanded;
                         row_with_trailing(
                             ui,
                             |ui| {
@@ -711,13 +777,27 @@ impl AlacritreeApp {
                                 {
                                     create_request.set(Some(idx));
                                 }
+                                if show_proj_dot {
+                                    attention_dot(ui, &theme);
+                                }
                             },
                         );
 
                         if project.expanded {
-                            for wt in &project.worktrees {
+                            for (wt_idx, wt) in project.worktrees.iter().enumerate() {
                                 let is_active = self.current_workspace.as_deref() == Some(&wt.path);
-                                let action = worktree_row(ui, wt, is_active, &theme);
+                                let wt_attention = worktree_attention
+                                    .get(idx)
+                                    .and_then(|v| v.get(wt_idx))
+                                    .copied()
+                                    .unwrap_or(false);
+                                let wt_glyph = worktree_agent
+                                    .get(idx)
+                                    .and_then(|v| v.get(wt_idx))
+                                    .copied()
+                                    .unwrap_or(None);
+                                let action =
+                                    worktree_row(ui, wt, is_active, wt_attention, wt_glyph, &theme);
                                 if action.activate {
                                     activate_request.set(Some(wt.path.clone()));
                                 }
@@ -1055,6 +1135,40 @@ fn file_row(
 /// glyphs of different intrinsic heights (e.g. `+` vs `↻`) end up on different
 /// baselines. `painter.text` with `CENTER_CENTER` centers the galley in the
 /// rect, giving real grid alignment.
+/// Painted (rather than `RichText("●")`) so its size is independent of font
+/// metrics — `RichText("●")` renders inconsistently across fallback fonts.
+fn attention_dot(ui: &mut egui::Ui, theme: &Theme) {
+    let s = theme.ui_scale;
+    let size = egui::vec2(10.0 * s, 14.0 * s);
+    let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+    let radius = 3.0 * s;
+    ui.painter().circle_filled(rect.center(), radius, theme.attention);
+}
+
+/// Priority: attention dot > agent glyph (animated by the agent's own title
+/// updates) > the row's default marker.
+fn paint_row_status_icon(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    attention: bool,
+    agent_glyph: Option<char>,
+    default_glyph: &str,
+    is_active: bool,
+) {
+    if attention {
+        attention_dot(ui, theme);
+        return;
+    }
+    let s = theme.ui_scale;
+    let (glyph, color) = match agent_glyph {
+        Some(g) => (g.to_string(), if is_active { theme.accent } else { theme.text }),
+        None => {
+            (default_glyph.to_string(), if is_active { theme.accent } else { theme.text_muted })
+        },
+    };
+    ui.label(RichText::new(glyph).color(color).size(10.0 * s));
+}
+
 fn icon_button(ui: &mut egui::Ui, glyph: &str, color: Color32, theme: &Theme) -> egui::Response {
     let s = theme.ui_scale;
     let size = egui::vec2(16.0 * s, 16.0 * s);
@@ -1099,7 +1213,13 @@ where
     });
 }
 
-fn home_row(ui: &mut egui::Ui, is_active: bool, theme: &Theme) -> egui::Response {
+fn home_row(
+    ui: &mut egui::Ui,
+    is_active: bool,
+    attention: bool,
+    agent_glyph: Option<char>,
+    theme: &Theme,
+) -> egui::Response {
     // Reserve a slot *before* the labels so the hover bg paints beneath them.
     let bg_idx = ui.painter().add(egui::Shape::Noop);
     let panel_x = ui.max_rect().x_range();
@@ -1108,11 +1228,7 @@ fn home_row(ui: &mut egui::Ui, is_active: bool, theme: &Theme) -> egui::Response
     let resp = frame
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(
-                    RichText::new("⌂")
-                        .color(if is_active { theme.accent } else { theme.text_muted })
-                        .size(10.0 * theme.ui_scale),
-                );
+                paint_row_status_icon(ui, theme, attention, agent_glyph, "⌂", is_active);
                 ui.label(
                     RichText::new("Home")
                         .color(if is_active { theme.text } else { theme.text_dim })
@@ -1147,6 +1263,8 @@ fn worktree_row(
     ui: &mut egui::Ui,
     wt: &Worktree,
     is_active: bool,
+    attention: bool,
+    agent_glyph: Option<char>,
     theme: &Theme,
 ) -> WorktreeAction {
     // Reserve a slot *before* the labels so the hover bg paints beneath them.
@@ -1160,13 +1278,19 @@ fn worktree_row(
     let frame = Frame::default().inner_margin(Margin { left: 16, right: 0, top: 3, bottom: 3 });
     let resp = frame
         .show(ui, |ui| {
-            let icon = if wt.is_main { "●" } else { "○" };
-            let icon_color = if is_active { theme.accent } else { theme.text_muted };
+            let default_icon = if wt.is_main { "●" } else { "○" };
             let name_color = if is_active { theme.text } else { theme.text_dim };
             row_with_trailing(
                 ui,
                 |ui| {
-                    ui.label(RichText::new(icon).color(icon_color).size(10.0 * theme.ui_scale));
+                    paint_row_status_icon(
+                        ui,
+                        theme,
+                        attention,
+                        agent_glyph,
+                        default_icon,
+                        is_active,
+                    );
                     ui.add(
                         egui::Label::new(RichText::new(&wt.name).color(name_color).small())
                             .truncate(),
@@ -1220,6 +1344,89 @@ impl AlacritreeApp {
         for id in exited_ids {
             self.close_session(id);
         }
+    }
+
+    /// Handle workspace-switch requests from clicked notifications.  Only
+    /// the most recent click is honored — if multiple toasts piled up, the
+    /// user most likely meant the latest one.
+    fn process_notification_actions(&mut self, ctx: &Context) {
+        let mut latest: Option<WorkspaceKey> = None;
+        while let Ok(ws) = self.notify_rx.try_recv() {
+            latest = Some(ws);
+        }
+        let Some(ws) = latest else { return };
+        match ws {
+            None => self.activate_home(ctx),
+            Some(p) => self.activate_worktree(ctx, &p),
+        }
+        ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+    }
+
+    /// Drain every session's PTY events and surface "needs attention" for
+    /// any session the user isn't currently looking at.
+    fn process_session_events(&mut self, ctx: &Context) {
+        let visible_idx = self.active_session_index();
+        // `viewport().focused` is `None` on platforms that don't report focus;
+        // treat unknown as "focused" so we don't pile up stale attention dots.
+        let focused = ctx.input(|i| i.viewport().focused).unwrap_or(true);
+
+        for idx in 0..self.sessions.len() {
+            let outcome = self.sessions[idx].drain_events();
+            if !outcome.attention {
+                continue;
+            }
+            let is_visible_to_user = Some(idx) == visible_idx && focused;
+            if is_visible_to_user {
+                continue;
+            }
+            // Only toast on the *transition* into needs_attention — otherwise
+            // BEL + title-transition firing in the same idle cycle would
+            // produce two toasts for the same "Claude is done" event.
+            let was_attending = self.sessions[idx].needs_attention;
+            self.sessions[idx].needs_attention = true;
+            if !was_attending && self.config.ui.notifications {
+                notify_attention(&self.sessions[idx], ctx);
+            }
+        }
+
+        // Visible session shouldn't keep an attention marker once the user is
+        // actually looking at it — covers tab switches, workspace switches,
+        // and refocusing the window after stepping away.
+        if focused {
+            if let Some(idx) = visible_idx {
+                self.sessions[idx].needs_attention = false;
+            }
+        }
+    }
+
+    fn workspace_needs_attention(&self, ws: &WorkspaceKey) -> bool {
+        self.sessions.iter().any(|s| s.working_directory == *ws && s.needs_attention)
+    }
+
+    fn project_needs_attention(&self, project: &Project) -> bool {
+        project.worktrees.iter().any(|wt| self.workspace_needs_attention(&Some(wt.path.clone())))
+    }
+
+    /// Prefer the active session's glyph so two parallel agents don't fight
+    /// over which icon the sidebar shows.
+    fn workspace_agent_glyph(&self, ws: &WorkspaceKey) -> Option<char> {
+        let active_id = self.active_session.get(ws).copied();
+        let mut active_glyph = None;
+        let mut other_glyph = None;
+        for s in &self.sessions {
+            if s.working_directory != *ws {
+                continue;
+            }
+            let Some(g) = s.agent_glyph() else { continue };
+            if Some(s.id) == active_id {
+                active_glyph = Some(g);
+                break;
+            }
+            if other_glyph.is_none() {
+                other_glyph = Some(g);
+            }
+        }
+        active_glyph.or(other_glyph)
     }
 
     fn show_delete_dialog(&mut self, ctx: &Context) {
@@ -1624,6 +1831,8 @@ impl eframe::App for AlacritreeApp {
         if !modal_open {
             self.handle_shortcuts(ctx);
         }
+        self.process_notification_actions(ctx);
+        self.process_session_events(ctx);
         let theme = self.theme;
         // GL clear is the sole source of the bg when opacity < 1; painting any
         // panel fill on top would compound the alpha through egui's blend.
@@ -1688,5 +1897,66 @@ impl eframe::App for AlacritreeApp {
         }
 
         self.reap_exited_sessions();
+    }
+}
+
+/// Spawn a throwaway thread so `notify-rust`'s synchronous D-Bus / WinRT
+/// calls don't stall the egui paint loop.  On Linux the thread sticks around
+/// for `wait_for_action` and posts the session's workspace back through
+/// `NOTIFY_TX` when the user clicks the notification.
+fn notify_attention(session: &Session, ctx: &egui::Context) {
+    let where_label = session
+        .working_directory
+        .as_ref()
+        .and_then(|p| p.file_name())
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| session.title.clone());
+    let body = if where_label.is_empty() {
+        "Session is waiting for input".to_string()
+    } else {
+        format!("{where_label} is waiting for input")
+    };
+    let key = session.working_directory.clone();
+    let ctx = ctx.clone();
+    std::thread::Builder::new()
+        .name("alacritree-notify".into())
+        .spawn(move || notify_worker(body, key, ctx))
+        .ok();
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn notify_worker(body: String, key: WorkspaceKey, ctx: egui::Context) {
+    // `default` is the action id freedesktop notifiers fire on body-click.
+    let result = notify_rust::Notification::new()
+        .summary("alacritree")
+        .body(&body)
+        .action("default", "Open")
+        .show();
+    let handle = match result {
+        Ok(h) => h,
+        Err(e) => {
+            log::debug!("desktop notification failed: {e}");
+            return;
+        },
+    };
+    handle.wait_for_action(|action| {
+        if action == "__closed" {
+            return;
+        }
+        if let Some(lock) = NOTIFY_TX.get() {
+            if let Ok(tx) = lock.lock() {
+                let _ = tx.send(key.clone());
+                ctx.request_repaint();
+            }
+        }
+    });
+}
+
+#[cfg(not(all(unix, not(target_os = "macos"))))]
+fn notify_worker(body: String, _key: WorkspaceKey, _ctx: egui::Context) {
+    // mac-notification-sys / WinRT don't expose blocking action waits via
+    // notify-rust today — fall back to a fire-and-forget toast.
+    if let Err(e) = notify_rust::Notification::new().summary("alacritree").body(&body).show() {
+        log::debug!("desktop notification failed: {e}");
     }
 }
