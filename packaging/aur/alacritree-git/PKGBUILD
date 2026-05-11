@@ -1,0 +1,65 @@
+# Maintainer: Arnaud Gissinger <claude@mathix.dev>
+
+pkgname=alacritree-git
+_pkgname=alacritree
+pkgver=0.1.0.dev.r0.g0000000
+pkgrel=1
+pkgdesc="Alacritty fork with worktree-aware sidebars (built from master)"
+arch=('x86_64')
+url="https://github.com/mathix420/alacritree"
+license=('Apache-2.0')
+depends=(
+  'fontconfig'
+  'freetype2'
+  'libxkbcommon'
+  'libxcb'
+  'wayland'
+  'libglvnd'
+)
+makedepends=(
+  'git'
+  'rust>=1.85'
+  'cmake'
+  'pkgconf'
+)
+provides=("$_pkgname")
+conflicts=("$_pkgname")
+source=("$_pkgname::git+$url.git#branch=master")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$_pkgname"
+  # Prefer `git describe` when tags exist; until then, emit a date+sha so
+  # makepkg's version-comparison still sees forward progress on every commit.
+  if git describe --long --tags --always >/dev/null 2>&1 && \
+     git describe --long --tags >/dev/null 2>&1; then
+    git describe --long --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+  else
+    printf '0.1.0.dev.r%s.g%s' \
+      "$(git rev-list --count HEAD)" \
+      "$(git rev-parse --short=7 HEAD)"
+  fi
+}
+
+prepare() {
+  cd "$_pkgname"
+  export CARGO_TARGET_DIR=target
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "$_pkgname"
+  export CARGO_TARGET_DIR=target
+  cargo build --frozen --release -p alacritree
+}
+
+package() {
+  cd "$_pkgname"
+  install -Dm755 target/release/alacritree "$pkgdir/usr/bin/alacritree"
+  install -Dm644 alacritree/assets/icon.png \
+    "$pkgdir/usr/share/icons/hicolor/256x256/apps/alacritree.png"
+  install -Dm644 LICENSE-APACHE \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE-APACHE"
+  install -Dm644 LICENSE-MIT \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE-MIT"
+}

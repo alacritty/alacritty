@@ -1,0 +1,31 @@
+name: Publish AUR
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# Avoid two concurrent AUR pushes stepping on each other when commits land
+# in quick succession.
+concurrency:
+  group: aur-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish alacritree-git to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v2.7.2
+        with:
+          pkgname: alacritree-git
+          pkgbuild: packaging/aur/alacritree-git/PKGBUILD
+          commit_username: ${{ github.actor }}
+          commit_email: ${{ github.actor }}@users.noreply.github.com
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Sync from master @ ${{ github.sha }}"
+          ssh_keyscan_types: rsa,ecdsa,ed25519
+          force_push: false
+          allow_empty_commits: false
