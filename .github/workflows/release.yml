@@ -25,6 +25,11 @@ jobs:
             triple: x86_64-unknown-linux-gnu
             archive: tar.gz
             bin: alacritree
+          - name: aarch64-linux
+            runner: ubuntu-24.04-arm
+            triple: aarch64-unknown-linux-gnu
+            archive: tar.gz
+            bin: alacritree
           - name: aarch64-macos
             runner: macos-14
             triple: aarch64-apple-darwin

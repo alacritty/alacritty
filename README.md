@@ -59,13 +59,14 @@ git clone https://aur.archlinux.org/alacritree-git.git
 cd alacritree-git && makepkg -si
 ```
 
-**Prebuilt tarball** — every tagged release publishes a Linux x86_64
-tarball at <https://github.com/mathix420/alacritree/releases>:
+**Prebuilt tarball** — every tagged release publishes Linux tarballs
+(`x86_64` and `aarch64`) at <https://github.com/mathix420/alacritree/releases>:
 
 ```sh
 tag=v0.1.0   # pick the release you want
-curl -fLO "https://github.com/mathix420/alacritree/releases/download/${tag}/alacritree-${tag}-x86_64-linux.tar.gz"
-tar -xzf "alacritree-${tag}-x86_64-linux.tar.gz"
+arch=x86_64  # or aarch64
+curl -fLO "https://github.com/mathix420/alacritree/releases/download/${tag}/alacritree-${tag}-${arch}-linux.tar.gz"
+tar -xzf "alacritree-${tag}-${arch}-linux.tar.gz"
 install -Dm755 alacritree ~/.local/bin/alacritree
 ```
 
