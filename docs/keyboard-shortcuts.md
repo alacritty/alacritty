@@ -23,8 +23,8 @@ These cannot be rebound today.
 | `Ctrl+T`             | Open a new shell session in the current workspace     |
 | `Ctrl+Tab`           | Cycle to the next session in the current workspace    |
 | `Ctrl+Shift+Tab`     | Cycle to the previous session                         |
-| `Ctrl+Alt+Right`     | Switch to the next workspace (home / worktrees)       |
-| `Ctrl+Alt+Left`      | Switch to the previous workspace                      |
+| `Alt+Right`          | Switch to the next workspace (home / worktrees)       |
+| `Alt+Left`           | Switch to the previous workspace                      |
 | `Ctrl+Q`             | Open the quit confirmation dialog                     |
 | `Enter`              | Confirm a modal (quit, delete worktree, create branch)|
 | `Escape`             | Cancel a modal                                        |

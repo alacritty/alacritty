@@ -389,12 +389,10 @@ impl AlacritreeApp {
             if consume_exact(i, egui::Modifiers::CTRL, egui::Key::Tab) {
                 cycle_tabs_delta = Some(1);
             }
-            if consume_exact(i, egui::Modifiers::CTRL | egui::Modifiers::ALT, egui::Key::ArrowRight)
-            {
+            if consume_exact(i, egui::Modifiers::ALT, egui::Key::ArrowRight) {
                 cycle_ws_delta = Some(1);
             }
-            if consume_exact(i, egui::Modifiers::CTRL | egui::Modifiers::ALT, egui::Key::ArrowLeft)
-            {
+            if consume_exact(i, egui::Modifiers::ALT, egui::Key::ArrowLeft) {
                 cycle_ws_delta = Some(-1);
             }
             if consume_exact(i, egui::Modifiers::CTRL, egui::Key::Q) {
