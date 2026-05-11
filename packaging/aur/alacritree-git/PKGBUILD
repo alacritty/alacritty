@@ -58,10 +58,10 @@ package() {
   install -Dm755 target/release/alacritree "$pkgdir/usr/bin/alacritree"
   install -Dm644 alacritree/assets/alacritree.desktop \
     "$pkgdir/usr/share/applications/alacritree.desktop"
-  install -Dm644 alacritree/assets/icon-256.png \
-    "$pkgdir/usr/share/icons/hicolor/256x256/apps/alacritree.png"
-  install -Dm644 alacritree/assets/icon-512.png \
-    "$pkgdir/usr/share/icons/hicolor/512x512/apps/alacritree.png"
+  for size in 16 24 32 48 64 128 256 512; do
+    install -Dm644 "alacritree/assets/icon-${size}.png" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/alacritree.png"
+  done
   install -Dm644 LICENSE-APACHE \
     "$pkgdir/usr/share/licenses/$pkgname/LICENSE-APACHE"
   install -Dm644 LICENSE-MIT \
