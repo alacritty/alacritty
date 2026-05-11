@@ -73,6 +73,10 @@ pub struct Session {
     pub events: mpsc::Receiver<TermEvent>,
     /// Latched attention flag, cleared when the user views this session.
     pub needs_attention: bool,
+    /// Sub-cell wheel residue (logical points), retained across frames so that
+    /// trackpad pixel-deltas accumulate into whole-line scrolls instead of
+    /// being dropped when each frame's delta is smaller than a cell.
+    pub accumulated_scroll: (f64, f64),
     /// Shell pid spawned for this PTY.  Used to walk to the foreground
     /// process group when identifying which agent is running.  None on
     /// platforms where we don't yet capture it (Windows).
@@ -265,6 +269,7 @@ impl Session {
             term,
             events,
             needs_attention: false,
+            accumulated_scroll: (0.0, 0.0),
             shell_pid,
             agent_cache: Cell::new(AgentCache::default()),
             notifier: Notifier(sender.clone()),

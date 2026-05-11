@@ -1,13 +1,14 @@
-use alacritty_terminal::grid::Dimensions;
+use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Column, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionRange, SelectionType};
 use alacritty_terminal::term::Term;
+use alacritty_terminal::term::TermMode;
 use alacritty_terminal::term::cell::{Cell, Flags};
 use alacritty_terminal::term::search::Match;
 use alacritty_terminal::vte::ansi::Color as AnsiColor;
 use egui::{
-    Color32, CursorIcon, FontFamily, FontId, PointerButton, Pos2, Rect, Response, Sense, Stroke,
-    Ui, Vec2,
+    Color32, CursorIcon, Event, FontFamily, FontId, Modifiers, MouseWheelUnit, PointerButton, Pos2,
+    Rect, Response, Sense, Stroke, Ui, Vec2,
 };
 
 use crate::builtin_font::{BuiltinGlyphCache, Metrics, is_builtin_glyph};
@@ -91,6 +92,7 @@ pub fn show(
         rows,
         hovered_link.as_ref(),
     );
+    handle_wheel_scroll(ui, &response, session, config, cell_w, cell_h);
     // Built-in renderer expects the *unadjusted* pixel cell size so it can
     // re-apply `font.offset` itself — passing `cell_w * ppp` (which already
     // includes the offset) would double-add it.  Descent is zero here: the
@@ -278,6 +280,103 @@ fn handle_selection(
         // Bare click outside an existing drag clears the selection, matching alacritty.
         session.term.lock().selection = None;
     }
+}
+
+/// Mouse-wheel scrolling.  Mirrors alacritty's `scroll_terminal`: accumulate
+/// pixel deltas across frames, divide by cell height for whole-line steps,
+/// and route to the PTY or scrollback depending on terminal mode.
+fn handle_wheel_scroll(
+    ui: &Ui,
+    response: &Response,
+    session: &mut Session,
+    config: &Config,
+    cell_w: f32,
+    cell_h: f32,
+) {
+    if !response.hovered() {
+        return;
+    }
+    let wheels: Vec<(MouseWheelUnit, Vec2, Modifiers)> = ui.input(|i| {
+        i.events
+            .iter()
+            .filter_map(|e| match e {
+                Event::MouseWheel { unit, delta, modifiers } => Some((*unit, *delta, *modifiers)),
+                _ => None,
+            })
+            .collect()
+    });
+    if wheels.is_empty() {
+        return;
+    }
+    let cell_w_pt = cell_w as f64;
+    let cell_h_pt = cell_h as f64;
+    for (unit, delta, modifiers) in wheels {
+        let (dx_pt, dy_pt) = match unit {
+            MouseWheelUnit::Point => (delta.x as f64, delta.y as f64),
+            MouseWheelUnit::Line => (delta.x as f64 * cell_w_pt, delta.y as f64 * cell_h_pt),
+            MouseWheelUnit::Page => (
+                delta.x as f64 * session.size.columns as f64 * cell_w_pt,
+                delta.y as f64 * session.size.screen_lines as f64 * cell_h_pt,
+            ),
+        };
+        apply_scroll(session, config, dx_pt, dy_pt, cell_w_pt, cell_h_pt, modifiers);
+    }
+}
+
+fn apply_scroll(
+    session: &mut Session,
+    config: &Config,
+    dx_pt: f64,
+    dy_pt: f64,
+    cell_w_pt: f64,
+    cell_h_pt: f64,
+    modifiers: Modifiers,
+) {
+    let mode = *session.term.lock().mode();
+    let mouse_mode = mode.intersects(TermMode::MOUSE_MODE);
+    let alt_alt_scroll = mode.contains(TermMode::ALT_SCREEN | TermMode::ALTERNATE_SCROLL);
+
+    // alacritty: the user's `scrolling.multiplier` only applies when *we* are
+    // consuming the wheel — when the app is reading raw mouse events it gets
+    // one report per physical click, no amplification.
+    let multiplier = if mouse_mode { 1.0 } else { config.scrolling.multiplier as f64 };
+    session.accumulated_scroll.0 += dx_pt * multiplier;
+    session.accumulated_scroll.1 += dy_pt * multiplier;
+
+    let lines = (session.accumulated_scroll.1 / cell_h_pt).abs() as usize;
+    let columns = (session.accumulated_scroll.0 / cell_w_pt).abs() as usize;
+    let is_up = dy_pt > 0.0;
+
+    if mouse_mode {
+        // CSI mouse-wheel reports (codes 64/65) aren't wired up yet; until they
+        // are we leave the wheel alone in mouse-tracking mode so apps that
+        // requested raw mouse input aren't fed garbled scrollback events.
+    } else if alt_alt_scroll && !modifiers.shift {
+        // Alt-screen apps (vim/less/man) opted into ALTERNATE_SCROLL ask for
+        // arrow keys instead of touching the scrollback (which doesn't exist
+        // on the alt screen).  Shift overrides this so users can still scroll
+        // back the host history if anything ever lands there.
+        let line_cmd = if is_up { b'A' } else { b'B' };
+        let column_cmd = if dx_pt > 0.0 { b'D' } else { b'C' };
+        let mut bytes = Vec::with_capacity(3 * (lines + columns));
+        for _ in 0..lines {
+            bytes.extend_from_slice(b"\x1bO");
+            bytes.push(line_cmd);
+        }
+        for _ in 0..columns {
+            bytes.extend_from_slice(b"\x1bO");
+            bytes.push(column_cmd);
+        }
+        if !bytes.is_empty() {
+            session.write(bytes);
+        }
+    } else if lines != 0 {
+        let delta = if is_up { lines as i32 } else { -(lines as i32) };
+        session.term.lock().scroll_display(Scroll::Delta(delta));
+    }
+
+    session.accumulated_scroll.0 %= cell_w_pt;
+    session.accumulated_scroll.1 %= cell_h_pt;
 }
 
 #[allow(clippy::too_many_arguments)]
