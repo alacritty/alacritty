@@ -40,9 +40,54 @@ optional `alacritree.toml` for sidebar-specific UI overrides.
     <img alt="Alacritree with both sidebars" src="alacritree/assets/screenshot3.png">
 </p>
 
-> **Status:** early, single-author project. Linux is the only supported
-> platform today (the GUI deps currently target Linux); macOS/Windows builds
-> are not wired up.
+> **Status:** early, single-author project. Linux is the only platform
+> with a working build today — the GUI deps currently target Linux, so the
+> macOS/Windows entries in the install section below are scaffolded but
+> not yet shipping binaries.
+
+## Install
+
+### Linux
+
+**Arch (AUR)** — VCS package, builds from the latest `master`:
+
+```sh
+# with an AUR helper such as paru or yay
+paru -S alacritree-git
+# or, manually
+git clone https://aur.archlinux.org/alacritree-git.git
+cd alacritree-git && makepkg -si
+```
+
+**Prebuilt tarball** — every tagged release publishes a Linux x86_64
+tarball at <https://github.com/mathix420/alacritree/releases>:
+
+```sh
+tag=v0.1.0   # pick the release you want
+curl -fLO "https://github.com/mathix420/alacritree/releases/download/${tag}/alacritree-${tag}-x86_64-linux.tar.gz"
+tar -xzf "alacritree-${tag}-x86_64-linux.tar.gz"
+install -Dm755 alacritree ~/.local/bin/alacritree
+```
+
+**From source** — see the [Build](#build) section.
+
+### Windows (Scoop)
+
+```powershell
+scoop bucket add alacritree https://github.com/mathix420/alacritree
+scoop install alacritree
+```
+
+The manifest lives in [`bucket/alacritree.json`](bucket/alacritree.json) and
+is bumped automatically when a release is published. Windows binaries are
+not produced yet (see *Status* above); the bucket is wired up and waiting
+for the first cross-platform release.
+
+### macOS
+
+No prebuilt binary yet. Build from source via the [Build](#build) section
+once you've installed `cmake`, `pkg-config`, `fontconfig` and `freetype`
+through Homebrew.
 
 ## Build
 

@@ -1,0 +1,73 @@
+name: Update Scoop manifest
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to bump to (e.g. v0.2.0)"
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Bump bucket/alacritree.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          asset="alacritree-${TAG}-x86_64-windows.zip"
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${asset}"
+
+          # Bail cleanly if the release exists but doesn't have a Windows
+          # build attached yet (e.g. while cross-platform support is being
+          # wired up). Avoids opening a broken PR.
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+                --json assets --jq '.assets[].name' \
+                | grep -qx "$asset"; then
+            echo "Release $TAG has no $asset asset; skipping scoop bump."
+            exit 0
+          fi
+
+          curl --fail --location --output "/tmp/$asset" "$url"
+          hash=$(sha256sum "/tmp/$asset" | cut -d' ' -f1)
+
+          tmp=$(mktemp)
+          jq --indent 4 \
+             --arg v "$version" \
+             --arg url "$url" \
+             --arg hash "$hash" \
+             '.version = $v
+              | .architecture."64bit".url = $url
+              | .architecture."64bit".hash = $hash' \
+             bucket/alacritree.json > "$tmp"
+          mv "$tmp" bucket/alacritree.json
+
+          if git diff --quiet bucket/alacritree.json; then
+            echo "Manifest already at $TAG; nothing to do."
+            exit 0
+          fi
+
+          branch="scoop/bump-${TAG}"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -b "$branch"
+          git add bucket/alacritree.json
+          git commit -m "scoop: bump alacritree to ${TAG}"
+          git push --force-with-lease -u origin "$branch"
+          gh pr create \
+            --title "scoop: bump alacritree to ${TAG}" \
+            --body "Automated manifest bump triggered by the release of \`${TAG}\`." \
+            --base master \
+            --head "$branch" \
+            || gh pr edit "$branch" --body "Automated manifest bump triggered by the release of \`${TAG}\`."
