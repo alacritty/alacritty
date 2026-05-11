@@ -69,25 +69,17 @@ pub struct Session {
     pub cell_size: (f32, f32),
     pub term: Arc<FairMutex<Term<EventProxy>>>,
     pub events: mpsc::Receiver<TermEvent>,
-    /// Session asked for the user's attention (BEL, or title transitioning
-    /// out of a working spinner) while they weren't looking.  Surfaced as a
-    /// sidebar indicator until they switch to or refocus this session.
+    /// Latched attention flag, cleared when the user views this session.
     pub needs_attention: bool,
     notifier: Notifier,
     sender: EventLoopSender,
     exited: bool,
 }
 
-/// Outcome of draining one session's pending PTY events for a single frame.
 #[derive(Default)]
 pub struct DrainOutcome {
-    /// Something this session emitted suggests it wants the user's attention.
-    /// Sources:
-    /// - `Event::Bell` (the universal signal — any CLI ringing BEL).
-    /// - Title transitioning out of a braille-spinner state (the pattern
-    ///   Claude Code uses to indicate "done thinking" since it doesn't ring
-    ///   BEL).  Caller still decides whether the session is currently
-    ///   visible+focused (in which case the signal is suppressed).
+    /// Set if any event in this batch warrants flagging the session: BEL, or
+    /// a title transitioning out of a spinner state.
     pub attention: bool,
 }
 
@@ -101,6 +93,12 @@ fn is_spinner_title(title: &str) -> bool {
         (0x2800..=0x28FF).contains(&n)
     })
 }
+
+/// Substrings that identify an LLM-agent CLI by its OSC 0/2 title.  Listed in
+/// match-priority order; the first match wins.  Extend cautiously — a false
+/// positive turns a random shell title into an "agent icon" in the sidebar.
+const AGENT_TITLE_MARKERS: &[&str] =
+    &["Claude Code", "Gemini", "Codex", "Aider", "Cursor", "Continue"];
 
 impl Session {
     pub fn spawn(
@@ -206,6 +204,19 @@ impl Session {
 
     pub fn is_exited(&self) -> bool {
         self.exited
+    }
+
+    /// Leading glyph of this session's title if the title looks like a
+    /// recognized LLM-agent CLI.  Painting this each frame gives a free
+    /// spinner animation because the agent rewrites its title each tick.
+    pub fn agent_glyph(&self) -> Option<char> {
+        let matches_agent = AGENT_TITLE_MARKERS.iter().any(|m| self.title.contains(m));
+        if !matches_agent {
+            return None;
+        }
+        let first = self.title.trim_start().chars().next()?;
+        // Skip alphanumeric leads (bare names like "Codex") — would render as a plain letter.
+        if first.is_alphanumeric() { None } else { Some(first) }
     }
 
     pub fn shutdown(&self) {

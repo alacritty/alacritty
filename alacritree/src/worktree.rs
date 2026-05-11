@@ -105,10 +105,8 @@ fn run_create(
         send(&format!("Copied {copied} LLM config item(s)"));
     }
 
-    // Force Claude Code to ring BEL on completion / waiting-for-input so the
-    // sidebar attention indicator + desktop notification fire without the
-    // user having to configure each worktree by hand.  We only ever overwrite
-    // this one key, preserving anything else the user copied over.
+    // Pre-flip Claude Code's BEL setting so the user doesn't have to
+    // configure each worktree by hand.  Other keys in the file are preserved.
     if let Err(e) = enable_claude_terminal_bell(&target) {
         log::warn!("failed to write Claude bell config in {}: {e}", target.display());
     } else {
