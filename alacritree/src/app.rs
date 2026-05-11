@@ -371,6 +371,7 @@ impl AlacritreeApp {
         let mut cycle_tabs_delta: Option<i32> = None;
         let mut cycle_ws_delta: Option<i32> = None;
         let mut quit_requested = false;
+        let mut add_project_requested = false;
         ctx.input_mut(|i| {
             if consume_exact(i, egui::Modifiers::CTRL, egui::Key::B) {
                 self.show_left_sidebar = !self.show_left_sidebar;
@@ -397,6 +398,9 @@ impl AlacritreeApp {
             {
                 cycle_ws_delta = Some(-1);
             }
+            if consume_exact(i, egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::O) {
+                add_project_requested = true;
+            }
             if consume_exact(i, egui::Modifiers::CTRL, egui::Key::Q) {
                 quit_requested = true;
             }
@@ -409,6 +413,9 @@ impl AlacritreeApp {
             if let Err(e) = self.spawn_session(ctx, ws) {
                 self.last_error = Some(format!("failed to spawn shell: {e}"));
             }
+        }
+        if add_project_requested {
+            self.add_project_via_dialog();
         }
         if let Some(d) = cycle_tabs_delta {
             self.cycle_tabs(d);
