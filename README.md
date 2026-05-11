@@ -83,11 +83,12 @@ is bumped automatically when a release is published. Windows binaries are
 not produced yet (see *Status* above); the bucket is wired up and waiting
 for the first cross-platform release.
 
-### macOS
+### macOS (Apple Silicon)
 
 No prebuilt binary yet. Build from source via the [Build](#build) section
 once you've installed `cmake`, `pkg-config`, `fontconfig` and `freetype`
-through Homebrew.
+through Homebrew. Only `aarch64-apple-darwin` is targeted — Intel Macs
+aren't on the release matrix.
 
 ## Build
 
