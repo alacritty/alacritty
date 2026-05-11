@@ -71,3 +71,8 @@ jobs:
             --base master \
             --head "$branch" \
             || gh pr edit "$branch" --body "Automated manifest bump triggered by the release of \`${TAG}\`."
+
+          # Flip auto-merge on so the PR lands itself once required checks
+          # pass. Repo-level "Allow auto-merge" must be on (it is); branch
+          # protection on master decides what counts as ready-to-merge.
+          gh pr merge "$branch" --auto --squash
