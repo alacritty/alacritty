@@ -170,7 +170,12 @@ impl AlacritreeApp {
         // edges land on fractional physical pixels.  Our chrome scaling
         // produces non-integer sizes by design (matching `font.size`), so the
         // warning is noise rather than signal — silence it everywhere.
-        style.debug.show_unaligned = false;
+        // `Style::debug` itself is `#[cfg(debug_assertions)]` in egui, so the
+        // assignment has to be cfg-gated to keep `--release` compiling.
+        #[cfg(debug_assertions)]
+        {
+            style.debug.show_unaligned = false;
+        }
         cc.egui_ctx.set_style(style);
 
         alacritty_terminal::tty::setup_env();
