@@ -238,12 +238,23 @@ fn handle_selection(
     }
 
     if response.drag_started_by(primary) {
-        if let Some(pos) = response.interact_pointer_pos() {
+        // Anchor at the press origin, not the current pointer: egui only fires
+        // `drag_started` once the pointer has moved past its ~6 px click/drag
+        // threshold, so `interact_pointer_pos` has already drifted off the cell
+        // the user actually clicked — losing the first character of selections.
+        if let Some(pos) = ui.input(|i| i.pointer.press_origin()) {
             let ty = if modifiers.ctrl { SelectionType::Block } else { SelectionType::Simple };
             let mut term = session.term.lock();
             let display_offset = term.grid().display_offset() as i32;
             let (point, side) = cell_at_pos(pos, rect, cell_w, cell_h, cols, rows, display_offset);
             term.selection = Some(Selection::new(ty, point, side));
+            if let Some(cur) = response.interact_pointer_pos() {
+                let (cur_point, cur_side) =
+                    cell_at_pos(cur, rect, cell_w, cell_h, cols, rows, display_offset);
+                if let Some(sel) = term.selection.as_mut() {
+                    sel.update(cur_point, cur_side);
+                }
+            }
         }
     } else if response.dragged_by(primary) {
         if let Some(pos) = response.interact_pointer_pos() {
