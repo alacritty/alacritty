@@ -25,9 +25,13 @@ pub fn show(ui: &mut Ui, session: &mut Session, config: &Config, allow_focus: bo
     // Floor cell size to whole device pixels — matches alacritty's
     // `compute_cell_size`.  Without this, fractional cell widths combined
     // with egui's AA fringe leave visible seams between adjacent cells.
+    // `font.offset` is added in pixel space so the round-trip through ppp is
+    // identical to alacritty (which adds offset to the integer cell metrics).
     let ppp = ui.ctx().pixels_per_point();
-    let cell_w = (cell_w_pt * ppp).floor().max(1.0) / ppp;
-    let cell_h = (cell_h_pt * ppp).floor().max(1.0) / ppp;
+    let offset_x = config.font.offset.x as f32;
+    let offset_y = config.font.offset.y as f32;
+    let cell_w = ((cell_w_pt * ppp).floor() + offset_x).max(1.0) / ppp;
+    let cell_h = ((cell_h_pt * ppp).floor() + offset_y).max(1.0) / ppp;
 
     let pad_x = config.window.padding_x;
     let pad_y = config.window.padding_y;
@@ -436,13 +440,15 @@ fn paint_run(
     if !style.flags.contains(Flags::HIDDEN) {
         // Per-glyph paint: egui's run layout drifts off the cursor's `col * cell_w` grid (worse with zoom).
         let glyph_font = font_for_flags(style.flags, font_id);
+        let glyph_dx = config.font.glyph_offset.x as f32;
+        let glyph_dy = config.font.glyph_offset.y as f32;
         let mut buf = [0u8; 4];
         for (i, ch) in run.chars().enumerate() {
             if ch == ' ' {
                 continue;
             }
             painter.text(
-                Pos2::new(x + i as f32 * cell_w, y),
+                Pos2::new(x + i as f32 * cell_w + glyph_dx, y + glyph_dy),
                 egui::Align2::LEFT_TOP,
                 ch.encode_utf8(&mut buf).to_string(),
                 glyph_font.clone(),
