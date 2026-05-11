@@ -109,6 +109,8 @@ pub struct AlacritreeApp {
     quit_dialog_open: bool,
     pending_delete: Option<DeleteRequest>,
     pending_create: Option<CreateState>,
+    /// Shared across sessions; auto-invalidated when cell size changes.
+    builtin_glyphs: crate::builtin_font::BuiltinGlyphCache,
 }
 
 struct DeleteRequest {
@@ -205,6 +207,7 @@ impl AlacritreeApp {
             quit_dialog_open: false,
             pending_delete: None,
             pending_create: None,
+            builtin_glyphs: crate::builtin_font::BuiltinGlyphCache::new(),
         };
 
         if let Err(e) = app.spawn_session(&cc.egui_ctx, None) {
@@ -1617,7 +1620,13 @@ impl eframe::App for AlacritreeApp {
                     return;
                 };
                 let session = &mut self.sessions[idx];
-                let _ = terminal_view::show(ui, session, &self.config, !modal_open);
+                let _ = terminal_view::show(
+                    ui,
+                    session,
+                    &self.config,
+                    !modal_open,
+                    &mut self.builtin_glyphs,
+                );
             });
 
         if self.pending_create.is_some() {
