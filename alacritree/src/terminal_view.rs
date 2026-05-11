@@ -8,6 +8,7 @@ use egui::{
     Color32, FontFamily, FontId, PointerButton, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2,
 };
 
+use crate::builtin_font::{BuiltinGlyphCache, Metrics, is_builtin_glyph};
 use crate::clipboard::{self, Target};
 use crate::colors::{background, foreground, resolve, rgb_to_color32};
 use crate::config::Config;
@@ -15,7 +16,13 @@ use crate::fonts::{BOLD_FAMILY, BOLD_ITALIC_FAMILY, ITALIC_FAMILY};
 use crate::input::event_to_bytes;
 use crate::session::{EventProxy, Session, TermSize};
 
-pub fn show(ui: &mut Ui, session: &mut Session, config: &Config, allow_focus: bool) -> Response {
+pub fn show(
+    ui: &mut Ui,
+    session: &mut Session,
+    config: &Config,
+    allow_focus: bool,
+    builtin_glyphs: &mut BuiltinGlyphCache,
+) -> Response {
     let font_id = FontId::monospace(config.font.egui_size());
     let (cell_w_pt, cell_h_pt) = ui.ctx().fonts(|f| {
         let w = f.glyph_width(&font_id, 'M');
@@ -25,9 +32,13 @@ pub fn show(ui: &mut Ui, session: &mut Session, config: &Config, allow_focus: bo
     // Floor cell size to whole device pixels — matches alacritty's
     // `compute_cell_size`.  Without this, fractional cell widths combined
     // with egui's AA fringe leave visible seams between adjacent cells.
+    // `font.offset` is added in pixel space so the round-trip through ppp is
+    // identical to alacritty (which adds offset to the integer cell metrics).
     let ppp = ui.ctx().pixels_per_point();
-    let cell_w = (cell_w_pt * ppp).floor().max(1.0) / ppp;
-    let cell_h = (cell_h_pt * ppp).floor().max(1.0) / ppp;
+    let offset_x = config.font.offset.x as f32;
+    let offset_y = config.font.offset.y as f32;
+    let cell_w = ((cell_w_pt * ppp).floor() + offset_x).max(1.0) / ppp;
+    let cell_h = ((cell_h_pt * ppp).floor() + offset_y).max(1.0) / ppp;
 
     let pad_x = config.window.padding_x;
     let pad_y = config.window.padding_y;
@@ -63,7 +74,30 @@ pub fn show(ui: &mut Ui, session: &mut Session, config: &Config, allow_focus: bo
 
     drain_pty_events(session);
     handle_selection(ui, &response, session, config, rect, cell_w, cell_h, cols, rows);
-    paint_grid(&painter, rect, session, config, &font_id, cell_w, cell_h);
+    // Built-in renderer expects the *unadjusted* pixel cell size so it can
+    // re-apply `font.offset` itself — passing `cell_w * ppp` (which already
+    // includes the offset) would double-add it.  Descent is zero here: the
+    // alacritty renderer's `top - descent` math collapses when descent is
+    // zero, and `paint_builtin_glyph` positions images using that simplified
+    // form.
+    let metrics = Metrics {
+        average_advance: (cell_w_pt * ppp).floor() as f64,
+        line_height: (cell_h_pt * ppp).floor() as f64,
+        descent: 0.0,
+    };
+    paint_grid(
+        &painter,
+        rect,
+        session,
+        config,
+        &font_id,
+        cell_w,
+        cell_h,
+        ppp,
+        &metrics,
+        builtin_glyphs,
+        ui.ctx(),
+    );
 
     if allow_focus && response.has_focus() {
         let consumed: Vec<Vec<u8>> =
@@ -268,6 +302,7 @@ impl Style {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn paint_grid(
     painter: &egui::Painter,
     rect: Rect,
@@ -276,6 +311,10 @@ fn paint_grid(
     font_id: &FontId,
     cell_w: f32,
     cell_h: f32,
+    ppp: f32,
+    metrics: &Metrics,
+    builtin_glyphs: &mut BuiltinGlyphCache,
+    ctx: &egui::Context,
 ) {
     let term = session.term.lock();
     let runtime_palette = term.colors();
@@ -333,6 +372,10 @@ fn paint_grid(
                 font_id,
                 bg_color,
                 selected,
+                ppp,
+                metrics,
+                builtin_glyphs,
+                ctx,
             );
         }
     }
@@ -385,6 +428,10 @@ fn paint_run(
     font_id: &FontId,
     default_bg: Color32,
     selected: bool,
+    ppp: f32,
+    metrics: &Metrics,
+    builtin_glyphs: &mut BuiltinGlyphCache,
+    ctx: &egui::Context,
 ) {
     if run.is_empty() {
         return;
@@ -436,13 +483,29 @@ fn paint_run(
     if !style.flags.contains(Flags::HIDDEN) {
         // Per-glyph paint: egui's run layout drifts off the cursor's `col * cell_w` grid (worse with zoom).
         let glyph_font = font_for_flags(style.flags, font_id);
+        let glyph_dx = config.font.glyph_offset.x as f32;
+        let glyph_dy = config.font.glyph_offset.y as f32;
         let mut buf = [0u8; 4];
         for (i, ch) in run.chars().enumerate() {
             if ch == ' ' {
                 continue;
             }
+            let cell_x = x + i as f32 * cell_w;
+            if config.font.builtin_box_drawing
+                && is_builtin_glyph(ch)
+                && let Some(cached) = builtin_glyphs.get(
+                    ctx,
+                    ch,
+                    metrics,
+                    &config.font.offset,
+                    &config.font.glyph_offset,
+                )
+            {
+                paint_builtin_glyph(painter, cached, cell_x, y, cell_h, ppp, fg);
+                continue;
+            }
             painter.text(
-                Pos2::new(x + i as f32 * cell_w, y),
+                Pos2::new(cell_x + glyph_dx, y + glyph_dy),
                 egui::Align2::LEFT_TOP,
                 ch.encode_utf8(&mut buf).to_string(),
                 glyph_font.clone(),
@@ -530,4 +593,28 @@ fn paint_cursor(
             glyph_color,
         );
     }
+}
+
+/// Place the cached pixel-space glyph into the cell.  alacritty positions
+/// glyphs as `screen_y_top = baseline - top` with `baseline = cell_bottom`;
+/// because we pass `descent = 0` to the renderer, that simplifies to
+/// `cell_h - top`.  We do the same arithmetic in logical points by dividing
+/// the pixel offsets by `ppp`.
+fn paint_builtin_glyph(
+    painter: &egui::Painter,
+    cached: &crate::builtin_font::CachedGlyph,
+    cell_x: f32,
+    cell_y: f32,
+    cell_h: f32,
+    ppp: f32,
+    fg: Color32,
+) {
+    let w_pt = cached.width as f32 / ppp;
+    let h_pt = cached.height as f32 / ppp;
+    let dy_pt = cell_h - cached.top as f32 / ppp;
+    let dx_pt = cached.left as f32 / ppp;
+    let glyph_rect =
+        Rect::from_min_size(Pos2::new(cell_x + dx_pt, cell_y + dy_pt), Vec2::new(w_pt, h_pt));
+    let uv = Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0));
+    painter.image(cached.texture.id(), glyph_rect, uv, fg);
 }
