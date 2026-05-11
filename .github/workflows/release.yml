@@ -78,8 +78,18 @@ jobs:
         if: matrix.target.archive == 'tar.gz'
         shell: bash
         run: |
+          set -euo pipefail
           asset="alacritree-${{ steps.tag.outputs.value }}-${{ matrix.target.name }}.tar.gz"
-          tar -C "target/${{ matrix.target.triple }}/release" -czf "$asset" "${{ matrix.target.bin }}"
+          stage="$(mktemp -d)"
+          cp "target/${{ matrix.target.triple }}/release/${{ matrix.target.bin }}" "$stage/"
+          # Linux packagers (AUR alacritree-bin, downstream distros) need the
+          # XDG metadata to wire up rofi/drun and icon themes. macOS doesn't
+          # consume these files, so we only bundle them on Linux.
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            cp alacritree/assets/alacritree.desktop "$stage/"
+            cp alacritree/assets/icon-256.png "$stage/alacritree.png"
+          fi
+          tar -C "$stage" -czf "$asset" .
           echo "ASSET=$asset" >> "$GITHUB_ENV"
 
       - name: Package (zip)

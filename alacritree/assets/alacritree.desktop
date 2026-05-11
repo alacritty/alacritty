@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Alacritree
+GenericName=Terminal
+Comment=Alacritty fork with worktree-aware sidebars
+TryExec=alacritree
+Exec=alacritree
+Icon=alacritree
+Terminal=false
+Categories=System;TerminalEmulator;
+StartupNotify=true
+StartupWMClass=Alacritree
