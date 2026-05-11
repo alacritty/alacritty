@@ -60,6 +60,7 @@ dependencies = [
  "git2",
  "home",
  "log",
+ "png 0.17.16",
  "rfd",
  "serde",
  "toml",
