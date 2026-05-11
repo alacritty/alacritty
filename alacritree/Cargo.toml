@@ -34,6 +34,9 @@ notify-rust = "4"
 # (alacritty's font backend, present in this workspace) pulls in.
 fontconfig = "0.8"
 
+[target.'cfg(windows)'.build-dependencies]
+embed-resource = "3.0.2"
+
 [[bin]]
 name = "alacritree"
 path = "src/main.rs"

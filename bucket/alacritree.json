@@ -10,6 +10,12 @@
         }
     },
     "bin": "alacritree.exe",
+    "shortcuts": [
+        [
+            "alacritree.exe",
+            "Alacritree"
+        ]
+    ],
     "checkver": {
         "github": "https://github.com/mathix420/alacritree"
     },
