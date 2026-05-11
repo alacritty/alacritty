@@ -100,6 +100,9 @@ impl Session {
             working_directory: working_directory.clone(),
             drain_on_exit: false,
             env: config.env.clone(),
+            // `Options` has a Windows-only `escape_args` field; leaning on
+            // `Default` keeps the literal compilable on every target.
+            ..Default::default()
         };
 
         // alacritty routes OSC 7 / signals by this id, so each session needs its own.

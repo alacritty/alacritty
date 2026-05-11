@@ -288,7 +288,12 @@ fn installed_config(stem: &str, suffix: &str) -> Option<PathBuf> {
 #[cfg(windows)]
 fn installed_config(stem: &str, suffix: &str) -> Option<PathBuf> {
     let file_name = format!("{stem}.{suffix}");
-    dirs::config_dir().map(|p| p.join("alacritty").join(&file_name)).filter(|p| p.exists())
+    // `%APPDATA%\alacritty\<file>` is what upstream alacritty looks at; using
+    // `std::env::var_os` here avoids pulling in the `dirs` crate just for
+    // one path lookup.
+    let appdata = std::env::var_os("APPDATA")?;
+    let candidate = PathBuf::from(appdata).join("alacritty").join(&file_name);
+    candidate.exists().then_some(candidate)
 }
 
 pub fn load() -> Config {
