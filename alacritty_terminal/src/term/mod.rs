@@ -2337,11 +2337,7 @@ enum ModeState {
 
 impl From<bool> for ModeState {
     fn from(value: bool) -> Self {
-        if value {
-            Self::Set
-        } else {
-            Self::Reset
-        }
+        if value { Self::Set } else { Self::Reset }
     }
 }
 
