@@ -25,6 +25,13 @@ pub trait LoadGlyph {
     fn clear(&mut self);
 }
 
+#[cfg(target_os = "macos")]
+const EMOJI_FONT_FAMILY: &str = "Apple Color Emoji";
+#[cfg(windows)]
+const EMOJI_FONT_FAMILY: &str = "Segoe UI Emoji";
+#[cfg(not(any(target_os = "macos", windows)))]
+const EMOJI_FONT_FAMILY: &str = "emoji";
+
 #[derive(Copy, Clone, Debug)]
 pub struct Glyph {
     pub tex_id: GLuint,
@@ -186,6 +193,30 @@ impl GlyphCache {
             Style::Description { slant, weight }
         };
         FontDesc::new(desc.family.clone(), style)
+    }
+
+    fn load_emoji_font(&mut self) -> Option<FontKey> {
+        let description = FontDesc::new(
+            EMOJI_FONT_FAMILY,
+            Style::Description { slant: Slant::Normal, weight: Weight::Normal },
+        );
+
+        self.rasterizer.load_font(&description, self.font_size).ok()
+    }
+
+    /// Find a font key for emoji presentation sequences.
+    pub fn emoji_font_key(&mut self, glyph_key: GlyphKey) -> FontKey {
+        let emoji_key = match self.load_emoji_font() {
+            Some(emoji_key) => emoji_key,
+            None => return glyph_key.font_key,
+        };
+
+        let emoji_key = GlyphKey { font_key: emoji_key, ..glyph_key };
+        match self.rasterizer.get_glyph(emoji_key) {
+            Ok(_) => emoji_key.font_key,
+            Err(RasterizerError::MissingGlyph(_)) => glyph_key.font_key,
+            Err(_) => glyph_key.font_key,
+        }
     }
 
     /// Get a glyph from the font.

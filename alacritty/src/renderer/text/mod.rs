@@ -154,6 +154,9 @@ pub trait TextRenderApi<T: TextRenderBatch>: LoadGlyph {
 
         let mut glyph_key =
             GlyphKey { font_key, size: glyph_cache.font_size, character: cell.character };
+        if !hidden && cell.extra.as_ref().is_some_and(|extra| extra.emoji_presentation) {
+            glyph_key.font_key = glyph_cache.emoji_font_key(glyph_key);
+        }
 
         // Add cell to batch.
         let glyph = glyph_cache.get(glyph_key, self, true);

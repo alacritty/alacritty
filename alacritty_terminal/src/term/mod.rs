@@ -50,6 +50,20 @@ const KEYBOARD_MODE_STACK_MAX_DEPTH: usize = TITLE_STACK_MAX_DEPTH;
 /// Default tab interval, corresponding to terminfo `it` value.
 const INITIAL_TABSTOPS: usize = 8;
 
+/// Emoji presentation variation selector.
+pub const EMOJI_PRESENTATION_SELECTOR: char = '\u{FE0F}';
+
+/// Check if a character followed by VS16 forms an emoji presentation sequence.
+#[inline]
+pub fn is_emoji_presentation_sequence(c: char) -> bool {
+    let mut buf = [0; 8];
+    let len = c.encode_utf8(&mut buf).len();
+    let selector_len = EMOJI_PRESENTATION_SELECTOR.encode_utf8(&mut buf[len..]).len();
+    let sequence = str::from_utf8(&buf[..len + selector_len]).unwrap();
+
+    UnicodeWidthStr::width(sequence) == 2
+}
+
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct TermMode: u32 {
@@ -953,6 +967,39 @@ impl<T> Term<T> {
         &self.colors
     }
 
+    /// Promote the cell at the given point to a wide emoji presentation sequence.
+    fn promote_emoji_presentation(&mut self, line: Line, column: Column) {
+        if self.grid[line][column].flags.contains(Flags::WIDE_CHAR)
+            || !is_emoji_presentation_sequence(self.grid[line][column].c)
+        {
+            return;
+        }
+
+        if column < self.last_column() {
+            let spacer_column = column + 1;
+
+            // Write spacer through the normal cell writer so overwriting existing wide cells
+            // properly clears all related wide cell metadata.
+            self.grid.cursor.point = Point::new(line, spacer_column);
+            self.grid.cursor.template.flags.insert(Flags::WIDE_CHAR_SPACER);
+            self.write_at_cursor(' ');
+            self.grid.cursor.template.flags.remove(Flags::WIDE_CHAR_SPACER);
+
+            self.grid[line][column].flags.insert(Flags::WIDE_CHAR);
+
+            if spacer_column < self.last_column() {
+                self.grid.cursor.point.column = spacer_column + 1;
+                self.grid.cursor.input_needs_wrap = false;
+            } else {
+                self.grid.cursor.point.column = spacer_column;
+                self.grid.cursor.input_needs_wrap = true;
+            }
+        } else {
+            self.grid[line][column].flags.insert(Flags::WIDE_CHAR);
+            self.grid.cursor.input_needs_wrap = true;
+        }
+    }
+
     /// Insert a linebreak at the current cursor position.
     #[inline]
     fn wrapline(&mut self)
@@ -1082,34 +1129,8 @@ impl<T: EventListener> Handler for Term<T> {
 
             self.grid[line][column].push_zerowidth(c);
 
-            if c == '\u{FE0F}' && !self.grid[line][column].flags.contains(Flags::WIDE_CHAR) {
-                let base = self.grid[line][column].c;
-                let mut buf = [0u8; 8];
-                let s = {
-                    let len = base.encode_utf8(&mut buf).len();
-                    let vlen = '\u{FE0F}'.encode_utf8(&mut buf[len..]).len();
-                    core::str::from_utf8(&buf[..len + vlen]).unwrap()
-                };
-                if UnicodeWidthStr::width(s) == 2 {
-                    let columns = self.columns();
-                    self.grid[line][column].flags.insert(Flags::WIDE_CHAR);
-                    let spacer_col = column.0 + 1;
-                    if spacer_col < columns {
-                        let cell = &mut self.grid[line][Column(spacer_col)];
-                        cell.c = ' ';
-                        cell.flags.insert(Flags::WIDE_CHAR_SPACER);
-                        let next_col = spacer_col + 1;
-                        if next_col < columns {
-                            self.grid.cursor.point.column = Column(next_col);
-                            self.grid.cursor.input_needs_wrap = false;
-                        } else {
-                            self.grid.cursor.point.column = Column(spacer_col);
-                            self.grid.cursor.input_needs_wrap = true;
-                        }
-                    } else {
-                        self.grid.cursor.input_needs_wrap = true;
-                    }
-                }
+            if c == EMOJI_PRESENTATION_SELECTOR {
+                self.promote_emoji_presentation(line, column);
             }
 
             return;
@@ -2316,7 +2337,11 @@ enum ModeState {
 
 impl From<bool> for ModeState {
     fn from(value: bool) -> Self {
-        if value { Self::Set } else { Self::Reset }
+        if value {
+            Self::Set
+        } else {
+            Self::Reset
+        }
     }
 }
 
@@ -2786,6 +2811,44 @@ mod tests {
         term.input('a');
 
         assert_eq!(term.grid()[cursor].c, '▒');
+    }
+
+    #[test]
+    fn input_emoji_presentation_selector_widens_cell() {
+        let size = TermSize::new(5, 1);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
+
+        term.input('❤');
+        term.input(EMOJI_PRESENTATION_SELECTOR);
+        term.input('x');
+
+        let line = Line(0);
+        let cell = &term.grid()[line][Column(0)];
+        assert_eq!(cell.c, '❤');
+        assert!(cell.flags.contains(Flags::WIDE_CHAR));
+        assert_eq!(cell.zerowidth(), Some(&[EMOJI_PRESENTATION_SELECTOR][..]));
+
+        assert!(term.grid()[line][Column(1)].flags.contains(Flags::WIDE_CHAR_SPACER));
+        assert_eq!(term.grid()[line][Column(2)].c, 'x');
+    }
+
+    #[test]
+    fn input_text_presentation_selector_keeps_cell_narrow() {
+        let size = TermSize::new(5, 1);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
+
+        term.input('a');
+        term.input(EMOJI_PRESENTATION_SELECTOR);
+        term.input('x');
+
+        let line = Line(0);
+        let cell = &term.grid()[line][Column(0)];
+        assert_eq!(cell.c, 'a');
+        assert!(!cell.flags.contains(Flags::WIDE_CHAR));
+        assert_eq!(cell.zerowidth(), Some(&[EMOJI_PRESENTATION_SELECTOR][..]));
+
+        assert!(!term.grid()[line][Column(1)].flags.contains(Flags::WIDE_CHAR_SPACER));
+        assert_eq!(term.grid()[line][Column(1)].c, 'x');
     }
 
     #[test]

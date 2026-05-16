@@ -9,7 +9,10 @@ use alacritty_terminal::index::{Column, Line, Point};
 use alacritty_terminal::selection::SelectionRange;
 use alacritty_terminal::term::cell::{Cell, Flags, Hyperlink};
 use alacritty_terminal::term::search::{Match, RegexSearch};
-use alacritty_terminal::term::{self, RenderableContent as TerminalContent, Term, TermMode};
+use alacritty_terminal::term::{
+    self, EMOJI_PRESENTATION_SELECTOR, RenderableContent as TerminalContent, Term, TermMode,
+    is_emoji_presentation_sequence,
+};
 use alacritty_terminal::vte::ansi::{Color, CursorShape, NamedColor};
 
 use crate::config::UiConfig;
@@ -203,6 +206,7 @@ pub struct RenderableCell {
 pub struct RenderableCellExtra {
     pub zerowidth: Option<Vec<char>>,
     pub hyperlink: Option<Hyperlink>,
+    pub emoji_presentation: bool,
 }
 
 impl RenderableCell {
@@ -287,11 +291,16 @@ impl RenderableCell {
 
         let zerowidth = cell.zerowidth();
         let hyperlink = cell.hyperlink();
+        let emoji_presentation = zerowidth.is_some_and(|zerowidth| {
+            zerowidth.contains(&EMOJI_PRESENTATION_SELECTOR)
+                && is_emoji_presentation_sequence(character)
+        });
 
-        let extra = (zerowidth.is_some() || hyperlink.is_some()).then(|| {
+        let extra = (zerowidth.is_some() || hyperlink.is_some() || emoji_presentation).then(|| {
             Box::new(RenderableCellExtra {
                 zerowidth: zerowidth.map(|zerowidth| zerowidth.to_vec()),
                 hyperlink,
+                emoji_presentation,
             })
         });
 
