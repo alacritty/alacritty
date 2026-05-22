@@ -1037,6 +1037,27 @@ impl<T> Term<T> {
         trace!("Setting keyboard mode to {new_mode:?}");
         self.mode |= new_mode;
     }
+
+    #[inline]
+    fn active_keyboard_mode(&self) -> u8 {
+        let mut value = 0u8;
+        if self.mode.contains(TermMode::DISAMBIGUATE_ESC_CODES) {
+            value |= KeyboardModes::DISAMBIGUATE_ESC_CODES.bits();
+        }
+        if self.mode.contains(TermMode::REPORT_EVENT_TYPES) {
+            value |= KeyboardModes::REPORT_EVENT_TYPES.bits();
+        }
+        if self.mode.contains(TermMode::REPORT_ALTERNATE_KEYS) {
+            value |= KeyboardModes::REPORT_ALTERNATE_KEYS.bits();
+        }
+        if self.mode.contains(TermMode::REPORT_ALL_KEYS_AS_ESC) {
+            value |= KeyboardModes::REPORT_ALL_KEYS_AS_ESC.bits();
+        }
+        if self.mode.contains(TermMode::REPORT_ASSOCIATED_TEXT) {
+            value |= KeyboardModes::REPORT_ASSOCIATED_TEXT.bits();
+        }
+        value
+    }
 }
 
 impl<T> Dimensions for Term<T> {
@@ -1278,8 +1299,7 @@ impl<T: EventListener> Handler for Term<T> {
         }
 
         trace!("Reporting active keyboard mode");
-        let current_mode =
-            self.keyboard_mode_stack.last().unwrap_or(&KeyboardModes::NO_MODE).bits();
+        let current_mode = self.active_keyboard_mode();
         let text = format!("\x1b[?{current_mode}u");
         self.event_proxy.send_event(Event::PtyWrite(text));
     }
@@ -3298,5 +3318,15 @@ mod tests {
         assert_eq!(version_number("0.1.2-dev"), 1_02);
         assert_eq!(version_number("1.2.3-dev"), 1_02_03);
         assert_eq!(version_number("999.99.99"), 9_99_99_99);
+    }
+
+    #[test]
+    fn progressive_set_keyboard_mode() {
+        let size = TermSize::new(5, 5);
+        let config = Config { kitty_keyboard: true, ..Default::default() };
+        let mut term = Term::new(config, &size, VoidListener);
+        let mode = KeyboardModes::DISAMBIGUATE_ESC_CODES | KeyboardModes::REPORT_EVENT_TYPES;
+        Handler::set_keyboard_mode(&mut term, mode, KeyboardModesApplyBehavior::Replace);
+        assert_eq!(term.active_keyboard_mode(), 3);
     }
 }
