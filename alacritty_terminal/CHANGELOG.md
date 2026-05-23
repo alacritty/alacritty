@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.26.1-dev
 
+### Fixed
+
+- Stale kitty keyboard state reported for `CSI ? u` queries
+
 ## 0.26.0
 
 ### Added

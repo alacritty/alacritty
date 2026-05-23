@@ -72,11 +72,13 @@ bitflags! {
         const ALTERNATE_SCROLL        = 1 << 15;
         const VI                      = 1 << 16;
         const URGENCY_HINTS           = 1 << 17;
-        const DISAMBIGUATE_ESC_CODES  = 1 << 18;
-        const REPORT_EVENT_TYPES      = 1 << 19;
-        const REPORT_ALTERNATE_KEYS   = 1 << 20;
-        const REPORT_ALL_KEYS_AS_ESC  = 1 << 21;
-        const REPORT_ASSOCIATED_TEXT  = 1 << 22;
+        // Keyboard mode flags occupy a dedicated u8 block starting at bit 24
+        // so the full [`KeyboardModes`] value can be stored via bit-shift.
+        const DISAMBIGUATE_ESC_CODES  = 1 << 24;
+        const REPORT_EVENT_TYPES      = 1 << 25;
+        const REPORT_ALTERNATE_KEYS   = 1 << 26;
+        const REPORT_ALL_KEYS_AS_ESC  = 1 << 27;
+        const REPORT_ASSOCIATED_TEXT  = 1 << 28;
         const MOUSE_MODE              = Self::MOUSE_REPORT_CLICK.bits() | Self::MOUSE_MOTION.bits() | Self::MOUSE_DRAG.bits();
         const KITTY_KEYBOARD_PROTOCOL = Self::DISAMBIGUATE_ESC_CODES.bits()
                                       | Self::REPORT_EVENT_TYPES.bits()
@@ -87,26 +89,23 @@ bitflags! {
     }
 }
 
+/// Keyboard mode bits occupy a dedicated 8-bit block in [`TermMode`].
+const KEYBOARD_MODE_SHIFT: u32 = TermMode::DISAMBIGUATE_ESC_CODES.bits().trailing_zeros();
+
+// Ensure KeyboardModes fits within the dedicated 8-bit block of TermMode.
+const _: () = assert!(std::mem::size_of::<KeyboardModes>() <= 1);
+
 impl From<KeyboardModes> for TermMode {
     fn from(value: KeyboardModes) -> Self {
-        let mut mode = Self::empty();
+        TermMode::from_bits_retain((value.bits() as u32) << KEYBOARD_MODE_SHIFT)
+    }
+}
 
-        let disambiguate_esc_codes = value.contains(KeyboardModes::DISAMBIGUATE_ESC_CODES);
-        mode.set(TermMode::DISAMBIGUATE_ESC_CODES, disambiguate_esc_codes);
-
-        let report_event_types = value.contains(KeyboardModes::REPORT_EVENT_TYPES);
-        mode.set(TermMode::REPORT_EVENT_TYPES, report_event_types);
-
-        let report_alternate_keys = value.contains(KeyboardModes::REPORT_ALTERNATE_KEYS);
-        mode.set(TermMode::REPORT_ALTERNATE_KEYS, report_alternate_keys);
-
-        let report_all_keys_as_esc = value.contains(KeyboardModes::REPORT_ALL_KEYS_AS_ESC);
-        mode.set(TermMode::REPORT_ALL_KEYS_AS_ESC, report_all_keys_as_esc);
-
-        let report_associated_text = value.contains(KeyboardModes::REPORT_ASSOCIATED_TEXT);
-        mode.set(TermMode::REPORT_ASSOCIATED_TEXT, report_associated_text);
-
-        mode
+impl From<TermMode> for KeyboardModes {
+    fn from(mode: TermMode) -> Self {
+        let bits =
+            ((mode.bits() & TermMode::KITTY_KEYBOARD_PROTOCOL.bits()) >> KEYBOARD_MODE_SHIFT) as u8;
+        KeyboardModes::from_bits_truncate(bits)
     }
 }
 
@@ -1037,27 +1036,6 @@ impl<T> Term<T> {
         trace!("Setting keyboard mode to {new_mode:?}");
         self.mode |= new_mode;
     }
-
-    #[inline]
-    fn active_keyboard_mode(&self) -> u8 {
-        let mut value = 0u8;
-        if self.mode.contains(TermMode::DISAMBIGUATE_ESC_CODES) {
-            value |= KeyboardModes::DISAMBIGUATE_ESC_CODES.bits();
-        }
-        if self.mode.contains(TermMode::REPORT_EVENT_TYPES) {
-            value |= KeyboardModes::REPORT_EVENT_TYPES.bits();
-        }
-        if self.mode.contains(TermMode::REPORT_ALTERNATE_KEYS) {
-            value |= KeyboardModes::REPORT_ALTERNATE_KEYS.bits();
-        }
-        if self.mode.contains(TermMode::REPORT_ALL_KEYS_AS_ESC) {
-            value |= KeyboardModes::REPORT_ALL_KEYS_AS_ESC.bits();
-        }
-        if self.mode.contains(TermMode::REPORT_ASSOCIATED_TEXT) {
-            value |= KeyboardModes::REPORT_ASSOCIATED_TEXT.bits();
-        }
-        value
-    }
 }
 
 impl<T> Dimensions for Term<T> {
@@ -1298,9 +1276,10 @@ impl<T: EventListener> Handler for Term<T> {
             return;
         }
 
-        trace!("Reporting active keyboard mode");
-        let current_mode = self.active_keyboard_mode();
-        let text = format!("\x1b[?{current_mode}u");
+        let current_mode = KeyboardModes::from(self.mode);
+        trace!("Reporting active keyboard mode {}", current_mode.bits());
+
+        let text = format!("\x1b[?{}u", current_mode.bits());
         self.event_proxy.send_event(Event::PtyWrite(text));
     }
 
@@ -2529,8 +2508,9 @@ mod tests {
     use super::*;
 
     use std::mem;
+    use std::sync::mpsc;
 
-    use crate::event::VoidListener;
+    use crate::event::{Event, VoidListener};
     use crate::grid::{Grid, Scroll};
     use crate::index::{Column, Point, Side};
     use crate::selection::{Selection, SelectionType};
@@ -3320,13 +3300,29 @@ mod tests {
         assert_eq!(version_number("999.99.99"), 9_99_99_99);
     }
 
+    struct EventCapture {
+        tx: mpsc::Sender<Event>,
+    }
+
+    impl EventListener for EventCapture {
+        fn send_event(&self, event: Event) {
+            let _ = self.tx.send(event);
+        }
+    }
+
     #[test]
-    fn progressive_set_keyboard_mode() {
+    fn report_keyboard_mode() {
+        let (tx, rx) = mpsc::channel();
         let size = TermSize::new(5, 5);
         let config = Config { kitty_keyboard: true, ..Default::default() };
-        let mut term = Term::new(config, &size, VoidListener);
+        let mut term = Term::new(config, &size, EventCapture { tx });
         let mode = KeyboardModes::DISAMBIGUATE_ESC_CODES | KeyboardModes::REPORT_EVENT_TYPES;
         Handler::set_keyboard_mode(&mut term, mode, KeyboardModesApplyBehavior::Replace);
-        assert_eq!(term.active_keyboard_mode(), 3);
+        Handler::report_keyboard_mode(&mut term);
+        let event = rx.try_recv().expect("expected PtyWrite event");
+        match event {
+            Event::PtyWrite(text) => assert_eq!(text, "\x1b[?3u"),
+            _ => panic!("expected PtyWrite event"),
+        }
     }
 }
