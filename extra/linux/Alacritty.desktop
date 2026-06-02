@@ -5,6 +5,7 @@ Exec=alacritty
 Icon=Alacritty
 Terminal=false
 Categories=System;TerminalEmulator;
+X-ExecArg=--command
 
 Name=Alacritty
 GenericName=Terminal
