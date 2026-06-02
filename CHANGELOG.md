@@ -13,6 +13,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Packaging
 
 - Fixed `alacritty-escapes(7)` manpage missing from macOS install
+- Added the `Open Alacritty here` entry to the right-click context menu for folders on Windows
 
 ### Fixed
 
