@@ -11,6 +11,7 @@
          <ComponentRef Id="AlacrittyShortcut" />
          <ComponentRef Id="ModifyPathEnv" />
          <ComponentRef Id="ContextMenu" />
+         <ComponentRef Id="ContextMenuFolder" />
       </Feature>
       <!-- Application binaries -->
       <DirectoryRef Id="AlacrittyProgramFiles">
@@ -44,6 +45,14 @@
             <RegistryValue Type="string" Value='[AlacrittyProgramFiles]alacritty.exe --working-directory "%v"' KeyPath="yes" />
          </RegistryKey>
          <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\Open Alacritty here">
+            <RegistryValue Type="string" Name="Icon" Value="[AlacrittyProgramFiles]alacritty.exe" />
+         </RegistryKey>
+      </Component>
+      <Component Id="ContextMenuFolder" Guid="69483b38-a267-433f-9395-60827963347a" Directory="TARGETDIR">
+         <RegistryKey Root="HKCU" Key="Software\Classes\Directory\shell\Open Alacritty here\command">
+            <RegistryValue Type="string" Value='[AlacrittyProgramFiles]alacritty.exe --working-directory "%v"' KeyPath="yes" />
+         </RegistryKey>
+         <RegistryKey Root="HKCU" Key="Software\Classes\Directory\shell\Open Alacritty here">
             <RegistryValue Type="string" Name="Icon" Value="[AlacrittyProgramFiles]alacritty.exe" />
          </RegistryKey>
       </Component>
