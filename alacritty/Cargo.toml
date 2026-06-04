@@ -44,6 +44,11 @@ toml.workspace = true
 toml_edit.workspace = true
 unicode-width = "0.2.0"
 winit = { version = "0.30.9", default-features = false, features = ["rwh_06", "serde"] }
+egui = "0.32"
+egui_glow = { version = "0.32", features = ["winit"] }
+egui-winit = { version = "0.32", default-features = false }
+rusqlite = { version = "0.32", features = ["bundled"] }
+rfd = "0.15"
 
 [build-dependencies]
 gl_generator = "0.14.0"

@@ -37,7 +37,6 @@ use alacritty_terminal::vte::ansi::{ClearMode, Handler};
 
 use crate::clipboard::Clipboard;
 #[cfg(target_os = "macos")]
-use crate::config::window::Decorations;
 use crate::config::{
     Action, BindingMode, MouseAction, MouseEvent, SearchAction, UiConfig, ViAction,
 };
@@ -45,7 +44,7 @@ use crate::display::hint::HintMatch;
 use crate::display::window::{ImeInhibitor, Window};
 use crate::display::{Display, SizeInfo};
 use crate::event::{
-    ClickState, Event, EventType, InlineSearchState, Mouse, TouchPurpose, TouchZoom,
+    ClickState, Event, EventType, InlineSearchState, Mouse, TabSelection, TouchPurpose, TouchZoom,
 };
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId, Topic};
@@ -103,6 +102,14 @@ pub trait ActionContext<T: EventListener> {
     fn create_new_window(&mut self, _tabbing_id: Option<String>) {}
     #[cfg(not(target_os = "macos"))]
     fn create_new_window(&mut self) {}
+    fn create_tab(&mut self) {}
+    fn select_tab(&mut self, _selection: TabSelection) {}
+    fn close_active_tab(&mut self) {}
+    fn close_window(&mut self) {}
+    /// Toggle the project sidebar's visibility.
+    fn toggle_project_sidebar(&mut self) {}
+    /// Open the egui right-click context menu at the given window pixel position.
+    fn open_context_menu(&mut self, _x: usize, _y: usize) {}
     fn change_font_size(&mut self, _delta: f32) {}
     fn reset_font_size(&mut self) {}
     fn pop_message(&mut self) {}
@@ -345,7 +352,8 @@ impl<T: EventListener> Execute<T> for Action {
             Action::Minimize => ctx.window().set_minimized(true),
             Action::Quit => {
                 ctx.window().hold = false;
-                ctx.terminal_mut().exit();
+                // Quit closes the whole window (all of its tabs).
+                ctx.close_window();
             },
             Action::IncreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP),
             Action::DecreaseFontSize => ctx.change_font_size(-FONT_SIZE_STEP),
@@ -408,38 +416,21 @@ impl<T: EventListener> Execute<T> for Action {
             Action::SpawnNewInstance => ctx.spawn_new_instance(),
             #[cfg(target_os = "macos")]
             Action::CreateNewWindow => ctx.create_new_window(None),
-            #[cfg(target_os = "macos")]
-            Action::CreateNewTab => {
-                // Tabs on macOS are not possible without decorations.
-                if ctx.config().window.decorations != Decorations::None {
-                    let tabbing_id = Some(ctx.window().tabbing_id());
-                    ctx.create_new_window(tabbing_id);
-                }
-            },
-            #[cfg(target_os = "macos")]
-            Action::SelectNextTab => ctx.window().select_next_tab(),
-            #[cfg(target_os = "macos")]
-            Action::SelectPreviousTab => ctx.window().select_previous_tab(),
-            #[cfg(target_os = "macos")]
-            Action::SelectTab1 => ctx.window().select_tab_at_index(0),
-            #[cfg(target_os = "macos")]
-            Action::SelectTab2 => ctx.window().select_tab_at_index(1),
-            #[cfg(target_os = "macos")]
-            Action::SelectTab3 => ctx.window().select_tab_at_index(2),
-            #[cfg(target_os = "macos")]
-            Action::SelectTab4 => ctx.window().select_tab_at_index(3),
-            #[cfg(target_os = "macos")]
-            Action::SelectTab5 => ctx.window().select_tab_at_index(4),
-            #[cfg(target_os = "macos")]
-            Action::SelectTab6 => ctx.window().select_tab_at_index(5),
-            #[cfg(target_os = "macos")]
-            Action::SelectTab7 => ctx.window().select_tab_at_index(6),
-            #[cfg(target_os = "macos")]
-            Action::SelectTab8 => ctx.window().select_tab_at_index(7),
-            #[cfg(target_os = "macos")]
-            Action::SelectTab9 => ctx.window().select_tab_at_index(8),
-            #[cfg(target_os = "macos")]
-            Action::SelectLastTab => ctx.window().select_last_tab(),
+            Action::CreateNewTab => ctx.create_tab(),
+            Action::CloseTab => ctx.close_active_tab(),
+            Action::ToggleProjectSidebar => ctx.toggle_project_sidebar(),
+            Action::SelectNextTab => ctx.select_tab(TabSelection::Next),
+            Action::SelectPreviousTab => ctx.select_tab(TabSelection::Previous),
+            Action::SelectTab1 => ctx.select_tab(TabSelection::Index(0)),
+            Action::SelectTab2 => ctx.select_tab(TabSelection::Index(1)),
+            Action::SelectTab3 => ctx.select_tab(TabSelection::Index(2)),
+            Action::SelectTab4 => ctx.select_tab(TabSelection::Index(3)),
+            Action::SelectTab5 => ctx.select_tab(TabSelection::Index(4)),
+            Action::SelectTab6 => ctx.select_tab(TabSelection::Index(5)),
+            Action::SelectTab7 => ctx.select_tab(TabSelection::Index(6)),
+            Action::SelectTab8 => ctx.select_tab(TabSelection::Index(7)),
+            Action::SelectTab9 => ctx.select_tab(TabSelection::Index(8)),
+            Action::SelectLastTab => ctx.select_tab(TabSelection::Last),
             _ => (),
         }
     }
@@ -521,12 +512,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let size_info = self.ctx.size_info();
 
         let cell_x =
-            x.saturating_sub(size_info.padding_x() as usize) % size_info.cell_width() as usize;
+            x.saturating_sub(size_info.grid_left() as usize) % size_info.cell_width() as usize;
         let half_cell_width = (size_info.cell_width() / 2.0) as usize;
 
-        let additional_padding =
-            (size_info.width() - size_info.padding_x() * 2.) % size_info.cell_width();
-        let end_of_grid = size_info.width() - size_info.padding_x() - additional_padding;
+        // The grid's right edge: its left origin plus the drawable columns.
+        let end_of_grid =
+            size_info.grid_left() + size_info.columns() as f32 * size_info.cell_width();
 
         if cell_x > half_cell_width
             // Edge case when mouse leaves the window.
@@ -993,6 +984,20 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             _ => (),
         }
 
+        // The egui tab bar is handled by routing window events to egui (see `WindowContext`); its
+        // clicks never reach here. Right-click opens the egui context menu, unless an app grabbed
+        // the mouse or Ctrl is held (which preserves the default expand-selection binding).
+        if state == ElementState::Pressed
+            && button == MouseButton::Right
+            && !self.ctx.mouse_mode()
+            && !self.ctx.modifiers().state().control_key()
+        {
+            let x = self.ctx.mouse().x;
+            let y = self.ctx.mouse().y;
+            self.ctx.open_context_menu(x, y);
+            return;
+        }
+
         // Skip normal mouse events if the message bar has been clicked.
         if self.message_bar_cursor_state() == Some(CursorIcon::Pointer)
             && state == ElementState::Pressed
@@ -1381,6 +1386,8 @@ mod tests {
         input_delay: Duration::ZERO,
     }
 
+    // Right-click opens the context menu instead of registering a grid click, so the click-state
+    // machine is left untouched.
     test_clickstate! {
         name: single_right_click,
         initial_state: ClickState::None,
@@ -1393,7 +1400,7 @@ mod tests {
             },
             window_id: WindowId::dummy(),
         },
-        end_state: ClickState::Click,
+        end_state: ClickState::None,
         input_delay: Duration::ZERO,
     }
 
@@ -1484,7 +1491,7 @@ mod tests {
         input: WinitEvent::WindowEvent {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
-                button: MouseButton::Right,
+                button: MouseButton::Middle,
                 device_id: DeviceId::dummy(),
             },
             window_id: WindowId::dummy(),

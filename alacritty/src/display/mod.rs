@@ -18,7 +18,10 @@ use glutin::surface::{Surface, SwapInterval, WindowSurface};
 use log::{debug, info};
 use parking_lot::MutexGuard;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+
 use winit::dpi::PhysicalSize;
+use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::ModifiersState;
 use winit::raw_window_handle::RawWindowHandle;
 use winit::window::CursorIcon;
@@ -161,6 +164,13 @@ pub struct SizeInfo<T = f32> {
     /// Vertical window padding.
     padding_y: T,
 
+    /// Extra pixels reserved at the top of the window for the egui chrome (tab bar). The grid and
+    /// all overlays are shifted down by this amount.
+    top_extra: T,
+
+    /// Extra horizontal pixels reserved on the left edge for the egui project sidebar.
+    left_extra: T,
+
     /// Number of lines in the viewport.
     screen_lines: usize,
 
@@ -177,7 +187,10 @@ impl From<SizeInfo<f32>> for SizeInfo<u32> {
             cell_height: size_info.cell_height as u32,
             padding_x: size_info.padding_x as u32,
             padding_y: size_info.padding_y as u32,
+            top_extra: size_info.top_extra as u32,
+            left_extra: size_info.left_extra as u32,
             screen_lines: size_info.screen_lines,
+            // NOTE: pre-existing upstream quirk — this mirrors `screen_lines`, not `columns`.
             columns: size_info.screen_lines,
         }
     }
@@ -224,6 +237,16 @@ impl<T: Clone + Copy> SizeInfo<T> {
     pub fn padding_y(&self) -> T {
         self.padding_y
     }
+
+    #[inline]
+    pub fn top_extra(&self) -> T {
+        self.top_extra
+    }
+
+    #[inline]
+    pub fn left_extra(&self) -> T {
+        self.left_extra
+    }
 }
 
 impl SizeInfo<f32> {
@@ -255,6 +278,8 @@ impl SizeInfo<f32> {
             cell_height,
             padding_x: padding_x.floor(),
             padding_y: padding_y.floor(),
+            top_extra: 0.,
+            left_extra: 0.,
             screen_lines,
             columns,
         }
@@ -265,15 +290,46 @@ impl SizeInfo<f32> {
         self.screen_lines = cmp::max(self.screen_lines.saturating_sub(count), MIN_SCREEN_LINES);
     }
 
+    /// Reserve `rows` whole rows at the top of the window (for the egui chrome), removing them
+    /// from the grid and shifting it down.
+    #[inline]
+    pub fn reserve_top_rows(&mut self, rows: usize) {
+        self.top_extra = rows as f32 * self.cell_height;
+        self.reserve_lines(rows);
+    }
+
+    /// Reserve `width` pixels at the left of the window (for the egui project sidebar), removing
+    /// the covered columns from the grid and shifting it right.
+    #[inline]
+    pub fn reserve_left_cols(&mut self, width: f32) {
+        self.left_extra = width;
+        let columns = (self.width - 2. * self.padding_x - self.left_extra) / self.cell_width;
+        self.columns = cmp::max(columns as usize, MIN_COLUMNS);
+    }
+
+    /// The vertical pixel offset at which the grid (and overlays) begin.
+    #[inline]
+    pub fn grid_top(&self) -> f32 {
+        self.padding_y + self.top_extra
+    }
+
+    /// The horizontal pixel offset at which the grid (and overlays) begin.
+    #[inline]
+    pub fn grid_left(&self) -> f32 {
+        self.padding_x + self.left_extra
+    }
+
     /// Check if coordinates are inside the terminal grid.
     ///
-    /// The padding, message bar or search are not counted as part of the grid.
+    /// The padding, top chrome, message bar or search are not counted as part of the grid.
     #[inline]
     pub fn contains_point(&self, x: usize, y: usize) -> bool {
-        x <= (self.padding_x + self.columns as f32 * self.cell_width) as usize
-            && x > self.padding_x as usize
-            && y <= (self.padding_y + self.screen_lines as f32 * self.cell_height) as usize
-            && y > self.padding_y as usize
+        let grid_top = self.grid_top();
+        let grid_left = self.grid_left();
+        x <= (grid_left + self.columns as f32 * self.cell_width) as usize
+            && x > grid_left as usize
+            && y <= (grid_top + self.screen_lines as f32 * self.cell_height) as usize
+            && y > grid_top as usize
     }
 
     /// Calculate padding to spread it evenly around the terminal content.
@@ -338,6 +394,44 @@ impl DisplayUpdate {
     }
 }
 
+/// Content needed to render the in-window tab bar.
+///
+/// The tab bar is only shown when a window hosts more than one tab.
+pub struct TabBarInfo {
+    /// Title of each tab in the active project, in order.
+    pub titles: Vec<String>,
+    /// Stable terminal id of each tab, in order (parallel to `titles`).
+    pub ids: Vec<u64>,
+    /// Index of the currently active tab within the active project.
+    pub active: usize,
+    /// Display name of each project, in order (shown in the left sidebar).
+    pub project_names: Vec<String>,
+    /// Index of the currently active project.
+    pub active_project: usize,
+}
+
+/// Actions produced by the egui chrome during a frame, drained and dispatched by the window.
+#[derive(Default)]
+pub struct ChromeActions {
+    /// Activate the tab with this terminal id.
+    pub select: Option<u64>,
+    /// Close the tab with this terminal id.
+    pub close: Option<u64>,
+    /// Create a new tab.
+    pub create: bool,
+    /// Copy the active terminal's selection.
+    pub copy: bool,
+    /// Paste the clipboard into the active terminal.
+    pub paste: bool,
+    /// Activate the project at this index.
+    pub select_project: Option<usize>,
+    /// Open the folder picker to create a new project.
+    pub create_project: bool,
+    /// The chrome's reserved size (top bar height or sidebar width) changed; the terminal layout
+    /// must be recomputed.
+    pub layout_changed: bool,
+}
+
 /// The display wraps a window, font rasterizer, and GPU renderer.
 pub struct Display {
     pub window: Window,
@@ -397,6 +491,23 @@ pub struct Display {
 
     glyph_cache: GlyphCache,
     meter: Meter,
+
+    /// Window pixel position of the open right-click context menu, if any.
+    context_menu_pos: Option<(f32, f32)>,
+
+    /// egui integration used to render the window chrome (tab bar, menus) over the terminal.
+    egui: ManuallyDrop<egui_glow::EguiGlow>,
+    /// Shared glow context, kept so GL state (e.g. scissor) can be reset after egui paints.
+    egui_gl: Arc<egui_glow::glow::Context>,
+    /// Chrome actions collected during the last egui frame, drained by the window.
+    chrome_actions: ChromeActions,
+    /// Number of rows reserved at the top for the egui chrome (tab bar). Integer-stable so window
+    /// resizes don't perturb it (avoiding a relayout feedback storm).
+    egui_bar_rows: usize,
+    /// Physical-pixel width reserved on the left for the egui project sidebar (0 when hidden).
+    egui_sidebar_width: f32,
+    /// Whether the project sidebar is currently shown (toggled with a keybinding).
+    egui_sidebar_visible: bool,
 }
 
 impl Display {
@@ -405,6 +516,7 @@ impl Display {
         gl_context: NotCurrentContext,
         config: &UiConfig,
         _tabbed: bool,
+        event_loop: &ActiveEventLoop,
     ) -> Result<Display, Error> {
         let raw_window_handle = window.raw_window_handle();
 
@@ -514,7 +626,23 @@ impl Display {
             info!("Failed to disable vsync: {err}");
         }
 
+        // Set up egui, rendering through the same GL context as the terminal renderer.
+        let egui_gl = Arc::new(unsafe {
+            egui_glow::glow::Context::from_loader_function_cstr(|symbol| {
+                context.display().get_proc_address(symbol)
+            })
+        });
+        let egui = egui_glow::EguiGlow::new(event_loop, egui_gl.clone(), None, None, true);
+        install_cjk_font(&egui.egui_ctx);
+        egui.egui_ctx.set_style(shadcn_style());
+
         Ok(Self {
+            egui: ManuallyDrop::new(egui),
+            egui_gl,
+            chrome_actions: ChromeActions::default(),
+            egui_bar_rows: 0,
+            egui_sidebar_width: 0.,
+            egui_sidebar_visible: true,
             context: ManuallyDrop::new(context),
             visual_bell: VisualBell::from(&config.bell),
             renderer: ManuallyDrop::new(renderer),
@@ -539,7 +667,13 @@ impl Display {
             cursor_hidden: Default::default(),
             meter: Default::default(),
             ime: Default::default(),
+            context_menu_pos: None,
         })
+    }
+
+    /// Open the egui right-click context menu anchored at the given window pixel position.
+    pub fn open_context_menu(&mut self, x: usize, y: usize) {
+        self.context_menu_pos = Some((x as f32, y as f32));
     }
 
     #[inline]
@@ -655,6 +789,7 @@ impl Display {
         message_buffer: &MessageBuffer,
         search_state: &mut SearchState,
         config: &UiConfig,
+        tab_bar_lines: usize,
     ) where
         T: EventListener,
     {
@@ -703,7 +838,13 @@ impl Display {
         let search_active = search_state.history_index.is_some();
         let message_bar_lines = message_buffer.message().map_or(0, |m| m.text(&new_size).len());
         let search_lines = usize::from(search_active);
-        new_size.reserve_lines(message_bar_lines + search_lines);
+        new_size.reserve_lines(message_bar_lines + search_lines + tab_bar_lines);
+
+        // Reserve space at the top for the egui chrome (tab bar).
+        new_size.reserve_top_rows(self.egui_bar_rows);
+
+        // Reserve space at the left for the egui project sidebar.
+        new_size.reserve_left_cols(self.egui_sidebar_width);
 
         // Update resize increments.
         if config.window.resize_increments {
@@ -732,6 +873,9 @@ impl Display {
 
             // Clear focused search match.
             search_state.clear_focused_match();
+
+            // The context menu's anchor is tied to the old layout; close it on resize.
+            self.context_menu_pos = None;
         }
         self.size_info = new_size;
     }
@@ -779,6 +923,7 @@ impl Display {
         message_buffer: &MessageBuffer,
         config: &UiConfig,
         search_state: &mut SearchState,
+        tab_bar: &TabBarInfo,
     ) {
         // Collect renderable content before the terminal is dropped.
         let mut content = RenderableContent::new(config, self, &terminal, search_state);
@@ -1008,6 +1153,8 @@ impl Display {
             self.renderer.draw_rects(&size_info, &metrics, rects);
         }
 
+        // The tab bar is now drawn by egui (see `draw_egui_chrome`), not the hand-rolled renderer.
+
         self.draw_render_timer(config);
 
         // Draw hyperlink uri preview.
@@ -1026,6 +1173,9 @@ impl Display {
             self.highlight_damage(&mut rects);
             self.renderer.draw_rects(&self.size_info, &metrics, rects);
         }
+
+        // Render the egui chrome (tab bar, menus) over the terminal.
+        self.draw_egui_chrome(tab_bar);
 
         // Clearing debug highlights from the previous frame requires full redraw.
         self.swap_buffers();
@@ -1325,6 +1475,84 @@ impl Display {
         );
     }
 
+    /// Feed a winit window event to egui. Returns whether egui consumed it / wants a repaint.
+    pub fn feed_egui_event(
+        &mut self,
+        event: &winit::event::WindowEvent,
+    ) -> egui_winit::EventResponse {
+        self.egui.on_window_event(self.window.winit_window(), event)
+    }
+
+    /// Drain the chrome actions collected during the last egui frame.
+    pub fn take_chrome_actions(&mut self) -> ChromeActions {
+        std::mem::take(&mut self.chrome_actions)
+    }
+
+    /// Toggle the project sidebar's visibility and trigger a relayout.
+    pub fn toggle_sidebar(&mut self) {
+        self.egui_sidebar_visible = !self.egui_sidebar_visible;
+        self.pending_update.dirty = true;
+    }
+
+    /// Render the egui chrome (tab bar, menus) over the terminal grid.
+    fn draw_egui_chrome(&mut self, tab_bar: &TabBarInfo) {
+        let window = self.window.winit_window();
+        let actions = &mut self.chrome_actions;
+        let menu_pos = &mut self.context_menu_pos;
+        let sidebar_visible = self.egui_sidebar_visible;
+        let mut bar_height = 0.;
+        let mut sidebar_width = 0.;
+        self.egui.run(window, |ctx| {
+            build_chrome_ui(
+                ctx,
+                tab_bar,
+                actions,
+                menu_pos,
+                sidebar_visible,
+                &mut bar_height,
+                &mut sidebar_width,
+            )
+        });
+        self.egui.paint(window);
+
+        // egui changes GL state the terminal renderer assumes persists (the bound glyph-atlas
+        // texture and the dual-source blend function); restore it so the next frame's grid renders
+        // correctly instead of as blank/white boxes.
+        self.renderer.reset_after_egui();
+
+        // Defensively ensure scissor is disabled (egui uses it for clip rects), so Alacritty's
+        // glClear/draws next frame aren't clipped.
+        unsafe {
+            use egui_glow::glow::HasContext;
+            self.egui_gl.disable(egui_glow::glow::SCISSOR_TEST);
+        }
+
+        // egui sets the GL viewport to the full framebuffer for its own painting and doesn't
+        // restore it. Alacritty's text renderer doesn't set the viewport per frame, so restore the
+        // grid viewport here, or the next frame's grid renders stretched into the full window.
+        self.renderer.set_viewport(&self.size_info);
+
+        // Feed the measured chrome height back into the layout so the terminal sits below it.
+        // Compare in whole rows so a window resize (which doesn't change the bar's height) never
+        // perturbs the reservation, avoiding a relayout/resize feedback storm.
+        let cell_height = self.size_info.cell_height();
+        let rows = if cell_height > 0. { (bar_height / cell_height).ceil() as usize } else { 0 };
+        if rows != self.egui_bar_rows {
+            self.egui_bar_rows = rows;
+            self.chrome_actions.layout_changed = true;
+            self.pending_update.dirty = true;
+        }
+
+        // Feed the measured sidebar width back into the layout so the terminal sits to its right.
+        // Round to whole pixels so sub-pixel jitter never triggers a relayout feedback storm.
+        let sidebar_width = sidebar_width.round();
+        if (sidebar_width - self.egui_sidebar_width).abs() > f32::EPSILON {
+            self.egui_sidebar_width = sidebar_width;
+            self.chrome_actions.layout_changed = true;
+            self.pending_update.dirty = true;
+        }
+    }
+
     /// Draw render timer.
     #[inline(never)]
     fn draw_render_timer(&mut self, config: &UiConfig) {
@@ -1464,6 +1692,7 @@ impl Drop for Display {
         // contexts might be deleted when dropping renderer.
         self.make_current();
         unsafe {
+            ManuallyDrop::drop(&mut self.egui);
             ManuallyDrop::drop(&mut self.renderer);
             ManuallyDrop::drop(&mut self.context);
             ManuallyDrop::drop(&mut self.surface);
@@ -1601,10 +1830,201 @@ impl FrameTimer {
     }
 }
 
-/// Calculate the cell dimensions based on font metrics.
-///
-/// This will return a tuple of the cell width and height.
+/// Logical-point width of the left project sidebar.
+const PROJECT_SIDEBAR_WIDTH: f32 = 160.0;
+
+/// Build the egui chrome: the left project sidebar, top tab bar and right-click context menu.
+/// Click results are written into `actions`; the rendered tab-bar height and sidebar width (both
+/// physical px) into `out_height` / `out_sidebar_width`.
 #[inline]
+#[allow(clippy::too_many_arguments)]
+fn build_chrome_ui(
+    ctx: &egui::Context,
+    tab_bar: &TabBarInfo,
+    actions: &mut ChromeActions,
+    menu_pos: &mut Option<(f32, f32)>,
+    sidebar_visible: bool,
+    out_height: &mut f32,
+    out_sidebar_width: &mut f32,
+) {
+    // Left project sidebar. Declared before the top panel so egui reserves its edge first; the
+    // tab bar then fills only the area to its right, above the terminal.
+    if sidebar_visible {
+        let side = egui::SidePanel::left("alacritty_projects")
+            .resizable(false)
+            .exact_width(PROJECT_SIDEBAR_WIDTH)
+            .show(ctx, |ui| {
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    ui.add_space(4.0);
+                    ui.label(egui::RichText::new("项目").weak());
+                });
+                ui.separator();
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    for (i, name) in tab_bar.project_names.iter().enumerate() {
+                        let selected = i == tab_bar.active_project;
+                        let label = if name.is_empty() { "~" } else { name.as_str() };
+                        if ui.selectable_label(selected, label).clicked() {
+                            actions.select_project = Some(i);
+                        }
+                    }
+                });
+                ui.separator();
+                if ui.button("+ 新建项目").clicked() {
+                    actions.create_project = true;
+                }
+            });
+        *out_sidebar_width = side.response.rect.width() * ctx.pixels_per_point();
+    } else {
+        *out_sidebar_width = 0.;
+    }
+
+    let panel = egui::TopBottomPanel::top("alacritty_tab_bar").show(ctx, |ui| {
+        egui::ScrollArea::horizontal().show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 4.0;
+                for (i, title) in tab_bar.titles.iter().enumerate() {
+                    let id = tab_bar.ids[i];
+                    let selected = i == tab_bar.active;
+                    let name = if title.is_empty() { "shell" } else { title.as_str() };
+                    if ui.selectable_label(selected, format!("{}: {}", i + 1, name)).clicked() {
+                        actions.select = Some(id);
+                    }
+                    if ui.small_button("×").on_hover_text("关闭").clicked() {
+                        actions.close = Some(id);
+                    }
+                    ui.separator();
+                }
+                if ui.button("➕").on_hover_text("新建标签").clicked() {
+                    actions.create = true;
+                }
+            });
+        });
+    });
+    // egui lays out in logical points; convert to physical pixels to match `SizeInfo`.
+    *out_height = panel.response.rect.height() * ctx.pixels_per_point();
+
+    // Right-click context menu (Copy / Paste).
+    if let Some((px, py)) = *menu_pos {
+        let ppp = ctx.pixels_per_point();
+        let pos = egui::pos2(px / ppp, py / ppp);
+        let mut close = false;
+        let area = egui::Area::new(egui::Id::new("alacritty_context_menu"))
+            .order(egui::Order::Foreground)
+            .fixed_pos(pos)
+            .show(ctx, |ui| {
+                egui::Frame::popup(ui.style()).show(ui, |ui| {
+                    ui.set_min_width(120.0);
+                    if ui.button("Copy").clicked() {
+                        actions.copy = true;
+                        close = true;
+                    }
+                    if ui.button("Paste").clicked() {
+                        actions.paste = true;
+                        close = true;
+                    }
+                });
+            });
+
+        // Dismiss on selection, click outside the menu, or Escape.
+        if close
+            || area.response.clicked_elsewhere()
+            || ctx.input(|i| i.key_pressed(egui::Key::Escape))
+        {
+            *menu_pos = None;
+        }
+    }
+}
+
+/// A dark egui theme inspired by shadcn/ui (zinc palette): muted neutral surfaces, hairline
+/// borders, rounded corners, ghost buttons with a subtle accent on hover.
+fn shadcn_style() -> egui::Style {
+    use egui::{Color32, CornerRadius, Stroke};
+
+    // zinc palette
+    let panel = Color32::from_rgb(0x0c, 0x0c, 0x0e); // near-black bar surface
+    let popover = Color32::from_rgb(0x09, 0x09, 0x0b); // zinc-950
+    let border = Color32::from_rgb(0x27, 0x27, 0x2a); // zinc-800
+    let accent = Color32::from_rgb(0x27, 0x27, 0x2a); // hover / selected
+    let accent_strong = Color32::from_rgb(0x3f, 0x3f, 0x46); // zinc-700 (pressed)
+    let fg = Color32::from_rgb(0xfa, 0xfa, 0xfa); // zinc-50
+    let radius = CornerRadius::same(6);
+
+    let mut style = egui::Style::default();
+    let v = &mut style.visuals;
+    v.dark_mode = true;
+    v.panel_fill = panel;
+    v.window_fill = popover;
+    v.window_stroke = Stroke::new(1.0, border);
+    v.window_corner_radius = radius;
+    v.override_text_color = Some(fg);
+
+    // Bottom separator line under the tab bar.
+    v.widgets.noninteractive.bg_stroke = Stroke::new(1.0, border);
+    v.widgets.noninteractive.corner_radius = radius;
+
+    // Ghost idle state: transparent surface, no border.
+    v.widgets.inactive.weak_bg_fill = Color32::TRANSPARENT;
+    v.widgets.inactive.bg_fill = Color32::TRANSPARENT;
+    v.widgets.inactive.bg_stroke = Stroke::NONE;
+    v.widgets.inactive.corner_radius = radius;
+
+    // Subtle accent fill on hover / press / open, with a hairline border.
+    for w in [&mut v.widgets.hovered, &mut v.widgets.active, &mut v.widgets.open] {
+        w.weak_bg_fill = accent;
+        w.bg_fill = accent;
+        w.bg_stroke = Stroke::new(1.0, border);
+        w.corner_radius = radius;
+    }
+    v.widgets.active.weak_bg_fill = accent_strong;
+    v.widgets.active.bg_fill = accent_strong;
+
+    // Selected tab.
+    v.selection.bg_fill = accent;
+    v.selection.stroke = Stroke::new(1.0, fg);
+
+    // Soft popover shadow.
+    v.popup_shadow = egui::epaint::Shadow {
+        offset: [0, 4],
+        blur: 16,
+        spread: 0,
+        color: Color32::from_black_alpha(96),
+    };
+    v.window_shadow = v.popup_shadow;
+
+    style.spacing.button_padding = egui::vec2(10.0, 5.0);
+    style.spacing.item_spacing = egui::vec2(6.0, 4.0);
+
+    style
+}
+
+/// Load a system CJK font as an egui fallback so non-Latin chrome text (e.g. tab titles) renders
+/// instead of tofu boxes.
+fn install_cjk_font(ctx: &egui::Context) {
+    let candidates: &[&str] = &[
+        // macOS
+        "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/Hiragino Sans GB.ttc",
+        // Linux (common CJK fonts)
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+        // Windows
+        "C:\\Windows\\Fonts\\msyh.ttc",
+        "C:\\Windows\\Fonts\\simhei.ttf",
+    ];
+
+    for path in candidates {
+        let Ok(bytes) = std::fs::read(path) else { continue };
+        let mut fonts = egui::FontDefinitions::default();
+        fonts.font_data.insert("cjk".to_owned(), Arc::new(egui::FontData::from_owned(bytes)));
+        for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
+            fonts.families.entry(family).or_default().push("cjk".to_owned());
+        }
+        ctx.set_fonts(fonts);
+        return;
+    }
+}
+
 fn compute_cell_size(config: &UiConfig, metrics: &crossfont::Metrics) -> (f32, f32) {
     let offset_x = f64::from(config.font.offset.x);
     let offset_y = f64::from(config.font.offset.y);

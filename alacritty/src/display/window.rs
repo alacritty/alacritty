@@ -222,6 +222,12 @@ impl Window {
         self.window.window_handle().unwrap().as_raw()
     }
 
+    /// Access the underlying winit window (needed by egui integration).
+    #[inline]
+    pub fn winit_window(&self) -> &WinitWindow {
+        &self.window
+    }
+
     #[inline]
     pub fn request_inner_size(&self, size: PhysicalSize<u32>) {
         let _ = self.window.request_inner_size(size);
@@ -481,35 +487,6 @@ impl Window {
         };
 
         view.window().unwrap().setHasShadow(has_shadows);
-    }
-
-    /// Select tab at the given `index`.
-    #[cfg(target_os = "macos")]
-    pub fn select_tab_at_index(&self, index: usize) {
-        self.window.select_tab_at_index(index);
-    }
-
-    /// Select the last tab.
-    #[cfg(target_os = "macos")]
-    pub fn select_last_tab(&self) {
-        self.window.select_tab_at_index(self.window.num_tabs() - 1);
-    }
-
-    /// Select next tab.
-    #[cfg(target_os = "macos")]
-    pub fn select_next_tab(&self) {
-        self.window.select_next_tab();
-    }
-
-    /// Select previous tab.
-    #[cfg(target_os = "macos")]
-    pub fn select_previous_tab(&self) {
-        self.window.select_previous_tab();
-    }
-
-    #[cfg(target_os = "macos")]
-    pub fn tabbing_id(&self) -> String {
-        self.window.tabbing_identifier()
     }
 }
 

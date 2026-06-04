@@ -201,6 +201,10 @@ fn update_projection(u_projection: GLint, size: &SizeInfo) {
     let height = size.height();
     let padding_x = size.padding_x();
     let padding_y = size.padding_y();
+    // Pixels reserved for the egui chrome (top) and the project sidebar (left); the grid's
+    // drawable area shrinks by them.
+    let top_extra = size.top_extra();
+    let left_extra = size.left_extra();
 
     // Bounds check.
     if (width as u32) < (2 * padding_x as u32) || (height as u32) < (2 * padding_y as u32) {
@@ -208,10 +212,10 @@ fn update_projection(u_projection: GLint, size: &SizeInfo) {
     }
 
     // Compute scale and offset factors, from pixel to ndc space. Y is inverted.
-    //   [0, width - 2 * padding_x] to [-1, 1]
-    //   [height - 2 * padding_y, 0] to [-1, 1]
-    let scale_x = 2. / (width - 2. * padding_x);
-    let scale_y = -2. / (height - 2. * padding_y);
+    //   [0, width - 2 * padding_x - left_extra] to [-1, 1]
+    //   [height - 2 * padding_y - top_extra, 0] to [-1, 1]
+    let scale_x = 2. / (width - 2. * padding_x - left_extra);
+    let scale_y = -2. / (height - 2. * padding_y - top_extra);
     let offset_x = -1.;
     let offset_y = 1.;
 

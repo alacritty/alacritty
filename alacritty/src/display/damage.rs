@@ -204,7 +204,9 @@ impl FrameDamage {
 
 /// Convert viewport `y` coordinate to [`Rect`] damage coordinate.
 pub fn viewport_y_to_damage_y(size_info: &SizeInfo, y: i32, height: i32) -> i32 {
-    size_info.height() as i32 - y - height
+    // Overlays are shifted down by `top_extra` (egui chrome) when rendered, so shift their damage
+    // to match.
+    size_info.height() as i32 - y - height - size_info.top_extra() as i32
 }
 
 /// Convert viewport `y` coordinate to [`Rect`] damage coordinate.
@@ -226,8 +228,12 @@ impl<'a> RenderDamageIterator<'a> {
     #[inline]
     fn rect_for_line(&self, line_damage: LineDamageBounds) -> Rect {
         let size_info = &self.size_info;
-        let y_top = size_info.height() - size_info.padding_y();
-        let x = size_info.padding_x() + line_damage.left as u32 * size_info.cell_width();
+        // The grid is shifted down by `top_extra` (egui chrome) and right by `left_extra`
+        // (project sidebar), so its top-left corner moves accordingly.
+        let y_top = size_info.height() - size_info.padding_y() - size_info.top_extra();
+        let x = size_info.padding_x()
+            + size_info.left_extra()
+            + line_damage.left as u32 * size_info.cell_width();
         let y = y_top - (line_damage.line + 1) as u32 * size_info.cell_height();
         let width = (line_damage.right - line_damage.left + 1) as u32 * size_info.cell_width();
         Rect::new(x as i32, y as i32, width as i32, size_info.cell_height() as i32)
@@ -361,12 +367,10 @@ mod tests {
         let width = 10;
         let size_info = SizeInfo::new(viewport_height, viewport_height, 5., 5., 0., 0., true);
         frame_damage.add_viewport_rect(&size_info, x, y, width, height);
-        assert_eq!(frame_damage.rects[0], Rect {
-            x,
-            y: viewport_height as i32 - y - height,
-            width,
-            height
-        });
+        assert_eq!(
+            frame_damage.rects[0],
+            Rect { x, y: viewport_height as i32 - y - height, width, height }
+        );
         assert_eq!(frame_damage.rects[0].y, viewport_y_to_damage_y(&size_info, y, height));
         assert_eq!(damage_y_to_viewport_y(&size_info, &frame_damage.rects[0]), y);
     }

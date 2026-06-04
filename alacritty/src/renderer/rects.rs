@@ -328,11 +328,22 @@ impl RectRenderer {
 
         let half_width = size_info.width() / 2.;
         let half_height = size_info.height() / 2.;
+        // Shift every rect by the chrome reservations so they stay aligned with the grid: down by
+        // `top_extra` (top chrome) and right by `left_extra` (project sidebar).
+        let top_extra = size_info.top_extra();
+        let left_extra = size_info.left_extra();
 
         // Build rect vertices vector.
         self.vertices.iter_mut().for_each(|vertices| vertices.clear());
         for rect in &rects {
-            Self::add_rect(&mut self.vertices[rect.kind as usize], half_width, half_height, rect);
+            Self::add_rect(
+                &mut self.vertices[rect.kind as usize],
+                half_width,
+                half_height,
+                top_extra,
+                left_extra,
+                rect,
+            );
         }
 
         unsafe {
@@ -369,11 +380,18 @@ impl RectRenderer {
         }
     }
 
-    fn add_rect(vertices: &mut Vec<Vertex>, half_width: f32, half_height: f32, rect: &RenderRect) {
+    fn add_rect(
+        vertices: &mut Vec<Vertex>,
+        half_width: f32,
+        half_height: f32,
+        top_extra: f32,
+        left_extra: f32,
+        rect: &RenderRect,
+    ) {
         // Calculate rectangle vertices positions in normalized device coordinates.
         // NDC range from -1 to +1, with Y pointing up.
-        let x = rect.x / half_width - 1.0;
-        let y = -rect.y / half_height + 1.0;
+        let x = (rect.x + left_extra) / half_width - 1.0;
+        let y = -(rect.y + top_extra) / half_height + 1.0;
         let width = rect.width / half_width;
         let height = rect.height / half_height;
         let (r, g, b) = rect.color.as_tuple();

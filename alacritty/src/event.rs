@@ -4,7 +4,6 @@ use crate::ConfigMonitor;
 use glutin::config::GetGlConfig;
 use std::borrow::Cow;
 use std::cmp::min;
-use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;
 use std::ffi::OsStr;
@@ -63,6 +62,7 @@ use crate::message_bar::{Message, MessageBuffer};
 #[cfg(unix)]
 use crate::polling::ipc::{self, SocketReply};
 use crate::scheduler::{Scheduler, TimerId, Topic};
+use crate::session::SessionStore;
 use crate::window_context::WindowContext;
 
 /// Duration after the last user input until an unlimited search is performed.
@@ -98,6 +98,10 @@ pub struct Processor {
     global_ipc_options: ParsedOptions,
     cli_options: CliOptions,
     config: Rc<UiConfig>,
+    /// Persisted session store; `None` if persistence is unavailable.
+    session: Option<SessionStore>,
+    /// Next key to assign to a freshly opened (non-restored) window.
+    next_session_key: i64,
 }
 
 impl Processor {
@@ -128,6 +132,11 @@ impl Processor {
                 ConfigMonitor::new(config.config_paths.clone(), event_loop.create_proxy());
         }
 
+        // Open the session store; keys for new windows start past the highest saved key so
+        // they never collide with windows restored from a previous run.
+        let session = SessionStore::open();
+        let next_session_key = session.as_ref().map_or(0, SessionStore::max_key) + 1;
+
         Processor {
             initial_window_options,
             initial_window_error: None,
@@ -141,6 +150,8 @@ impl Processor {
             #[cfg(unix)]
             global_ipc_options: Default::default(),
             config_monitor,
+            session,
+            next_session_key,
         }
     }
 
@@ -152,7 +163,7 @@ impl Processor {
         &mut self,
         event_loop: &ActiveEventLoop,
         window_options: WindowOptions,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<WindowId, Box<dyn Error>> {
         let window_context = WindowContext::initial(
             event_loop,
             self.proxy.clone(),
@@ -161,9 +172,11 @@ impl Processor {
         )?;
 
         self.gl_config = Some(window_context.display.gl_context().config());
-        self.windows.insert(window_context.id(), window_context);
+        let window_id = window_context.id();
+        self.windows.insert(window_id, window_context);
+        self.assign_session_key(&window_id);
 
-        Ok(())
+        Ok(window_id)
     }
 
     /// Create a new terminal window.
@@ -171,7 +184,7 @@ impl Processor {
         &mut self,
         event_loop: &ActiveEventLoop,
         options: WindowOptions,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<WindowId, Box<dyn Error>> {
         let gl_config = self.gl_config.as_ref().unwrap();
 
         // Override config with CLI/IPC options.
@@ -190,8 +203,97 @@ impl Processor {
             config_overrides,
         )?;
 
-        self.windows.insert(window_context.id(), window_context);
-        Ok(())
+        let window_id = window_context.id();
+        self.windows.insert(window_id, window_context);
+        self.assign_session_key(&window_id);
+        Ok(window_id)
+    }
+
+    /// Assign the next free session key to a freshly opened window.
+    fn assign_session_key(&mut self, window_id: &WindowId) {
+        if let Some(window_context) = self.windows.get_mut(window_id) {
+            window_context.session_key = self.next_session_key;
+            self.next_session_key += 1;
+        }
+    }
+
+    /// Persist a single window's current layout, if session persistence is enabled.
+    fn save_session(&self, window_id: &WindowId) {
+        let (Some(store), Some(window_context)) = (&self.session, self.windows.get(window_id))
+        else {
+            return;
+        };
+        // Ephemeral (`-e`) windows are never written to the store.
+        if !window_context.persistent {
+            return;
+        }
+        store.save_window(&window_context.session_snapshot());
+    }
+
+    /// Restore windows saved by a previous run.
+    ///
+    /// Only runs for a plain launch (no `-e`/command override); returns `true` if at least one
+    /// window was restored, in which case the default initial window is skipped.
+    fn restore_session(&mut self, event_loop: &ActiveEventLoop) -> bool {
+        // Never restore when the user asked to run a specific command.
+        if self.cli_options.window_options.terminal_options.command().is_some() {
+            return false;
+        }
+
+        let saved = match &self.session {
+            Some(store) => store.load(),
+            None => return false,
+        };
+        if saved.is_empty() {
+            return false;
+        }
+
+        let mut restored = false;
+        for win in saved {
+            // Skip windows that somehow have no projects/tabs to restore.
+            let Some(first_cwd) = win
+                .projects
+                .first()
+                .and_then(|p| p.tabs.first())
+                .map(|t| t.working_directory.clone())
+            else {
+                continue;
+            };
+
+            // Build window options that spawn the bootstrap tab in its saved directory.
+            let mut options = self.cli_options.window_options.clone();
+            options.terminal_options.working_directory = first_cwd;
+
+            // The first restored window bootstraps the GL platform.
+            let create = if self.gl_config.is_none() {
+                self.create_initial_window(event_loop, options)
+            } else {
+                self.create_window(event_loop, options)
+            };
+
+            let window_id = match create {
+                Ok(window_id) => window_id,
+                Err(err) => {
+                    error!("Could not restore window: {err}");
+                    continue;
+                },
+            };
+
+            // Reuse the saved key so future updates target the same row, then rebuild the projects.
+            // We deliberately do *not* re-save here: the loaded rows are already authoritative,
+            // and the freshly spawned shells' working directories aren't resolvable yet, so a
+            // snapshot now would overwrite the good `cwd` values with `None`. The next genuine
+            // state change (tab/project open/switch/close) re-saves with live values.
+            let proxy = self.proxy.clone();
+            if let Some(window_context) = self.windows.get_mut(&window_id) {
+                window_context.session_key = win.key;
+                window_context.set_pixel_size(win.width, win.height);
+                window_context.restore_projects(proxy, &win.projects, win.active_project);
+            }
+            restored = true;
+        }
+
+        restored
     }
 
     /// Run the event loop.
@@ -236,10 +338,16 @@ impl ApplicationHandler<Event> for Processor {
         }
 
         if let Some(window_options) = self.initial_window_options.take() {
-            if let Err(err) = self.create_initial_window(event_loop, window_options) {
-                self.initial_window_error = Some(err);
-                event_loop.exit();
-                return;
+            // Restore the previous session if possible; otherwise open the default window.
+            if !self.restore_session(event_loop) {
+                match self.create_initial_window(event_loop, window_options) {
+                    Ok(window_id) => self.save_session(&window_id),
+                    Err(err) => {
+                        self.initial_window_error = Some(err);
+                        event_loop.exit();
+                        return;
+                    },
+                }
             }
         }
 
@@ -278,7 +386,7 @@ impl ApplicationHandler<Event> for Processor {
         );
 
         if is_redraw {
-            window_context.draw(&mut self.scheduler);
+            window_context.draw(&mut self.scheduler, &self.proxy);
         }
     }
 
@@ -286,6 +394,9 @@ impl ApplicationHandler<Event> for Processor {
         if self.config.debug.print_events {
             info!(target: LOG_TARGET_WINIT, "{event:?}");
         }
+
+        // Terminal (tab) this event originated from, used to route PTY events to the right tab.
+        let terminal_id = event.terminal_id;
 
         // Handle events which don't mandate the WindowId.
         match (event.payload, event.window_id.as_ref()) {
@@ -381,12 +492,79 @@ impl ApplicationHandler<Event> for Processor {
 
                 if self.gl_config.is_none() {
                     // Handle initial window creation in daemon mode.
-                    if let Err(err) = self.create_initial_window(event_loop, options) {
-                        self.initial_window_error = Some(err);
-                        event_loop.exit();
+                    match self.create_initial_window(event_loop, options) {
+                        Ok(window_id) => self.save_session(&window_id),
+                        Err(err) => {
+                            self.initial_window_error = Some(err);
+                            event_loop.exit();
+                        },
                     }
-                } else if let Err(err) = self.create_window(event_loop, options) {
-                    error!("Could not open window: {err:?}");
+                } else {
+                    match self.create_window(event_loop, options) {
+                        Ok(window_id) => self.save_session(&window_id),
+                        Err(err) => error!("Could not open window: {err:?}"),
+                    }
+                }
+            },
+            // Open a new tab in an existing window.
+            (EventType::CreateTab, Some(window_id)) => {
+                if let Some(window_context) = self.windows.get_mut(window_id) {
+                    #[cfg(not(windows))]
+                    let working_directory = window_context.active_working_directory();
+                    #[cfg(windows)]
+                    let working_directory = None;
+
+                    window_context.add_tab(self.proxy.clone(), working_directory);
+                    window_context.sync_tabs();
+                    self.save_session(window_id);
+                }
+            },
+            // Change the active tab of a window.
+            (EventType::SelectTab(selection), Some(window_id)) => {
+                if let Some(window_context) = self.windows.get_mut(window_id) {
+                    match selection {
+                        TabSelection::Next => window_context.select_next_tab(),
+                        TabSelection::Previous => window_context.select_previous_tab(),
+                        TabSelection::Last => window_context.select_last_tab(),
+                        TabSelection::Index(index) => window_context.select_tab(index),
+                        TabSelection::Id(id) => window_context.select_tab_by_id(id),
+                    }
+                    window_context.sync_tabs();
+                    self.save_session(window_id);
+                }
+            },
+            // Close a specific tab (e.g. middle-click on the tab bar).
+            (EventType::CloseTab(terminal_id), Some(window_id)) => {
+                if let Some(window_context) = self.windows.get_mut(window_id) {
+                    window_context.request_close_tab(terminal_id);
+                }
+            },
+            // Create a new project rooted at the picked folder.
+            (EventType::CreateProject(path), Some(window_id)) => {
+                if let Some(window_context) = self.windows.get_mut(window_id) {
+                    window_context.add_project(self.proxy.clone(), path);
+                    window_context.sync_tabs();
+                    self.save_session(window_id);
+                }
+            },
+            // Switch the active project.
+            (EventType::SelectProject(index), Some(window_id)) => {
+                if let Some(window_context) = self.windows.get_mut(window_id) {
+                    window_context.select_project(index);
+                    window_context.sync_tabs();
+                    self.save_session(window_id);
+                }
+            },
+            // Copy/paste requested from the egui context menu.
+            (EventType::Copy, Some(window_id)) => {
+                if let Some(window_context) = self.windows.get_mut(window_id) {
+                    window_context.copy_active_selection(&mut self.clipboard);
+                }
+            },
+            (EventType::Paste, Some(window_id)) => {
+                if let Some(window_context) = self.windows.get_mut(window_id) {
+                    let text = self.clipboard.load(ClipboardType::Clipboard);
+                    window_context.paste_to_active(&text);
                 }
             },
             // Shutdown all windows.
@@ -415,15 +593,62 @@ impl ApplicationHandler<Event> for Processor {
                 }
             },
             (EventType::Terminal(TerminalEvent::Exit), Some(window_id)) => {
-                // Remove the closed terminal.
-                let window_context = match self.windows.entry(*window_id) {
-                    // Don't exit when terminal exits if user asked to hold the window.
-                    Entry::Occupied(window_context)
-                        if !window_context.get().display.window.hold =>
-                    {
-                        window_context.remove()
+                let window_now_empty = match terminal_id {
+                    // A specific tab's shell exited: close just that tab.
+                    Some(terminal_id) => {
+                        // Returns `Some(window_now_empty)` once the borrow is released, or `None`
+                        // to bail out of this event entirely.
+                        let outcome = match self.windows.get_mut(window_id) {
+                            Some(window_context) => {
+                                // Don't close the tab if the user asked to hold the window.
+                                if window_context.display.window.hold {
+                                    None
+                                } else if window_context.close_tab(terminal_id) {
+                                    Some(true)
+                                } else {
+                                    // A tab was closed but the window remains; refresh its layout.
+                                    window_context.sync_tabs();
+                                    Some(false)
+                                }
+                            },
+                            None => None,
+                        };
+
+                        match outcome {
+                            Some(true) => true,
+                            // Tab closed, window remains: persist the new layout, then stop.
+                            Some(false) => {
+                                self.save_session(window_id);
+                                return;
+                            },
+                            None => return,
+                        }
                     },
-                    _ => return,
+                    // Window-level close request (e.g. the window's close button): close it all.
+                    None => true,
+                };
+
+                if !window_now_empty {
+                    return;
+                }
+
+                // Decide the window's session fate before removing it. The last window closing
+                // means the app is exiting, so keep its layout to restore next launch; any other
+                // window was closed deliberately and should be forgotten.
+                if self.windows.len() == 1 && !self.cli_options.daemon {
+                    self.save_session(window_id);
+                } else if let (Some(store), Some(window_context)) =
+                    (&self.session, self.windows.get(window_id))
+                {
+                    if window_context.persistent {
+                        store.remove_window(window_context.session_key);
+                    }
+                }
+
+                // Remove the now-empty window.
+                let window_context = match self.windows.remove(window_id) {
+                    Some(window_context) => window_context,
+                    None => return,
                 };
 
                 // Unschedule pending events.
@@ -522,13 +747,29 @@ pub struct Event {
     /// Limit event to a specific window.
     window_id: Option<WindowId>,
 
+    /// Limit event to a specific terminal (tab) within a window.
+    ///
+    /// Events emitted by a terminal's PTY are tagged with the terminal's id so they can be
+    /// routed to the correct tab, even when that tab is not currently active.
+    terminal_id: Option<u64>,
+
     /// Event payload.
     payload: EventType,
 }
 
 impl Event {
     pub fn new<I: Into<Option<WindowId>>>(payload: EventType, window_id: I) -> Self {
-        Self { window_id: window_id.into(), payload }
+        Self { window_id: window_id.into(), terminal_id: None, payload }
+    }
+
+    /// Create an event tagged with both a window and a terminal (tab) id.
+    pub fn with_terminal(payload: EventType, window_id: WindowId, terminal_id: u64) -> Self {
+        Self { window_id: Some(window_id), terminal_id: Some(terminal_id), payload }
+    }
+
+    /// Terminal (tab) this event is limited to, if any.
+    pub fn terminal_id(&self) -> Option<u64> {
+        self.terminal_id
     }
 }
 
@@ -546,6 +787,20 @@ pub enum EventType {
     Message(Message),
     Scroll(Scroll),
     CreateWindow(WindowOptions),
+    /// Create a new tab in the window identified by the event's window id.
+    CreateTab,
+    /// Change the active tab of the window identified by the event's window id.
+    SelectTab(TabSelection),
+    /// Close the tab with the given terminal id in the window identified by the event's window id.
+    CloseTab(u64),
+    /// Copy the active tab's selection to the clipboard (from the egui context menu).
+    Copy,
+    /// Paste the clipboard into the active tab (from the egui context menu).
+    Paste,
+    /// Create a new project rooted at the given folder (from the sidebar folder picker).
+    CreateProject(PathBuf),
+    /// Activate the project at the given index (from the sidebar).
+    SelectProject(usize),
     #[cfg(unix)]
     IpcConfig(IpcConfig),
     #[cfg(unix)]
@@ -562,6 +817,17 @@ impl From<TerminalEvent> for EventType {
     fn from(event: TerminalEvent) -> Self {
         Self::Terminal(event)
     }
+}
+
+/// Which tab to focus within a window.
+#[derive(Debug, Clone, Copy)]
+pub enum TabSelection {
+    Next,
+    Previous,
+    Last,
+    Index(usize),
+    /// A specific tab by its stable terminal id (used for mouse clicks).
+    Id(u64),
 }
 
 /// Regex search state.
@@ -681,6 +947,10 @@ pub struct ActionContext<'a, N, T> {
     pub dirty: &'a mut bool,
     pub occluded: &'a mut bool,
     pub preserve_title: bool,
+    /// Title of the tab this context targets; updated when its terminal reports a new title.
+    pub tab_title: &'a mut String,
+    /// Whether the targeted tab is the window's active tab.
+    pub is_active_tab: bool,
     #[cfg(not(windows))]
     pub master_fd: RawFd,
     #[cfg(not(windows))]
@@ -844,6 +1114,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.display
     }
 
+    fn open_context_menu(&mut self, x: usize, y: usize) {
+        self.display.open_context_menu(x, y);
+        *self.dirty = true;
+    }
+
     #[inline]
     fn terminal(&self) -> &Term<T> {
         self.terminal
@@ -900,6 +1175,34 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let _ = self
             .event_proxy
             .send_event(Event::new(EventType::CreateWindow(WindowOptions::default()), None));
+    }
+
+    fn create_tab(&mut self) {
+        let window_id = self.display.window.id();
+        let _ = self.event_proxy.send_event(Event::new(EventType::CreateTab, window_id));
+    }
+
+    fn select_tab(&mut self, selection: TabSelection) {
+        let window_id = self.display.window.id();
+        let _ = self.event_proxy.send_event(Event::new(EventType::SelectTab(selection), window_id));
+    }
+
+    fn close_active_tab(&mut self) {
+        // Exiting the active terminal removes its tab (or the window if it is the last tab).
+        self.terminal.exit();
+    }
+
+    fn close_window(&mut self) {
+        // A window-scoped `Exit` (no terminal id) closes the entire window.
+        let window_id = self.display.window.id();
+        let _ = self
+            .event_proxy
+            .send_event(Event::new(EventType::Terminal(TerminalEvent::Exit), window_id));
+    }
+
+    fn toggle_project_sidebar(&mut self) {
+        self.display.toggle_sidebar();
+        *self.dirty = true;
     }
 
     fn spawn_daemon<I, S>(&self, program: &str, args: I)
@@ -1808,10 +2111,10 @@ impl Mouse {
     /// coordinates will be clamped to the closest grid coordinates.
     #[inline]
     pub fn point(&self, size: &SizeInfo, display_offset: usize) -> Point {
-        let col = self.x.saturating_sub(size.padding_x() as usize) / (size.cell_width() as usize);
+        let col = self.x.saturating_sub(size.grid_left() as usize) / (size.cell_width() as usize);
         let col = min(Column(col), size.last_column());
 
-        let line = self.y.saturating_sub(size.padding_y() as usize) / (size.cell_height() as usize);
+        let line = self.y.saturating_sub(size.grid_top() as usize) / (size.cell_height() as usize);
         let line = min(line, size.bottommost_line().0 as usize);
 
         term::viewport_to_point(display_offset, Point::new(line, col))
@@ -1866,14 +2169,22 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 },
                 EventType::Terminal(event) => match event {
                     TerminalEvent::Title(title) => {
-                        if !self.ctx.preserve_title && self.ctx.config.window.dynamic_title {
+                        // Always record the title for the tab bar.
+                        *self.ctx.tab_title = title.clone();
+                        // Only the active tab drives the window title.
+                        if self.ctx.is_active_tab
+                            && !self.ctx.preserve_title
+                            && self.ctx.config.window.dynamic_title
+                        {
                             self.ctx.window().set_title(title);
                         }
                     },
                     TerminalEvent::ResetTitle => {
-                        let window_config = &self.ctx.config.window;
-                        if !self.ctx.preserve_title && window_config.dynamic_title {
-                            self.ctx.display.window.set_title(window_config.identity.title.clone());
+                        let dynamic_title = self.ctx.config.window.dynamic_title;
+                        let default_title = self.ctx.config.window.identity.title.clone();
+                        *self.ctx.tab_title = default_title.clone();
+                        if self.ctx.is_active_tab && !self.ctx.preserve_title && dynamic_title {
+                            self.ctx.display.window.set_title(default_title);
                         }
                     },
                     TerminalEvent::Bell => {
@@ -1933,6 +2244,13 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 EventType::Message(_)
                 | EventType::ConfigReload(_)
                 | EventType::CreateWindow(_)
+                | EventType::CreateTab
+                | EventType::SelectTab(_)
+                | EventType::CloseTab(_)
+                | EventType::CreateProject(_)
+                | EventType::SelectProject(_)
+                | EventType::Copy
+                | EventType::Paste
                 | EventType::Frame => (),
             },
             WinitEvent::WindowEvent { event, .. } => {
@@ -1940,7 +2258,8 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     WindowEvent::CloseRequested => {
                         // User asked to close the window, so no need to hold it.
                         self.ctx.window().hold = false;
-                        self.ctx.terminal.exit();
+                        // Close the whole window (all of its tabs), not just the active tab.
+                        self.ctx.close_window();
                     },
                     WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                         let old_scale_factor =
@@ -2073,21 +2392,27 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 pub struct EventProxy {
     proxy: EventLoopProxy<Event>,
     window_id: WindowId,
+    terminal_id: u64,
 }
 
 impl EventProxy {
-    pub fn new(proxy: EventLoopProxy<Event>, window_id: WindowId) -> Self {
-        Self { proxy, window_id }
+    pub fn new(proxy: EventLoopProxy<Event>, window_id: WindowId, terminal_id: u64) -> Self {
+        Self { proxy, window_id, terminal_id }
     }
 
     /// Send an event to the event loop.
     pub fn send_event(&self, event: EventType) {
-        let _ = self.proxy.send_event(Event::new(event, self.window_id));
+        let _ =
+            self.proxy.send_event(Event::with_terminal(event, self.window_id, self.terminal_id));
     }
 }
 
 impl EventListener for EventProxy {
     fn send_event(&self, event: TerminalEvent) {
-        let _ = self.proxy.send_event(Event::new(event.into(), self.window_id));
+        let _ = self.proxy.send_event(Event::with_terminal(
+            event.into(),
+            self.window_id,
+            self.terminal_id,
+        ));
     }
 }

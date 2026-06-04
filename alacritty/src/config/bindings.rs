@@ -220,8 +220,14 @@ pub enum Action {
     /// Create a new Alacritty window.
     CreateNewWindow,
 
-    /// Create new window in a tab.
+    /// Create a new tab in the current window.
     CreateNewTab,
+
+    /// Close the active tab in the current window.
+    CloseTab,
+
+    /// Toggle the project sidebar.
+    ToggleProjectSidebar,
 
     /// Toggle fullscreen.
     ToggleFullscreen,
@@ -552,6 +558,14 @@ fn common_keybindings() -> Vec<KeyBinding> {
         Insert, ModifiersState::SHIFT,                           ~BindingMode::VI;                       Action::PasteSelection;
         "c",    ModifiersState::CONTROL | ModifiersState::SHIFT;                                         Action::Copy;
         "c",    ModifiersState::CONTROL | ModifiersState::SHIFT, +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
+        // In-window tabs.
+        "t",      ModifiersState::CONTROL | ModifiersState::SHIFT;                                       Action::CreateNewTab;
+        "w",      ModifiersState::CONTROL | ModifiersState::SHIFT;                                       Action::CloseTab;
+        PageDown, ModifiersState::CONTROL;                                                               Action::SelectNextTab;
+        PageUp,   ModifiersState::CONTROL;                                                               Action::SelectPreviousTab;
+        Tab,      ModifiersState::CONTROL;                                                               Action::SelectNextTab;
+        Tab,      ModifiersState::CONTROL | ModifiersState::SHIFT;                                       Action::SelectPreviousTab;
+        "e",      ModifiersState::CONTROL | ModifiersState::SHIFT;                                       Action::ToggleProjectSidebar;
         "0",    ModifiersState::CONTROL;                                                                 Action::ResetFontSize;
         "=",    ModifiersState::CONTROL;                                                                 Action::IncreaseFontSize;
         "+",    ModifiersState::CONTROL;                                                                 Action::IncreaseFontSize;
@@ -587,6 +601,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         "[",    ModifiersState::SUPER | ModifiersState::SHIFT;                 Action::SelectPreviousTab;
         Tab,    ModifiersState::SUPER;                                         Action::SelectNextTab;
         Tab,    ModifiersState::SUPER | ModifiersState::SHIFT;                 Action::SelectPreviousTab;
+        "e",    ModifiersState::SUPER | ModifiersState::SHIFT;                 Action::ToggleProjectSidebar;
         "1",    ModifiersState::SUPER;                                         Action::SelectTab1;
         "2",    ModifiersState::SUPER;                                         Action::SelectTab2;
         "3",    ModifiersState::SUPER;                                         Action::SelectTab3;
@@ -612,7 +627,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         "h",    ModifiersState::SUPER   | ModifiersState::ALT;                 Action::HideOtherApplications;
         "m",    ModifiersState::SUPER;                                         Action::Minimize;
         "q",    ModifiersState::SUPER;                                         Action::Quit;
-        "w",    ModifiersState::SUPER;                                         Action::Quit;
+        "w",    ModifiersState::SUPER;                                         Action::CloseTab;
         "f",    ModifiersState::SUPER, ~BindingMode::SEARCH;                   Action::SearchForward;
         "b",    ModifiersState::SUPER, ~BindingMode::SEARCH;                   Action::SearchBackward;
         "+" => KeyLocation::Numpad, ModifiersState::SUPER;                     Action::IncreaseFontSize;

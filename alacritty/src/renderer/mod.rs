@@ -264,6 +264,23 @@ impl Renderer {
         }
     }
 
+    /// Restore the GL state the text renderer assumes persists across frames, after another GL
+    /// consumer (e.g. egui) has changed it.
+    ///
+    /// - Invalidate the cached texture binding, so the next batch re-binds the glyph atlas instead
+    ///   of sampling whatever egui left bound (otherwise the grid renders as blank boxes).
+    /// - Restore the dual-source subpixel blend function (GLSL3 sets it once; the GLES2 path
+    ///   re-sets blending per pass so it self-heals).
+    pub fn reset_after_egui(&mut self) {
+        match &mut self.text_renderer {
+            TextRendererProvider::Gles2(renderer) => renderer.reset_texture_cache(),
+            TextRendererProvider::Glsl3(renderer) => {
+                renderer.reset_texture_cache();
+                renderer.restore_blend_func();
+            },
+        }
+    }
+
     /// Fill the window with `color` and `alpha`.
     pub fn clear(&self, color: Rgb, alpha: f32) {
         unsafe {
@@ -330,11 +347,13 @@ impl Renderer {
     #[inline]
     pub fn set_viewport(&self, size: &SizeInfo) {
         unsafe {
+            // Reduce the height by `top_extra` (reserves the top egui chrome) and shift the left
+            // origin by `left_extra` while shrinking the width (reserves the left project sidebar).
             gl::Viewport(
-                size.padding_x() as i32,
+                size.padding_x() as i32 + size.left_extra() as i32,
                 size.padding_y() as i32,
-                size.width() as i32 - 2 * size.padding_x() as i32,
-                size.height() as i32 - 2 * size.padding_y() as i32,
+                size.width() as i32 - 2 * size.padding_x() as i32 - size.left_extra() as i32,
+                size.height() as i32 - 2 * size.padding_y() as i32 - size.top_extra() as i32,
             );
         }
     }
