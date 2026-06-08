@@ -30,6 +30,9 @@ use alacritty_terminal::term::test::TermSize;
 use alacritty_terminal::term::{Term, TermMode};
 use alacritty_terminal::tty;
 
+use crate::ai::agent::{AiEvent, AiWorker, WorkerConfig, WorkerMsg};
+use crate::ai::panel::{ChatPanelState, ChatRequest, PendingApproval, Speaker};
+use crate::ai::secret::{self, KeyLookup};
 use crate::cli::{ParsedOptions, WindowOptions};
 use crate::clipboard::Clipboard;
 use crate::config::UiConfig;
@@ -56,6 +59,8 @@ pub struct WindowContext {
     modifiers: Modifiers,
     inline_search_state: InlineSearchState,
     search_state: SearchState,
+    chat: ChatPanelState,
+    ai_worker: Option<AiWorker>,
     notifier: Notifier,
     mouse: Mouse,
     touch: TouchPurpose,
@@ -248,6 +253,8 @@ impl WindowContext {
             message_buffer: Default::default(),
             window_config: Default::default(),
             search_state: Default::default(),
+            chat: Default::default(),
+            ai_worker: None,
             event_queue: Default::default(),
             modifiers: Default::default(),
             occluded: Default::default(),
@@ -394,6 +401,7 @@ impl WindowContext {
             &self.message_buffer,
             &self.config,
             &mut self.search_state,
+            &self.chat,
         );
     }
 
@@ -432,6 +440,7 @@ impl WindowContext {
             message_buffer: &mut self.message_buffer,
             inline_search_state: &mut self.inline_search_state,
             search_state: &mut self.search_state,
+            chat: &mut self.chat,
             modifiers: &mut self.modifiers,
             notifier: &mut self.notifier,
             display: &mut self.display,
@@ -466,6 +475,7 @@ impl WindowContext {
                 &mut self.notifier,
                 &self.message_buffer,
                 &mut self.search_state,
+                &self.chat,
                 old_is_searching,
                 &self.config,
             );
@@ -491,6 +501,146 @@ impl WindowContext {
         {
             self.display.window.request_redraw();
         }
+
+        // Forward any AI requests queued during event handling to the worker thread.
+        drop(terminal);
+        if !self.chat.outbox.is_empty() {
+            let requests = mem::take(&mut self.chat.outbox);
+            self.dispatch_ai_requests(event_proxy, requests);
+        }
+    }
+
+    /// Apply an update from the AI worker thread to the chat panel.
+    pub fn handle_ai_event(&mut self, event: AiEvent) {
+        let mut opened = false;
+        match event {
+            AiEvent::Busy(busy) => self.chat.busy = busy,
+            AiEvent::Status(status) => self.chat.status = status,
+            AiEvent::Assistant(text) => self.chat.push(Speaker::Assistant, text),
+            AiEvent::System(text) => self.chat.push(Speaker::System, text),
+            AiEvent::AwaitingApproval { command } => {
+                if !self.chat.open {
+                    self.chat.open = true;
+                    opened = true;
+                }
+                self.chat.focused = true;
+                self.chat.pending_approval = Some(PendingApproval { command });
+            },
+            AiEvent::Error(text) => {
+                self.chat.busy = false;
+                self.chat.push(Speaker::System, format!("error: {text}"));
+            },
+        }
+
+        // Opening the panel off the input path requires recomputing the layout.
+        if opened {
+            self.resync_display();
+        }
+
+        self.dirty = true;
+        if self.display.window.has_frame {
+            self.display.window.request_redraw();
+        }
+    }
+
+    /// Recompute the display layout outside the normal input-processing path.
+    fn resync_display(&mut self) {
+        let mut terminal = self.terminal.lock();
+        let old_is_searching = self.search_state.history_index.is_some();
+        self.display.pending_update.dirty = true;
+        Self::submit_display_update(
+            &mut terminal,
+            &mut self.display,
+            &mut self.notifier,
+            &self.message_buffer,
+            &mut self.search_state,
+            &self.chat,
+            old_is_searching,
+            &self.config,
+        );
+    }
+
+    /// Forward chat requests to the worker, spawning it lazily on the first prompt.
+    fn dispatch_ai_requests(
+        &mut self,
+        event_proxy: &EventLoopProxy<Event>,
+        requests: Vec<ChatRequest>,
+    ) {
+        for request in requests {
+            match request {
+                ChatRequest::Prompt(prompt) => {
+                    if self.ensure_ai_worker(event_proxy) {
+                        if let Some(worker) = &self.ai_worker {
+                            worker.send(WorkerMsg::Prompt(prompt));
+                        }
+                    } else {
+                        // No worker available (disabled or missing key); stop the spinner.
+                        self.chat.busy = false;
+                    }
+                },
+                ChatRequest::Approve => {
+                    if let Some(worker) = &self.ai_worker {
+                        worker.send(WorkerMsg::Approve);
+                    }
+                },
+                ChatRequest::Deny => {
+                    if let Some(worker) = &self.ai_worker {
+                        worker.send(WorkerMsg::Deny);
+                    }
+                },
+            }
+        }
+
+        self.dirty = true;
+        if self.display.window.has_frame {
+            self.display.window.request_redraw();
+        }
+    }
+
+    /// Ensure the AI worker exists, spawning it if needed.
+    ///
+    /// Returns whether a worker is available. On failure (AI disabled, missing API key, or
+    /// an unavailable keyring) a status note is shown in the panel.
+    fn ensure_ai_worker(&mut self, event_proxy: &EventLoopProxy<Event>) -> bool {
+        if self.ai_worker.is_some() {
+            return true;
+        }
+
+        if !self.config.ai.enabled {
+            let note = "AI is disabled. Set `ai.enabled = true` in your config.";
+            self.chat.status = Some("AI disabled".into());
+            self.chat.push(Speaker::System, note);
+            return false;
+        }
+
+        let service = self.config.ai.keyring_service.clone();
+        let user = self.config.ai.keyring_user();
+        let api_key = match secret::get_api_key(&service, &user) {
+            KeyLookup::Found(key) => key,
+            KeyLookup::Missing => {
+                self.chat.status = Some("No API key — run `alacritty ai set-key`".into());
+                self.chat.push(
+                    Speaker::System,
+                    "No API key found. Run `alacritty ai set-key` to store one.",
+                );
+                return false;
+            },
+            KeyLookup::Unavailable(err) => {
+                self.chat.push(Speaker::System, format!("keyring unavailable: {err}"));
+                return false;
+            },
+        };
+
+        let config = WorkerConfig {
+            ai: self.config.ai.clone(),
+            api_key,
+            terminal: self.terminal.clone(),
+            pty: self.notifier.0.clone(),
+            proxy: event_proxy.clone(),
+            window_id: self.display.window.id(),
+        };
+        self.ai_worker = Some(AiWorker::spawn(config));
+        true
     }
 
     /// ID of this terminal context.
@@ -527,12 +677,16 @@ impl WindowContext {
     }
 
     /// Submit the pending changes to the `Display`.
+    // Takes disjoint borrows rather than `&mut self` so it can run while the terminal is
+    // locked separately; this naturally needs several parameters.
+    #[allow(clippy::too_many_arguments)]
     fn submit_display_update(
         terminal: &mut Term<EventProxy>,
         display: &mut Display,
         notifier: &mut Notifier,
         message_buffer: &MessageBuffer,
         search_state: &mut SearchState,
+        chat: &ChatPanelState,
         old_is_searching: bool,
         config: &UiConfig,
     ) {
@@ -545,7 +699,7 @@ impl WindowContext {
             search_state.direction == Direction::Left
         };
 
-        display.handle_update(terminal, notifier, message_buffer, search_state, config);
+        display.handle_update(terminal, notifier, message_buffer, search_state, chat, config);
 
         let new_is_searching = search_state.history_index.is_some();
         if !old_is_searching && new_is_searching {

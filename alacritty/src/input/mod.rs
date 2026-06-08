@@ -138,6 +138,28 @@ pub trait ActionContext<T: EventListener> {
     fn semantic_word(&self, point: Point) -> String;
     fn on_terminal_input_start(&mut self) {}
     fn paste(&mut self, _text: &str, _bracketed: bool) {}
+    /// Toggle the AI chat panel's visibility.
+    fn toggle_ai_panel(&mut self) {}
+    /// Whether keyboard input is currently routed to the AI chat panel.
+    fn ai_panel_focused(&self) -> bool {
+        false
+    }
+    /// Feed a typed character to the AI chat panel input.
+    fn ai_panel_input(&mut self, _c: char) {}
+    /// Delete the last character of the AI chat panel input.
+    fn ai_panel_backspace(&mut self) {}
+    /// Submit the current AI chat panel input.
+    fn ai_panel_submit(&mut self) {}
+    /// Scroll the AI chat transcript by `delta` lines (positive scrolls back).
+    fn ai_panel_scroll(&mut self, _delta: i32) {}
+    /// Handle Escape in the AI chat panel (cancel approval or unfocus).
+    fn ai_panel_escape(&mut self) {}
+    /// Approve a pending destructive command in the AI chat panel.
+    fn ai_panel_approve(&mut self) {}
+    /// Whether the AI chat panel is currently awaiting command approval.
+    fn ai_panel_awaiting_approval(&self) -> bool {
+        false
+    }
     fn spawn_daemon<I, S>(&self, _program: &str, _args: I)
     where
         I: IntoIterator<Item = S> + Debug + Copy,
@@ -179,6 +201,7 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.on_typing_start();
                 ctx.toggle_vi_mode()
             },
+            Action::ToggleAiPanel => ctx.toggle_ai_panel(),
             action @ (Action::ViMotion(_) | Action::Vi(_))
                 if !ctx.terminal().mode().contains(TermMode::VI) =>
             {

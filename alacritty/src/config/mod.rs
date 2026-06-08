@@ -10,6 +10,7 @@ use toml::de::Error as TomlError;
 use toml::ser::Error as TomlSeError;
 use toml::{Table, Value};
 
+pub mod ai;
 pub mod bell;
 pub mod color;
 pub mod cursor;

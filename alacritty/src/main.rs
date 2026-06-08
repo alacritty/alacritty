@@ -27,6 +27,7 @@ use winit::raw_window_handle::{HasDisplayHandle, RawDisplayHandle};
 
 use alacritty_terminal::tty;
 
+mod ai;
 mod cli;
 mod clipboard;
 mod config;
@@ -57,7 +58,7 @@ mod gl {
 use crate::cli::MessageOptions;
 #[cfg(not(any(target_os = "macos", windows)))]
 use crate::cli::SocketMessage;
-use crate::cli::{Options, Subcommands};
+use crate::cli::{AiCommand, Options, Subcommands};
 use crate::config::UiConfig;
 use crate::config::monitor::ConfigMonitor;
 use crate::event::{Event, Processor};
@@ -79,13 +80,39 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // Load command line options.
-    let options = Options::new();
+    let mut options = Options::new();
 
-    match options.subcommands {
+    match options.subcommands.take() {
         #[cfg(unix)]
         Some(Subcommands::Msg(options)) => msg(options)?,
         Some(Subcommands::Migrate(options)) => migrate::migrate(options),
+        Some(Subcommands::Ai(ai_options)) => ai_key(ai_options.command, &mut options)?,
         None => alacritty(options)?,
+    }
+
+    Ok(())
+}
+
+/// `ai` subcommand entrypoint: manage the API key in the OS keyring.
+fn ai_key(command: AiCommand, options: &mut Options) -> Result<(), Box<dyn Error>> {
+    // Resolve the keyring identity from the user's configuration.
+    let config = config::load(options);
+    let service = &config.ai.keyring_service;
+    let user = config.ai.keyring_user();
+
+    match command {
+        AiCommand::SetKey => {
+            let key = ai::secret::prompt_secret("API key: ")?;
+            if key.is_empty() {
+                return Err("no key provided".into());
+            }
+            ai::secret::set_api_key(service, &user, &key)?;
+            println!("API key stored in keyring (service: {service}, user: {user}).");
+        },
+        AiCommand::DeleteKey => {
+            ai::secret::delete_api_key(service, &user)?;
+            println!("API key removed from keyring (service: {service}, user: {user}).");
+        },
     }
 
     Ok(())

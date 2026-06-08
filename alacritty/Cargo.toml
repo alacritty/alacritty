@@ -44,6 +44,9 @@ toml.workspace = true
 toml_edit.workspace = true
 unicode-width = "0.2.0"
 winit = { version = "0.30.9", default-features = false, features = ["rwh_06", "serde"] }
+ureq = { version = "2", default-features = false, features = ["json", "tls"] }
+keyring = { version = "3", default-features = false, features = ["sync-secret-service", "crypto-rust"] }
+regex-automata = "0.4"
 
 [build-dependencies]
 gl_generator = "0.14.0"

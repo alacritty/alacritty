@@ -44,6 +44,8 @@ use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, ClipboardType, Term, TermMode};
 use alacritty_terminal::vte::ansi::NamedColor;
 
+use crate::ai::agent::AiEvent;
+use crate::ai::panel::{ChatPanelState, ChatRequest, Speaker};
 #[cfg(unix)]
 use crate::cli::{IpcConfig, ParsedOptions};
 use crate::cli::{Options as CliOptions, WindowOptions};
@@ -414,6 +416,11 @@ impl ApplicationHandler<Event> for Processor {
                     }
                 }
             },
+            (EventType::Ai(ai_event), Some(window_id)) => {
+                if let Some(window_context) = self.windows.get_mut(window_id) {
+                    window_context.handle_ai_event(ai_event);
+                }
+            },
             (EventType::Terminal(TerminalEvent::Exit), Some(window_id)) => {
                 // Remove the closed terminal.
                 let window_context = match self.windows.entry(*window_id) {
@@ -556,6 +563,8 @@ pub enum EventType {
     #[cfg(unix)]
     Shutdown,
     Frame,
+    /// An update from the AI worker thread.
+    Ai(AiEvent),
 }
 
 impl From<TerminalEvent> for EventType {
@@ -678,6 +687,7 @@ pub struct ActionContext<'a, N, T> {
     pub scheduler: &'a mut Scheduler,
     pub search_state: &'a mut SearchState,
     pub inline_search_state: &'a mut InlineSearchState,
+    pub chat: &'a mut ChatPanelState,
     pub dirty: &'a mut bool,
     pub occluded: &'a mut bool,
     pub preserve_title: bool,
@@ -1410,6 +1420,69 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
 
+    /// Toggle the AI chat panel.
+    fn toggle_ai_panel(&mut self) {
+        self.chat.toggle();
+        // Recompute reserved lines / resize the grid on the next update pass.
+        self.display.pending_update.dirty = true;
+        self.display.damage_tracker.frame().mark_fully_damaged();
+        *self.dirty = true;
+    }
+
+    #[inline]
+    fn ai_panel_focused(&self) -> bool {
+        self.chat.open && self.chat.focused
+    }
+
+    fn ai_panel_input(&mut self, c: char) {
+        self.chat.input.push(c);
+        *self.dirty = true;
+    }
+
+    fn ai_panel_backspace(&mut self) {
+        self.chat.input.pop();
+        *self.dirty = true;
+    }
+
+    fn ai_panel_submit(&mut self) {
+        let prompt = self.chat.input.trim().to_owned();
+        if prompt.is_empty() {
+            return;
+        }
+        self.chat.input.clear();
+        self.submit_ai_prompt(prompt);
+        *self.dirty = true;
+    }
+
+    fn ai_panel_scroll(&mut self, delta: i32) {
+        let columns = self.display.size_info.columns();
+        let visible_rows = self.config.ai.panel_lines.saturating_sub(2).max(1);
+        let total = self.chat.rendered_lines(columns).len();
+        let max_scroll = total.saturating_sub(visible_rows);
+        self.chat.scroll_by(delta, max_scroll);
+        *self.dirty = true;
+    }
+
+    fn ai_panel_escape(&mut self) {
+        if self.chat.pending_approval.is_some() {
+            self.deny_ai_command();
+        } else {
+            // Unfocus the panel, leaving it open, so typing goes back to the shell.
+            self.chat.focused = false;
+        }
+        *self.dirty = true;
+    }
+
+    #[inline]
+    fn ai_panel_awaiting_approval(&self) -> bool {
+        self.chat.pending_approval.is_some()
+    }
+
+    fn ai_panel_approve(&mut self) {
+        self.approve_ai_command();
+        *self.dirty = true;
+    }
+
     /// Toggle the vi mode status.
     #[inline]
     fn toggle_vi_mode(&mut self) {
@@ -1500,6 +1573,27 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 }
 
 impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
+    /// Record a user prompt in the transcript and queue it for the AI worker.
+    fn submit_ai_prompt(&mut self, prompt: String) {
+        self.chat.push(Speaker::User, prompt.clone());
+        self.chat.busy = true;
+        self.chat.outbox.push(ChatRequest::Prompt(prompt));
+    }
+
+    /// Deny a pending destructive command awaiting approval.
+    fn deny_ai_command(&mut self) {
+        if self.chat.pending_approval.take().is_some() {
+            self.chat.outbox.push(ChatRequest::Deny);
+        }
+    }
+
+    /// Approve and run a pending destructive command awaiting approval.
+    fn approve_ai_command(&mut self) {
+        if self.chat.pending_approval.take().is_some() {
+            self.chat.outbox.push(ChatRequest::Approve);
+        }
+    }
+
     fn update_search(&mut self) {
         let regex = match self.search_state.regex() {
             Some(regex) => regex,
@@ -1933,6 +2027,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 EventType::Message(_)
                 | EventType::ConfigReload(_)
                 | EventType::CreateWindow(_)
+                | EventType::Ai(_)
                 | EventType::Frame => (),
             },
             WinitEvent::WindowEvent { event, .. } => {

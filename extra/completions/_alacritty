@@ -146,6 +146,64 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
+(ai)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_alacritty__ai_commands" \
+"*::: :->ai" \
+&& ret=0
+
+    case $state in
+    (ai)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:alacritty-ai-command-$line[1]:"
+        case $line[1] in
+            (set-key)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(delete-key)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_alacritty__ai__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:alacritty-ai-help-command-$line[1]:"
+        case $line[1] in
+            (set-key)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(delete-key)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
 (help)
 _arguments "${_arguments_options[@]}" : \
 ":: :_alacritty__help_commands" \
@@ -190,6 +248,30 @@ esac
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(ai)
+_arguments "${_arguments_options[@]}" : \
+":: :_alacritty__help__ai_commands" \
+"*::: :->ai" \
+&& ret=0
+
+    case $state in
+    (ai)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:alacritty-help-ai-command-$line[1]:"
+        case $line[1] in
+            (set-key)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(delete-key)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
 (help)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -208,18 +290,81 @@ _alacritty_commands() {
     local commands; commands=(
 'msg:Send a message to the Alacritty socket' \
 'migrate:Migrate the configuration file' \
+'ai:Manage the AI chat panel API key in the OS keyring' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'alacritty commands' commands "$@"
+}
+(( $+functions[_alacritty__ai_commands] )) ||
+_alacritty__ai_commands() {
+    local commands; commands=(
+'set-key:Store the API key in the OS keyring (read from stdin, not echoed)' \
+'delete-key:Remove the API key from the OS keyring' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'alacritty ai commands' commands "$@"
+}
+(( $+functions[_alacritty__ai__delete-key_commands] )) ||
+_alacritty__ai__delete-key_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty ai delete-key commands' commands "$@"
+}
+(( $+functions[_alacritty__ai__help_commands] )) ||
+_alacritty__ai__help_commands() {
+    local commands; commands=(
+'set-key:Store the API key in the OS keyring (read from stdin, not echoed)' \
+'delete-key:Remove the API key from the OS keyring' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'alacritty ai help commands' commands "$@"
+}
+(( $+functions[_alacritty__ai__help__delete-key_commands] )) ||
+_alacritty__ai__help__delete-key_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty ai help delete-key commands' commands "$@"
+}
+(( $+functions[_alacritty__ai__help__help_commands] )) ||
+_alacritty__ai__help__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty ai help help commands' commands "$@"
+}
+(( $+functions[_alacritty__ai__help__set-key_commands] )) ||
+_alacritty__ai__help__set-key_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty ai help set-key commands' commands "$@"
+}
+(( $+functions[_alacritty__ai__set-key_commands] )) ||
+_alacritty__ai__set-key_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty ai set-key commands' commands "$@"
 }
 (( $+functions[_alacritty__help_commands] )) ||
 _alacritty__help_commands() {
     local commands; commands=(
 'msg:Send a message to the Alacritty socket' \
 'migrate:Migrate the configuration file' \
+'ai:Manage the AI chat panel API key in the OS keyring' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'alacritty help commands' commands "$@"
+}
+(( $+functions[_alacritty__help__ai_commands] )) ||
+_alacritty__help__ai_commands() {
+    local commands; commands=(
+'set-key:Store the API key in the OS keyring (read from stdin, not echoed)' \
+'delete-key:Remove the API key from the OS keyring' \
+    )
+    _describe -t commands 'alacritty help ai commands' commands "$@"
+}
+(( $+functions[_alacritty__help__ai__delete-key_commands] )) ||
+_alacritty__help__ai__delete-key_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty help ai delete-key commands' commands "$@"
+}
+(( $+functions[_alacritty__help__ai__set-key_commands] )) ||
+_alacritty__help__ai__set-key_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty help ai set-key commands' commands "$@"
 }
 (( $+functions[_alacritty__help__help_commands] )) ||
 _alacritty__help__help_commands() {

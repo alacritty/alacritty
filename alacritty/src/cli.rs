@@ -236,6 +236,25 @@ pub enum Subcommands {
     #[cfg(unix)]
     Msg(MessageOptions),
     Migrate(MigrateOptions),
+    /// Manage the AI chat panel API key in the OS keyring.
+    Ai(AiOptions),
+}
+
+/// Manage AI chat panel secrets stored in the OS keyring.
+#[derive(Args, Debug)]
+pub struct AiOptions {
+    #[clap(subcommand)]
+    pub command: AiCommand,
+}
+
+/// AI key-management subcommands.
+#[derive(Subcommand, Debug)]
+pub enum AiCommand {
+    /// Store the API key in the OS keyring (read from stdin, not echoed).
+    SetKey,
+
+    /// Remove the API key from the OS keyring.
+    DeleteKey,
 }
 
 /// Send a message to the Alacritty socket.

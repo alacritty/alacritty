@@ -36,6 +36,7 @@ use alacritty_terminal::term::{
 };
 use alacritty_terminal::vte::ansi::{CursorShape, NamedColor};
 
+use crate::ai::panel::ChatPanelState;
 use crate::config::UiConfig;
 use crate::config::debug::RendererPreference;
 use crate::config::font::Font;
@@ -654,6 +655,7 @@ impl Display {
         pty_resize_handle: &mut dyn OnResize,
         message_buffer: &MessageBuffer,
         search_state: &mut SearchState,
+        chat: &ChatPanelState,
         config: &UiConfig,
     ) where
         T: EventListener,
@@ -703,7 +705,8 @@ impl Display {
         let search_active = search_state.history_index.is_some();
         let message_bar_lines = message_buffer.message().map_or(0, |m| m.text(&new_size).len());
         let search_lines = usize::from(search_active);
-        new_size.reserve_lines(message_bar_lines + search_lines);
+        let chat_lines = if chat.open { config.ai.panel_lines } else { 0 };
+        new_size.reserve_lines(message_bar_lines + search_lines + chat_lines);
 
         // Update resize increments.
         if config.window.resize_increments {
@@ -779,6 +782,7 @@ impl Display {
         message_buffer: &MessageBuffer,
         config: &UiConfig,
         search_state: &mut SearchState,
+        chat: &ChatPanelState,
     ) {
         // Collect renderable content before the terminal is dropped.
         let mut content = RenderableContent::new(config, self, &terminal, search_state);
@@ -1014,6 +1018,14 @@ impl Display {
         if has_highlighted_hint {
             let cursor_point = vi_cursor_point.or(Some(cursor_point));
             self.draw_hyperlink_preview(config, cursor_point, display_offset);
+        }
+
+        // Draw the AI chat panel below the grid (and below any search/message bars).
+        if chat.open {
+            let search_offset = usize::from(search_state.regex().is_some());
+            let message_lines = message_buffer.message().map_or(0, |m| m.text(&size_info).len());
+            let top_line = size_info.screen_lines() + search_offset + message_lines;
+            self.draw_chat_panel(config, chat, top_line);
         }
 
         // Notify winit that we're about to present.
@@ -1325,6 +1337,109 @@ impl Display {
         );
     }
 
+    /// Draw the AI chat panel, occupying `panel_lines` rows starting at `top_line`.
+    #[inline(never)]
+    fn draw_chat_panel(&mut self, config: &UiConfig, chat: &ChatPanelState, top_line: usize) {
+        let size_info = self.size_info;
+        let columns = size_info.columns();
+        let metrics = self.glyph_cache.font_metrics();
+
+        // The panel occupies the rows `reserve_lines` carved out below the grid. Clamp to the
+        // window's physical row capacity (not the shrunken grid `screen_lines`) as a safety net.
+        let max_rows = (size_info.height() / size_info.cell_height()) as usize;
+        let panel_lines = config.ai.panel_lines.min(max_rows.saturating_sub(top_line)).max(1);
+        let bottom_line = top_line + panel_lines - 1;
+
+        let fg = config.colors.footer_bar_foreground();
+        let bg = config.colors.footer_bar_background();
+
+        // Background rectangle covering the whole panel (including window padding).
+        let y = size_info.cell_height().mul_add(top_line as f32, size_info.padding_y());
+        let height = size_info.cell_height() * panel_lines as f32;
+        let rect = RenderRect::new(0., y, size_info.width(), height, bg, 1.);
+        self.renderer.draw_rects(&size_info, &metrics, vec![rect]);
+
+        // Always damage the panel region so typing/streaming updates are shown.
+        self.damage_tracker.frame().add_viewport_rect(
+            &size_info,
+            0,
+            y as i32,
+            size_info.width() as i32,
+            height as i32,
+        );
+        self.damage_tracker.next_frame().add_viewport_rect(
+            &size_info,
+            0,
+            y as i32,
+            size_info.width() as i32,
+            height as i32,
+        );
+
+        // Header line.
+        let mut header = String::from(" AI assistant");
+        if chat.busy {
+            header.push_str("  \u{00b7} thinking\u{2026}");
+        } else if let Some(status) = &chat.status {
+            header.push_str("  \u{00b7} ");
+            header.push_str(status);
+        }
+        let hint = "ctrl+shift+a to close ";
+        let header = compose_header(&header, hint, columns);
+        self.draw_panel_line(top_line, &header, fg, bg);
+
+        // Message area rows (between header and input line).
+        let message_rows = panel_lines.saturating_sub(2);
+        if message_rows > 0 {
+            let lines = chat.rendered_lines(columns);
+            let end = lines.len().saturating_sub(chat.scroll);
+            let start = end.saturating_sub(message_rows);
+            let visible = &lines[start..end];
+
+            for row in 0..message_rows {
+                let line = top_line + 1 + row;
+                let text = visible.get(row).map(String::as_str).unwrap_or("");
+                self.draw_panel_line(line, text, fg, bg);
+            }
+        }
+
+        // Input / approval line at the bottom of the panel.
+        let input_text = match &chat.pending_approval {
+            Some(approval) => format!("run destructive command? [y/N]  {}", approval.command),
+            None => format!("> {}", chat.input),
+        };
+        self.draw_panel_line(bottom_line, &input_text, fg, bg);
+
+        // Input cursor.
+        if chat.focused && chat.pending_approval.is_none() {
+            let column = Column(input_text.chars().count().min(columns.saturating_sub(1)));
+            let width = NonZeroU32::new(1).unwrap();
+            let cursor = RenderableCursor::new(
+                Point::new(bottom_line, column),
+                CursorShape::Underline,
+                fg,
+                width,
+            );
+            let mut rects = Vec::new();
+            rects.extend(cursor.rects(&size_info, config.cursor.thickness()));
+            self.renderer.draw_rects(&size_info, &metrics, rects);
+        }
+    }
+
+    /// Draw a single panel row, padded/truncated to the full column width.
+    fn draw_panel_line(&mut self, line: usize, text: &str, fg: Rgb, bg: Rgb) {
+        let columns = self.size_info.columns();
+        let text = fit_line(text, columns);
+        let point = Point::new(line, Column(0));
+        self.renderer.draw_string(
+            point,
+            fg,
+            bg,
+            text.chars(),
+            &self.size_info,
+            &mut self.glyph_cache,
+        );
+    }
+
     /// Draw render timer.
     #[inline(never)]
     fn draw_render_timer(&mut self, config: &UiConfig) {
@@ -1612,6 +1727,31 @@ fn compute_cell_size(config: &UiConfig, metrics: &crossfont::Metrics) -> (f32, f
         (metrics.average_advance + offset_x).floor().max(1.) as f32,
         (metrics.line_height + offset_y).floor().max(1.) as f32,
     )
+}
+
+/// Truncate or right-pad `text` to exactly `columns` characters.
+fn fit_line(text: &str, columns: usize) -> String {
+    let mut out: String = text.chars().take(columns).collect();
+    let len = out.chars().count();
+    if len < columns {
+        out.push_str(&" ".repeat(columns - len));
+    }
+    out
+}
+
+/// Compose a header with `left`-aligned text and a `right`-aligned hint within `columns`.
+///
+/// The hint is dropped if there is not enough room for both with a gap.
+fn compose_header(left: &str, right: &str, columns: usize) -> String {
+    let left_len = left.chars().count();
+    let right_len = right.chars().count();
+
+    if left_len + right_len < columns {
+        let gap = columns - left_len - right_len;
+        format!("{left}{}{right}", " ".repeat(gap))
+    } else {
+        left.chars().take(columns).collect()
+    }
 }
 
 /// Calculate the size of the window given padding, terminal dimensions and cell size.

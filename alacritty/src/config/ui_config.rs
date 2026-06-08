@@ -19,6 +19,7 @@ use alacritty_terminal::term::search::RegexSearch;
 use alacritty_terminal::tty::{Options as PtyOptions, Shell};
 
 use crate::config::LOG_TARGET_CONFIG;
+use crate::config::ai::Ai;
 use crate::config::bell::BellConfig;
 use crate::config::bindings::{
     self, Action, Binding, BindingKey, KeyBinding, KeyLocation, ModeWrapper, ModsWrapper,
@@ -85,6 +86,9 @@ pub struct UiConfig {
 
     /// Config for the alacritty_terminal itself.
     pub terminal: Terminal,
+
+    /// AI chat panel configuration.
+    pub ai: Ai,
 
     /// Keyboard configuration.
     keyboard: Keyboard,

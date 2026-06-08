@@ -61,6 +61,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             return;
         }
 
+        // Route input to the AI chat panel while it is focused.
+        if self.ctx.ai_panel_focused() {
+            self.ai_panel_input(&key, text);
+            return;
+        }
+
         if self.ctx.search_active() {
             for character in text.chars() {
                 self.ctx.search_input(character);
@@ -100,6 +106,52 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             }
             self.ctx.write_to_pty(bytes);
         }
+    }
+
+    /// Route a key event to the focused AI chat panel.
+    fn ai_panel_input(&mut self, key: &KeyEvent, text: &str) {
+        // While a destructive command awaits approval, only y / n / Esc / Enter act.
+        if self.ctx.ai_panel_awaiting_approval() {
+            match &key.logical_key {
+                Key::Character(c) if c.as_str().eq_ignore_ascii_case("y") => {
+                    self.ctx.ai_panel_approve()
+                },
+                Key::Character(c) if c.as_str().eq_ignore_ascii_case("n") => {
+                    self.ctx.ai_panel_escape()
+                },
+                Key::Named(NamedKey::Enter | NamedKey::Escape) => self.ctx.ai_panel_escape(),
+                _ => {},
+            }
+            return;
+        }
+
+        match &key.logical_key {
+            Key::Named(NamedKey::Enter) => self.ctx.ai_panel_submit(),
+            Key::Named(NamedKey::Backspace) => self.ctx.ai_panel_backspace(),
+            Key::Named(NamedKey::Escape) => self.ctx.ai_panel_escape(),
+            Key::Named(NamedKey::PageUp) => {
+                let page = self.ai_panel_page();
+                self.ctx.ai_panel_scroll(page);
+            },
+            Key::Named(NamedKey::PageDown) => {
+                let page = self.ai_panel_page();
+                self.ctx.ai_panel_scroll(-page);
+            },
+            Key::Named(NamedKey::ArrowUp) => self.ctx.ai_panel_scroll(1),
+            Key::Named(NamedKey::ArrowDown) => self.ctx.ai_panel_scroll(-1),
+            _ => {
+                for c in text.chars() {
+                    if !c.is_control() {
+                        self.ctx.ai_panel_input(c);
+                    }
+                }
+            },
+        }
+    }
+
+    /// Number of transcript lines scrolled per page in the AI chat panel.
+    fn ai_panel_page(&self) -> i32 {
+        self.ctx.config().ai.panel_lines.saturating_sub(2).max(1) as i32
     }
 
     fn alt_send_esc(&mut self, key: &KeyEvent, text: &str) -> bool {

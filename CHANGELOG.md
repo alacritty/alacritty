@@ -15,6 +15,14 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Fixed `alacritty-escapes(7)` manpage missing from macOS install
 - Added the `Open Alacritty here` entry to the right-click context menu for folders on Windows
 
+### Added
+
+- AI chat panel below the terminal (toggle with `Ctrl+Shift+A`). It reads the visible
+  screen and recent scrollback, talks to an OpenAI-compatible API, and can run shell
+  commands. Configure under `[ai]`; the API key is stored in the OS keyring via
+  `alacritty ai set-key`. Execution modes: `TypeOnly`, `Smart` (default; auto-runs safe
+  commands, confirms destructive ones), and `Yolo`, plus `auto_approve`/`deny` patterns.
+
 ### Fixed
 
 - Spurious "Failed to set new owner of XCB selection" warnings on X11
