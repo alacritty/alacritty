@@ -56,14 +56,15 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         // Reset search delay when the user is still typing.
         self.reset_search_delay();
 
-        // Key bindings suppress the character input.
-        if self.process_key_bindings(&key) {
+        // Route input to the AI chat panel while it is focused, before key bindings so the
+        // panel owns keys like Backspace that otherwise have terminal bindings. Keys the
+        // panel doesn't consume (e.g. the Ctrl+Shift+A toggle) fall through to bindings.
+        if self.ctx.ai_panel_focused() && self.ai_panel_input(&key, text) {
             return;
         }
 
-        // Route input to the AI chat panel while it is focused.
-        if self.ctx.ai_panel_focused() {
-            self.ai_panel_input(&key, text);
+        // Key bindings suppress the character input.
+        if self.process_key_bindings(&key) {
             return;
         }
 
@@ -109,20 +110,28 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     /// Route a key event to the focused AI chat panel.
-    fn ai_panel_input(&mut self, key: &KeyEvent, text: &str) {
-        // While a destructive command awaits approval, only y / n / Esc / Enter act.
+    ///
+    /// Returns whether the key was consumed; unconsumed keys fall through to the regular
+    /// key-binding handler so shortcuts like `Ctrl+Shift+A` keep working.
+    fn ai_panel_input(&mut self, key: &KeyEvent, text: &str) -> bool {
+        // While a destructive command awaits approval, only y / n / Esc / Enter act; let
+        // other keys fall through (e.g. the toggle binding).
         if self.ctx.ai_panel_awaiting_approval() {
             match &key.logical_key {
                 Key::Character(c) if c.as_str().eq_ignore_ascii_case("y") => {
-                    self.ctx.ai_panel_approve()
+                    self.ctx.ai_panel_approve();
+                    return true;
                 },
                 Key::Character(c) if c.as_str().eq_ignore_ascii_case("n") => {
-                    self.ctx.ai_panel_escape()
+                    self.ctx.ai_panel_escape();
+                    return true;
                 },
-                Key::Named(NamedKey::Enter | NamedKey::Escape) => self.ctx.ai_panel_escape(),
-                _ => {},
+                Key::Named(NamedKey::Enter | NamedKey::Escape) => {
+                    self.ctx.ai_panel_escape();
+                    return true;
+                },
+                _ => return false,
             }
-            return;
         }
 
         match &key.logical_key {
@@ -140,13 +149,22 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             Key::Named(NamedKey::ArrowUp) => self.ctx.ai_panel_scroll(1),
             Key::Named(NamedKey::ArrowDown) => self.ctx.ai_panel_scroll(-1),
             _ => {
+                // Type printable input, but let shortcut combos (Ctrl/Super) reach bindings.
+                let mods = self.ctx.modifiers().state();
+                if mods.control_key() || mods.super_key() {
+                    return false;
+                }
+                let mut typed = false;
                 for c in text.chars() {
                     if !c.is_control() {
                         self.ctx.ai_panel_input(c);
+                        typed = true;
                     }
                 }
+                return typed;
             },
         }
+        true
     }
 
     /// Number of transcript lines scrolled per page in the AI chat panel.
