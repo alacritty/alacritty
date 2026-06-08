@@ -52,6 +52,8 @@ pub enum WorkerMsg {
     Approve,
     /// Deny the destructive command currently awaiting confirmation.
     Deny,
+    /// Reset the conversation history (start a fresh chat).
+    Reset,
     /// Stop the worker thread.
     Shutdown,
 }
@@ -148,6 +150,7 @@ impl Worker {
         while let Ok(msg) = rx.recv() {
             match msg {
                 WorkerMsg::Prompt(prompt) => self.handle_prompt(prompt, &rx),
+                WorkerMsg::Reset => self.messages = vec![Message::system(SYSTEM_PROMPT)],
                 WorkerMsg::Shutdown => break,
                 // Approve/Deny are only meaningful while awaiting approval (handled inline).
                 WorkerMsg::Approve | WorkerMsg::Deny => {},
@@ -424,8 +427,8 @@ fn wait_for_decision(rx: &Receiver<WorkerMsg>) -> Option<bool> {
             Ok(WorkerMsg::Approve) => return Some(true),
             Ok(WorkerMsg::Deny) => return Some(false),
             Ok(WorkerMsg::Shutdown) | Err(RecvTimeoutError::Disconnected) => return None,
-            // Ignore prompts and timeouts while awaiting a decision.
-            Ok(WorkerMsg::Prompt(_)) | Err(RecvTimeoutError::Timeout) => {},
+            // Ignore prompts, resets, and timeouts while awaiting a decision.
+            Ok(WorkerMsg::Prompt(_) | WorkerMsg::Reset) | Err(RecvTimeoutError::Timeout) => {},
         }
     }
 }

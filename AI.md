@@ -73,6 +73,8 @@ echo "$OPENAI_API_KEY" | alacritty ai set-key
 
 1. Open a terminal and press `Ctrl+Shift+A`.
 2. Type a request (e.g. *"what's taking up disk space in this directory?"*) and press Enter.
+3. Type `/clear` and press Enter to start a fresh conversation — this wipes the transcript
+   and resets the model's memory of the previous exchange.
 
 If the panel shows **`No API key — run alacritty ai set-key`**, the key for the configured
 service/user wasn't found — re-run step 2 with the matching config.

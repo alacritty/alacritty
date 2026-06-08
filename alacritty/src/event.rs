@@ -1574,7 +1574,16 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
 impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     /// Record a user prompt in the transcript and queue it for the AI worker.
+    ///
+    /// Recognizes the `/clear` slash command, which resets the conversation instead of
+    /// sending a prompt to the model.
     fn submit_ai_prompt(&mut self, prompt: String) {
+        if prompt.trim() == "/clear" {
+            self.chat.clear();
+            self.chat.outbox.push(ChatRequest::Clear);
+            return;
+        }
+
         self.chat.push(Speaker::User, prompt.clone());
         self.chat.busy = true;
         self.chat.outbox.push(ChatRequest::Prompt(prompt));

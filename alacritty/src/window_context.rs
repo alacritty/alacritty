@@ -601,6 +601,11 @@ impl WindowContext {
                         worker.send(WorkerMsg::Deny);
                     }
                 },
+                ChatRequest::Clear => {
+                    if let Some(worker) = &self.ai_worker {
+                        worker.send(WorkerMsg::Reset);
+                    }
+                },
             }
         }
 

@@ -47,6 +47,8 @@ pub enum ChatRequest {
     Approve,
     /// Deny the pending destructive command.
     Deny,
+    /// Reset the conversation (start fresh).
+    Clear,
 }
 
 /// All state for one window's chat panel.
@@ -76,6 +78,18 @@ pub struct ChatPanelState {
 }
 
 impl ChatPanelState {
+    /// Clear the transcript and per-conversation state to start fresh. Visibility/focus
+    /// are preserved so the panel stays open and usable.
+    pub fn clear(&mut self) {
+        self.messages.clear();
+        self.input.clear();
+        self.scroll = 0;
+        self.busy = false;
+        self.pending_approval = None;
+        self.awaiting_input = None;
+        self.status = None;
+    }
+
     /// Toggle visibility. Opening also focuses the panel; closing unfocuses it.
     pub fn toggle(&mut self) {
         self.open = !self.open;
