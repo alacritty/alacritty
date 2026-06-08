@@ -5,6 +5,7 @@
 //! context and to capture command output) and writes commands to the PTY, pushing results
 //! back to the main event loop as [`AiEvent`]s.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::thread::{self, JoinHandle};
@@ -41,7 +42,13 @@ read their output and continue until the user's request is complete, then give a
 summary. Prefer non-interactive flags (e.g. `--noconfirm`, `-y`) to avoid blocking on \
 confirmation prompts. If a command may prompt for input such as a password (e.g. `sudo`) or \
 a yes/no confirmation, set `interactive` to true so the user can respond in the terminal. \
+Do not run the same command repeatedly: once you have a command's output, use it rather \
+than running it again, and stop and summarize once the task is complete. \
 Never include secrets in your replies.";
+
+/// Maximum number of times the same command may be executed within a single user turn,
+/// before further identical requests are refused to break runaway loops.
+const MAX_COMMAND_REPEATS: usize = 2;
 
 /// Message sent from the UI to the worker.
 #[derive(Debug)]
@@ -168,6 +175,9 @@ impl Worker {
             "Current terminal screen:\n```\n{context}\n```\n\nRequest: {prompt}"
         )));
 
+        // Track how many times each command has run this turn to break runaway loops.
+        let mut command_counts: HashMap<String, usize> = HashMap::new();
+
         for _ in 0..MAX_ROUNDS {
             let reply = match self.client.chat(&self.messages, &self.tools) {
                 Ok(reply) => reply,
@@ -189,6 +199,34 @@ impl Worker {
             // Execute every requested tool call and feed the results back.
             let mut stop = false;
             for call in &reply.tool_calls {
+                // Break runaway loops: refuse a command that has already run its quota.
+                if call.function.name == "run_command" {
+                    if let Some(args) = parse_command(&call.function.arguments) {
+                        let count = command_counts.entry(args.command.clone()).or_insert(0);
+                        if *count >= MAX_COMMAND_REPEATS {
+                            // Surface the skip once, but keep refusing the model each round.
+                            if *count == MAX_COMMAND_REPEATS {
+                                self.emit(AiEvent::System(format!(
+                                    "skipped repeat: {}",
+                                    args.command
+                                )));
+                            }
+                            *count += 1;
+                            self.messages.push(Message::tool_result(
+                                call.id.clone(),
+                                format!(
+                                    "You already ran `{}` {} times this turn; its output is \
+                                     above. Do not run it again — use the existing output or \
+                                     give your final answer.",
+                                    args.command, MAX_COMMAND_REPEATS
+                                ),
+                            ));
+                            continue;
+                        }
+                        *count += 1;
+                    }
+                }
+
                 let result = match self.execute_tool(call, rx) {
                     ToolOutcome::Result(text) => text,
                     ToolOutcome::Inserted(text) => {
