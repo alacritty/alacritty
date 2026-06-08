@@ -206,6 +206,14 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // Get the action of a key binding.
         let mut binding_action = |binding: &KeyBinding| {
+            // Strip SHIFT when it was consumed to produce the character, so character bindings match regardless of layout.
+            let binding_mods = match &logical_key {
+                Key::Character(_) if key.key_without_modifiers() != logical_key => {
+                    mods & !ModifiersState::SHIFT
+                },
+                _ => mods,
+            };
+
             let key = match (&binding.trigger, &logical_key) {
                 (BindingKey::Scancode(_), _) => BindingKey::Scancode(key.physical_key),
                 (_, code) => {
@@ -213,7 +221,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 },
             };
 
-            if binding.is_triggered_by(mode, mods, &key) {
+            if binding.is_triggered_by(mode, binding_mods, &key) {
                 // Pass through the key if any of the bindings has the `ReceiveChar` action.
                 *suppress_chars.get_or_insert(true) &= binding.action != Action::ReceiveChar;
 
