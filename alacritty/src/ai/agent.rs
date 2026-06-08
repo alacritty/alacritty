@@ -10,6 +10,7 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
+use regex_automata::meta::Regex;
 use serde_json::{Value, json};
 use winit::event_loop::EventLoopProxy;
 use winit::window::WindowId;
@@ -37,7 +38,10 @@ You are an AI assistant embedded in the user's terminal emulator. You can see th
 terminal screen and run shell commands on the user's behalf using the `run_command` tool. \
 Be concise. Briefly say what you are about to do, then use the tool. After commands run, \
 read their output and continue until the user's request is complete, then give a short \
-summary. Prefer non-interactive commands. Never include secrets in your replies.";
+summary. Prefer non-interactive flags (e.g. `--noconfirm`, `-y`) to avoid blocking on \
+confirmation prompts. If a command may prompt for input such as a password (e.g. `sudo`) or \
+a yes/no confirmation, set `interactive` to true so the user can respond in the terminal. \
+Never include secrets in your replies.";
 
 /// Message sent from the UI to the worker.
 #[derive(Debug)]
@@ -65,6 +69,10 @@ pub enum AiEvent {
     System(String),
     /// A destructive command is awaiting user confirmation.
     AwaitingApproval { command: String },
+    /// A running command is blocked on an interactive prompt; hand control to the user.
+    AwaitingInput { prompt: String },
+    /// The interactive prompt was resolved; the agent has resumed.
+    InputResolved,
     /// An error to surface to the user.
     Error(String),
 }
@@ -114,6 +122,7 @@ struct Worker {
     config: WorkerConfig,
     client: Client,
     policy: ApprovalPolicy,
+    prompt_detector: Regex,
     tools: Vec<Value>,
     messages: Vec<Message>,
 }
@@ -125,7 +134,14 @@ impl Worker {
         let policy = ApprovalPolicy::new(&config.ai.auto_approve, &config.ai.deny);
         let messages = vec![Message::system(SYSTEM_PROMPT)];
 
-        Self { config, client, policy, tools: vec![run_command_tool()], messages }
+        Self {
+            config,
+            client,
+            policy,
+            prompt_detector: build_prompt_detector(),
+            tools: vec![run_command_tool()],
+            messages,
+        }
     }
 
     fn run(mut self, rx: Receiver<WorkerMsg>) {
@@ -168,19 +184,25 @@ impl Worker {
             }
 
             // Execute every requested tool call and feed the results back.
-            let mut aborted = false;
+            let mut stop = false;
             for call in &reply.tool_calls {
                 let result = match self.execute_tool(call, rx) {
                     ToolOutcome::Result(text) => text,
+                    ToolOutcome::Inserted(text) => {
+                        // Keep the history well-formed, then end the turn after one insert.
+                        self.messages.push(Message::tool_result(call.id.clone(), text));
+                        stop = true;
+                        break;
+                    },
                     ToolOutcome::Aborted => {
-                        aborted = true;
+                        stop = true;
                         break;
                     },
                 };
                 self.messages.push(Message::tool_result(call.id.clone(), result));
             }
 
-            if aborted {
+            if stop {
                 break;
             }
         }
@@ -198,26 +220,29 @@ impl Worker {
             return ToolOutcome::Result(format!("unsupported tool: {}", call.function.name));
         }
 
-        let command = match parse_command(&call.function.arguments) {
-            Some(command) => command,
+        let args = match parse_command(&call.function.arguments) {
+            Some(args) => args,
             None => return ToolOutcome::Result("invalid tool arguments".into()),
         };
+        let command = args.command;
 
         match self.policy.decide(self.config.ai.execution_mode, &command) {
             Decision::Insert => {
                 self.write_pty(&command, false);
-                self.emit(AiEvent::System(format!("inserted: {command}")));
-                ToolOutcome::Result(
+                self.emit(AiEvent::System(format!("inserted (press Enter to run): {command}")));
+                ToolOutcome::Inserted(
                     "The command was inserted at the prompt for the user to run manually. Its \
                      output is not yet available."
                         .into(),
                 )
             },
-            Decision::Run => ToolOutcome::Result(self.run_and_capture(&command)),
+            Decision::Run => ToolOutcome::Result(self.run_and_capture(&command, args.interactive)),
             Decision::Confirm => {
                 self.emit(AiEvent::AwaitingApproval { command: command.clone() });
                 match wait_for_decision(rx) {
-                    Some(true) => ToolOutcome::Result(self.run_and_capture(&command)),
+                    Some(true) => {
+                        ToolOutcome::Result(self.run_and_capture(&command, args.interactive))
+                    },
                     Some(false) => {
                         self.emit(AiEvent::System(format!("declined: {command}")));
                         ToolOutcome::Result("The user declined to run this command.".into())
@@ -229,15 +254,63 @@ impl Worker {
     }
 
     /// Run a command and return the resulting terminal output.
-    fn run_and_capture(&self, command: &str) -> String {
+    ///
+    /// If the command blocks on an interactive prompt (e.g. a `sudo` password or a `[Y/n]`
+    /// confirmation), control is handed to the user via [`AiEvent::AwaitingInput`] until the
+    /// prompt is resolved, then the agent resumes automatically.
+    fn run_and_capture(&self, command: &str, interactive: bool) -> String {
         self.emit(AiEvent::System(format!("running: {command}")));
         self.write_pty(command, true);
-        self.wait_for_idle();
+        self.wait_for_completion(interactive);
         let output = self.snapshot(0);
         if output.trim().is_empty() {
             "(command produced no visible output)".into()
         } else {
             output
+        }
+    }
+
+    /// Wait for a command to finish, handing control to the user on interactive prompts.
+    fn wait_for_completion(&self, interactive: bool) {
+        // Interactive commands (installs, sudo) get a longer settle window and overall budget.
+        let idle = Duration::from_millis(if interactive {
+            1500
+        } else {
+            self.config.ai.output_idle_ms.max(50)
+        });
+        let overall = if interactive { Duration::from_secs(600) } else { MAX_OUTPUT_WAIT };
+        let deadline = Instant::now() + overall;
+
+        let mut handed_off = false;
+        let mut last_prompt: Option<String> = None;
+
+        loop {
+            self.wait_idle(idle, deadline);
+            if Instant::now() >= deadline {
+                break;
+            }
+
+            let screen = self.snapshot(0);
+            match self.detect_prompt(&screen) {
+                Some(prompt) => {
+                    // Announce a newly-seen prompt and hand keyboard control to the user.
+                    if last_prompt.as_deref() != Some(prompt.as_str()) {
+                        self.emit(AiEvent::AwaitingInput { prompt: prompt.clone() });
+                        last_prompt = Some(prompt);
+                        handed_off = true;
+                    }
+                    // Wait for the user to act (the screen changes), then re-evaluate.
+                    if !self.wait_for_change(&screen, deadline) {
+                        break;
+                    }
+                },
+                // No interactive prompt visible: the command has finished (as best we can tell).
+                None => break,
+            }
+        }
+
+        if handed_off {
+            self.emit(AiEvent::InputResolved);
         }
     }
 
@@ -257,11 +330,9 @@ impl Worker {
         let _ = self.config.pty.send(Msg::Input(bytes.into()));
     }
 
-    /// Block until terminal output has been quiet for the configured idle window.
-    fn wait_for_idle(&self) {
-        let idle = Duration::from_millis(self.config.ai.output_idle_ms.max(50));
+    /// Block until terminal output has been quiet for `idle`, or `deadline` passes.
+    fn wait_idle(&self, idle: Duration, deadline: Instant) {
         let poll = Duration::from_millis(50);
-        let deadline = Instant::now() + MAX_OUTPUT_WAIT;
 
         let mut last = self.snapshot(0);
         let mut stable_since = Instant::now();
@@ -281,6 +352,29 @@ impl Worker {
                 return;
             }
         }
+    }
+
+    /// Poll until the screen differs from `prev`, or `deadline` passes.
+    ///
+    /// Returns whether the screen changed (a hidden password shows no change until Enter is
+    /// pressed, which is exactly when we want to resume).
+    fn wait_for_change(&self, prev: &str, deadline: Instant) -> bool {
+        let poll = Duration::from_millis(80);
+        loop {
+            if Instant::now() >= deadline {
+                return false;
+            }
+            thread::sleep(poll);
+            if self.snapshot(0) != prev {
+                return true;
+            }
+        }
+    }
+
+    /// Detect an interactive prompt on the last non-blank line of `screen`.
+    fn detect_prompt(&self, screen: &str) -> Option<String> {
+        let last = screen.lines().rev().find(|line| !line.trim().is_empty())?;
+        self.prompt_detector.is_match(last).then(|| last.trim().to_owned())
     }
 
     /// Capture the visible screen plus `scrollback` lines of history as text.
@@ -312,7 +406,11 @@ impl Worker {
 
 /// Outcome of executing a single tool call.
 enum ToolOutcome {
+    /// The tool produced a result to feed back to the model; continue the loop.
     Result(String),
+    /// The command was inserted for the user to run (TypeOnly). End the turn — nothing ran,
+    /// so there is no output to feed back and looping would just re-insert it.
+    Inserted(String),
     /// The worker is shutting down.
     Aborted,
 }
@@ -332,10 +430,18 @@ fn wait_for_decision(rx: &Receiver<WorkerMsg>) -> Option<bool> {
     }
 }
 
-/// Extract the `command` field from a tool call's JSON arguments.
-fn parse_command(arguments: &str) -> Option<String> {
+/// Parsed `run_command` tool arguments.
+struct ToolArgs {
+    command: String,
+    interactive: bool,
+}
+
+/// Parse the `command` (and optional `interactive`) fields from a tool call's arguments.
+fn parse_command(arguments: &str) -> Option<ToolArgs> {
     let value: Value = serde_json::from_str(arguments).ok()?;
-    value.get("command")?.as_str().map(str::to_owned)
+    let command = value.get("command")?.as_str()?.to_owned();
+    let interactive = value.get("interactive").and_then(Value::as_bool).unwrap_or(false);
+    Some(ToolArgs { command, interactive })
 }
 
 /// The OpenAI tool definition for `run_command`.
@@ -352,6 +458,12 @@ fn run_command_tool() -> Value {
                     "command": {
                         "type": "string",
                         "description": "The shell command to run."
+                    },
+                    "interactive": {
+                        "type": "boolean",
+                        "description": "Set true if the command may prompt for input (e.g. a \
+                                        sudo password or a yes/no confirmation), so the user \
+                                        can respond in the terminal."
                     }
                 },
                 "required": ["command"]
@@ -360,15 +472,59 @@ fn run_command_tool() -> Value {
     })
 }
 
+/// Patterns matched against the last terminal line to detect an interactive prompt.
+const PROMPT_PATTERNS: &[&str] = &[
+    r"(?i)password[^:]*:\s*$",            // sudo / ssh / generic password
+    r"\[sudo\]",                          // sudo lecture line
+    r"(?i)\[y/n\]\s*$",                   // [Y/n] / [y/N]
+    r"(?i)\(yes/no(/\[fingerprint\])?\)", // ssh host key
+    r"(?i)\(y/n\)\s*$",
+    r"(?i)proceed with",                  // pacman ":: Proceed with installation?"
+    r"(?i)continue connecting",           // ssh
+    r"(?i)\?\s*\[[yn]",                   // "...? [Y/n]" / "...? [y/N]"
+    r"(?i)overwrite\b.*\?",
+];
+
+/// Compile the interactive-prompt detector.
+fn build_prompt_detector() -> Regex {
+    Regex::new_many(PROMPT_PATTERNS).expect("built-in prompt patterns must compile")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn parse_command_extracts_field() {
-        assert_eq!(parse_command(r#"{"command":"ls -la"}"#), Some("ls -la".to_owned()));
-        assert_eq!(parse_command("not json"), None);
-        assert_eq!(parse_command(r#"{"other":1}"#), None);
+    fn parse_command_extracts_fields() {
+        let args = parse_command(r#"{"command":"ls -la"}"#).unwrap();
+        assert_eq!(args.command, "ls -la");
+        assert!(!args.interactive);
+
+        let args = parse_command(r#"{"command":"sudo pacman -S docker","interactive":true}"#)
+            .unwrap();
+        assert_eq!(args.command, "sudo pacman -S docker");
+        assert!(args.interactive);
+
+        assert!(parse_command("not json").is_none());
+        assert!(parse_command(r#"{"other":1}"#).is_none());
+    }
+
+    #[test]
+    fn detects_interactive_prompts() {
+        let re = build_prompt_detector();
+        let prompt = |s: &str| {
+            let last = s.lines().rev().find(|l| !l.trim().is_empty()).unwrap();
+            re.is_match(last)
+        };
+        assert!(prompt("[sudo] password for mike: "));
+        assert!(prompt("Password:"));
+        assert!(prompt(":: Proceed with installation? [Y/n] "));
+        assert!(prompt("Overwrite existing file? [y/N]"));
+        assert!(prompt("Are you sure you want to continue connecting (yes/no)? "));
+        // Normal output / shell prompts must not match.
+        assert!(!prompt("total 48"));
+        assert!(!prompt("mike@host /tmp $ "));
+        assert!(!prompt("Reading package lists... Done"));
     }
 
     #[test]

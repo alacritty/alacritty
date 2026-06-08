@@ -1377,7 +1377,9 @@ impl Display {
 
         // Header line.
         let mut header = String::from(" AI assistant");
-        if chat.busy {
+        if chat.awaiting_input.is_some() {
+            header.push_str("  \u{00b7} waiting for your input");
+        } else if chat.busy {
             header.push_str("  \u{00b7} thinking\u{2026}");
         } else if let Some(status) = &chat.status {
             header.push_str("  \u{00b7} ");
@@ -1402,15 +1404,18 @@ impl Display {
             }
         }
 
-        // Input / approval line at the bottom of the panel.
-        let input_text = match &chat.pending_approval {
-            Some(approval) => format!("run destructive command? [y/N]  {}", approval.command),
-            None => format!("> {}", chat.input),
+        // Input / approval / interactive-prompt line at the bottom of the panel.
+        let input_text = if chat.awaiting_input.is_some() {
+            "\u{23f8} respond in the terminal above; resuming when it finishes\u{2026}".to_owned()
+        } else if let Some(approval) = &chat.pending_approval {
+            format!("run destructive command? [y/N]  {}", approval.command)
+        } else {
+            format!("> {}", chat.input)
         };
         self.draw_panel_line(bottom_line, &input_text, fg, bg);
 
         // Input cursor.
-        if chat.focused && chat.pending_approval.is_none() {
+        if chat.focused && chat.pending_approval.is_none() && chat.awaiting_input.is_none() {
             let column = Column(input_text.chars().count().min(columns.saturating_sub(1)));
             let width = NonZeroU32::new(1).unwrap();
             let cursor = RenderableCursor::new(

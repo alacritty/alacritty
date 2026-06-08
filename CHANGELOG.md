@@ -22,6 +22,9 @@ Notable changes to the `alacritty_terminal` crate are documented in its
   commands. Configure under `[ai]`; the API key is stored in the OS keyring via
   `alacritty ai set-key`. Execution modes: `TypeOnly`, `Smart` (default; auto-runs safe
   commands, confirms destructive ones), and `Yolo`, plus `auto_approve`/`deny` patterns.
+  When a command blocks on an interactive prompt (e.g. a `sudo` password or a `[Y/n]`
+  confirmation), keyboard control is handed to you to respond in the terminal, then the
+  agent resumes automatically.
 
 ### Fixed
 

@@ -526,6 +526,19 @@ impl WindowContext {
                 self.chat.focused = true;
                 self.chat.pending_approval = Some(PendingApproval { command });
             },
+            AiEvent::AwaitingInput { prompt } => {
+                if !self.chat.open {
+                    self.chat.open = true;
+                    opened = true;
+                }
+                // Route keystrokes to the terminal so the user can answer the prompt.
+                self.chat.focused = false;
+                self.chat.awaiting_input = Some(prompt);
+            },
+            AiEvent::InputResolved => {
+                self.chat.awaiting_input = None;
+                self.chat.focused = true;
+            },
             AiEvent::Error(text) => {
                 self.chat.busy = false;
                 self.chat.push(Speaker::System, format!("error: {text}"));

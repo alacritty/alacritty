@@ -66,6 +66,9 @@ pub struct ChatPanelState {
     pub busy: bool,
     /// A destructive command awaiting confirmation, if any.
     pub pending_approval: Option<PendingApproval>,
+    /// An interactive prompt the running command is blocked on; when set, keyboard input
+    /// goes to the terminal so the user can respond (e.g. type a password).
+    pub awaiting_input: Option<String>,
     /// Transient status line (e.g. missing API key), shown in the header.
     pub status: Option<String>,
     /// Requests queued for the window context to forward to the AI worker.
