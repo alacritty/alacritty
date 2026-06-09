@@ -36,8 +36,9 @@ use alacritty_terminal::tty;
 use crate::cli::{ParsedOptions, WindowOptions};
 use crate::clipboard::Clipboard;
 use crate::config::UiConfig;
+use crate::claude_sessions::{self, ClaudeSession};
 use crate::display::window::Window;
-use crate::display::{Display, SizeInfo, TabBarInfo};
+use crate::display::{ClaudeSessionRow, Display, SizeInfo, TabBarInfo};
 use crate::event::{
     ActionContext, Event, EventProxy, EventType, InlineSearchState, Mouse, SearchState,
     TabSelection, TouchPurpose,
@@ -67,6 +68,9 @@ pub struct Tab {
     /// Latest title reported by this terminal, shown on the tab bar.
     title: String,
     preserve_title: bool,
+    /// Claude Code session this tab was opened to resume, if any. Used to focus an existing tab
+    /// instead of opening a duplicate when its sidebar entry is clicked again.
+    claude_session: Option<String>,
     #[cfg(not(windows))]
     master_fd: RawFd,
     #[cfg(not(windows))]
@@ -144,6 +148,7 @@ impl Tab {
             search_state: Default::default(),
             title: String::new(),
             preserve_title,
+            claude_session: None,
             #[cfg(not(windows))]
             master_fd,
             #[cfg(not(windows))]
@@ -172,6 +177,9 @@ struct Project {
     tabs: Vec<Tab>,
     /// Index of the focused tab within [`Self::tabs`].
     active_tab: usize,
+    /// Cached Claude Code sessions for this project's `root`, shown in the sidebar. Refreshed when
+    /// the project is selected (never per frame); empty for the root-less home project.
+    sessions: Vec<ClaudeSession>,
 }
 
 impl Project {
@@ -334,11 +342,16 @@ impl WindowContext {
 
         // The initial window is itself a project, rooted at its launch directory (if any).
         let root = options.terminal_options.working_directory.clone();
-        let project =
-            Project { name: Project::name_for(&root), root, tabs: vec![tab], active_tab: 0 };
+        let project = Project {
+            name: Project::name_for(&root),
+            root,
+            tabs: vec![tab],
+            active_tab: 0,
+            sessions: Vec::new(),
+        };
 
         // Create context for the Alacritty window.
-        Ok(WindowContext {
+        let mut window_context = WindowContext {
             display,
             config,
             projects: vec![project],
@@ -355,7 +368,12 @@ impl WindowContext {
             mouse: Default::default(),
             touch: Default::default(),
             dirty: Default::default(),
-        })
+        };
+
+        // Populate the active project's Claude session list for the sidebar.
+        window_context.refresh_project_sessions(0);
+
+        Ok(window_context)
     }
 
     /// Reference to the currently active project.
@@ -453,6 +471,7 @@ impl WindowContext {
                 root: sp.root.clone(),
                 tabs: Vec::new(),
                 active_tab: 0,
+                sessions: Vec::new(),
             });
         }
 
@@ -491,6 +510,7 @@ impl WindowContext {
         // Drop any project whose tabs all failed to spawn, then focus the saved active project.
         self.projects.retain(|p| !p.tabs.is_empty());
         self.active_project = active_project.min(self.projects.len().saturating_sub(1));
+        self.refresh_project_sessions(self.active_project);
         self.sync_tabs();
     }
 
@@ -528,6 +548,53 @@ impl WindowContext {
         }
     }
 
+    /// Open a new tab in `project_index` that resumes the Claude Code session `session_id`.
+    ///
+    /// Spawns a normal shell rooted at the project folder, then types `claude --resume <id>` into
+    /// it so a usable prompt remains after the session ends. `session_id` is validated to a UUID
+    /// charset where it's discovered, so writing it into the shell carries no injection risk.
+    pub fn open_claude_session(
+        &mut self,
+        proxy: EventLoopProxy<Event>,
+        project_index: usize,
+        session_id: String,
+    ) {
+        if self.projects.get(project_index).map(|p| p.root.is_none()).unwrap_or(true) {
+            return;
+        }
+
+        // New tabs are added to the active project, so focus the target project first.
+        self.select_project(project_index);
+
+        // If this session is already open in a tab, just focus that tab instead of duplicating it.
+        if let Some(tab_index) = self.projects[project_index]
+            .tabs
+            .iter()
+            .position(|t| t.claude_session.as_deref() == Some(session_id.as_str()))
+        {
+            self.set_active_tab(tab_index);
+            return;
+        }
+
+        // Label the new tab with the session's prompt, if cached.
+        let label = self.projects[project_index]
+            .sessions
+            .iter()
+            .find(|s| s.id == session_id)
+            .map(|s| s.label.clone());
+
+        self.add_tab(proxy, None);
+
+        let command = format!("claude --resume {session_id}\n");
+        if let Some(tab) = self.projects[project_index].tabs.last_mut() {
+            tab.claude_session = Some(session_id.clone());
+            tab.notifier.notify(command.into_bytes());
+            if let Some(label) = label.filter(|l| !l.is_empty()) {
+                tab.title = label;
+            }
+        }
+    }
+
     /// Create a new project rooted at `root` (with one tab) and switch to it.
     pub fn add_project(&mut self, proxy: EventLoopProxy<Event>, root: PathBuf) {
         let mut options = WindowOptions::default();
@@ -542,6 +609,7 @@ impl WindowContext {
                     root: Some(root),
                     tabs: vec![tab],
                     active_tab: 0,
+                    sessions: Vec::new(),
                 });
                 self.select_project(self.projects.len() - 1);
                 self.display.pending_update.dirty = true;
@@ -551,9 +619,29 @@ impl WindowContext {
         }
     }
 
+    /// Reload the cached Claude Code sessions for the project at `index` (no-op for the root-less
+    /// home project). Called on project selection, never per frame.
+    fn refresh_project_sessions(&mut self, index: usize) {
+        let Some(project) = self.projects.get_mut(index) else { return };
+        project.sessions = match &project.root {
+            Some(root) => claude_sessions::sessions_for(root),
+            None => Vec::new(),
+        };
+    }
+
     /// Switch the active project, carrying focus and updating the window title.
     pub fn select_project(&mut self, index: usize) {
-        if index >= self.projects.len() || index == self.active_project {
+        if index >= self.projects.len() {
+            return;
+        }
+
+        // Refresh the target project's session list (also lets re-clicking a project refresh it).
+        self.refresh_project_sessions(index);
+
+        if index == self.active_project {
+            // Already active; the refreshed session list may need a redraw.
+            self.display.pending_update.dirty = true;
+            self.dirty = true;
             return;
         }
 
@@ -622,6 +710,34 @@ impl WindowContext {
         self.display.pending_update.dirty = true;
         self.dirty = true;
         false
+    }
+
+    /// Delete the project at `index` and all its tabs. The window always keeps at least one
+    /// project, so a request to delete the sole project is ignored. Does not touch the folder on
+    /// disk — only removes it from this window's project list.
+    pub fn close_project(&mut self, index: usize) {
+        if index >= self.projects.len() || self.projects.len() <= 1 {
+            return;
+        }
+
+        // Dropping the project drops its tabs, shutting down their PTYs.
+        self.projects.remove(index);
+
+        // Keep `active_project` valid and pointed at a sensible project.
+        if index < self.active_project {
+            self.active_project -= 1;
+        } else if self.active_project >= self.projects.len() {
+            self.active_project = self.projects.len() - 1;
+        }
+
+        // Focus the now-active project's tab and load its session list.
+        let project = &self.projects[self.active_project];
+        project.tabs[project.active_tab].terminal.lock().is_focused = true;
+        let active = self.active_project;
+        self.refresh_project_sessions(active);
+
+        self.display.pending_update.dirty = true;
+        self.dirty = true;
     }
 
     /// Focus the tab at `index` in the active project, if it exists.
@@ -706,7 +822,6 @@ impl WindowContext {
     /// requests a redraw.
     pub fn sync_tabs(&mut self) {
         let project_index = self.active_project;
-        let tab_bar_lines = usize::from(self.projects[project_index].tabs.len() >= 2);
         let idx = self.projects[project_index].active_tab;
         let tab = &mut self.projects[project_index].tabs[idx];
         let mut terminal = tab.terminal.lock();
@@ -721,7 +836,6 @@ impl WindowContext {
                 &mut tab.search_state,
                 old_is_searching,
                 &self.config,
-                tab_bar_lines,
             );
         }
 
@@ -914,6 +1028,21 @@ impl WindowContext {
         if let Some(index) = actions.select_project {
             let _ = proxy.send_event(Event::new(EventType::SelectProject(index), window_id));
         }
+        if let Some(index) = actions.close_project {
+            let _ = proxy.send_event(Event::new(EventType::CloseProject(index), window_id));
+        }
+        if let Some(idx) = actions.open_claude_session {
+            // Resolve the index against the same cache the frame was rendered from.
+            if let Some(session) = self.active_project().sessions.get(idx) {
+                let project_index = self.active_project;
+                let session_id = session.id.clone();
+                let event = Event::new(
+                    EventType::OpenClaudeSession { project_index, session_id },
+                    window_id,
+                );
+                let _ = proxy.send_event(event);
+            }
+        }
         if actions.create_project {
             // We're on the main thread inside the winit handler, so a blocking native folder
             // dialog is fine (it's modal). Dispatch the result through the event path.
@@ -973,6 +1102,11 @@ impl WindowContext {
             active: project.active_tab,
             project_names: self.projects.iter().map(|p| p.name.clone()).collect(),
             active_project: self.active_project,
+            project_sessions: project
+                .sessions
+                .iter()
+                .map(|s| ClaudeSessionRow { label: s.label.clone() })
+                .collect(),
         }
     }
 
@@ -1008,14 +1142,11 @@ impl WindowContext {
         // originating tab (which may be in the background); everything else targets the active tab.
         let events: Vec<_> = self.event_queue.drain(..).collect();
         for queued in events {
-            // Offer window events to the egui chrome first. If egui consumes one (e.g. a click on
+            // Offer window events to the native chrome first. If it consumes one (e.g. a click on
             // the tab bar), it must not also reach the terminal.
             if let WinitEvent::WindowEvent { event: window_event, .. } = &queued {
-                let response = self.display.feed_egui_event(window_event);
-                if response.repaint {
+                if self.display.handle_chrome_event(window_event) {
                     self.dirty = true;
-                }
-                if response.consumed {
                     continue;
                 }
             }
@@ -1035,7 +1166,6 @@ impl WindowContext {
         // Post-processing (display updates, hint highlighting, redraw) operates on the active tab
         // together with the shared display.
         let project_index = self.active_project;
-        let tab_bar_lines = usize::from(self.projects[project_index].tabs.len() >= 2);
         let idx = self.projects[project_index].active_tab;
         let tab = &mut self.projects[project_index].tabs[idx];
         let mut terminal = tab.terminal.lock();
@@ -1050,7 +1180,6 @@ impl WindowContext {
                 &mut tab.search_state,
                 old_is_searching,
                 &self.config,
-                tab_bar_lines,
             );
             self.dirty = true;
         }
@@ -1186,7 +1315,6 @@ impl WindowContext {
         search_state: &mut SearchState,
         old_is_searching: bool,
         config: &UiConfig,
-        tab_bar_lines: usize,
     ) {
         // Compute cursor positions before resize.
         let num_lines = terminal.screen_lines();
@@ -1197,14 +1325,7 @@ impl WindowContext {
             search_state.direction == Direction::Left
         };
 
-        display.handle_update(
-            terminal,
-            notifier,
-            message_buffer,
-            search_state,
-            config,
-            tab_bar_lines,
-        );
+        display.handle_update(terminal, notifier, message_buffer, search_state, config);
 
         let new_is_searching = search_state.history_index.is_some();
         if !old_is_searching && new_is_searching {

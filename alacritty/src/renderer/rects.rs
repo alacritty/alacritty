@@ -317,7 +317,26 @@ impl RectRenderer {
         Ok(Self { vao, vbo, programs, vertices: Default::default() })
     }
 
+    /// Draw rects aligned with the terminal grid: every rect is shifted by the chrome reservations
+    /// (`top_extra`, `left_extra`) so it lines up with the offset grid.
     pub fn draw(&mut self, size_info: &SizeInfo, metrics: &Metrics, rects: Vec<RenderRect>) {
+        self.draw_offset(size_info, metrics, rects, size_info.top_extra(), size_info.left_extra());
+    }
+
+    /// Draw rects in absolute window pixels (no chrome offset), used for the chrome surfaces which
+    /// live in the reserved regions rather than the grid.
+    pub fn draw_absolute(&mut self, size_info: &SizeInfo, metrics: &Metrics, rects: Vec<RenderRect>) {
+        self.draw_offset(size_info, metrics, rects, 0., 0.);
+    }
+
+    fn draw_offset(
+        &mut self,
+        size_info: &SizeInfo,
+        metrics: &Metrics,
+        rects: Vec<RenderRect>,
+        top_extra: f32,
+        left_extra: f32,
+    ) {
         unsafe {
             // Bind VAO to enable vertex attribute slots.
             gl::BindVertexArray(self.vao);
@@ -328,10 +347,6 @@ impl RectRenderer {
 
         let half_width = size_info.width() / 2.;
         let half_height = size_info.height() / 2.;
-        // Shift every rect by the chrome reservations so they stay aligned with the grid: down by
-        // `top_extra` (top chrome) and right by `left_extra` (project sidebar).
-        let top_extra = size_info.top_extra();
-        let left_extra = size_info.left_extra();
 
         // Build rect vertices vector.
         self.vertices.iter_mut().for_each(|vertices| vertices.clear());

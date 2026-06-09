@@ -555,6 +555,22 @@ impl ApplicationHandler<Event> for Processor {
                     self.save_session(window_id);
                 }
             },
+            // Delete a project and all its tabs.
+            (EventType::CloseProject(index), Some(window_id)) => {
+                if let Some(window_context) = self.windows.get_mut(window_id) {
+                    window_context.close_project(index);
+                    window_context.sync_tabs();
+                    self.save_session(window_id);
+                }
+            },
+            // Resume a Claude Code session in a new tab.
+            (EventType::OpenClaudeSession { project_index, session_id }, Some(window_id)) => {
+                if let Some(window_context) = self.windows.get_mut(window_id) {
+                    window_context.open_claude_session(self.proxy.clone(), project_index, session_id);
+                    window_context.sync_tabs();
+                    self.save_session(window_id);
+                }
+            },
             // Copy/paste requested from the egui context menu.
             (EventType::Copy, Some(window_id)) => {
                 if let Some(window_context) = self.windows.get_mut(window_id) {
@@ -801,6 +817,10 @@ pub enum EventType {
     CreateProject(PathBuf),
     /// Activate the project at the given index (from the sidebar).
     SelectProject(usize),
+    /// Delete the project at the given index, with all its tabs (from the sidebar).
+    CloseProject(usize),
+    /// Resume a Claude Code session in a new tab (from the sidebar session list).
+    OpenClaudeSession { project_index: usize, session_id: String },
     #[cfg(unix)]
     IpcConfig(IpcConfig),
     #[cfg(unix)]
@@ -2249,6 +2269,8 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 | EventType::CloseTab(_)
                 | EventType::CreateProject(_)
                 | EventType::SelectProject(_)
+                | EventType::CloseProject(_)
+                | EventType::OpenClaudeSession { .. }
                 | EventType::Copy
                 | EventType::Paste
                 | EventType::Frame => (),

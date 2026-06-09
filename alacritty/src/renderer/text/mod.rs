@@ -84,6 +84,24 @@ pub trait TextRenderer<'a> {
         }
     }
 
+    /// Override the projection uniform with a raw `(offset_x, offset_y, scale_x, scale_y)` value.
+    /// Used to draw the window chrome on a window-origin cell grid; pair with [`Self::resize`] to
+    /// restore the grid projection afterwards.
+    fn set_projection(&self, projection: [f32; 4]) {
+        unsafe {
+            let program = self.program();
+            gl::UseProgram(program.id());
+            gl::Uniform4f(
+                program.projection_uniform(),
+                projection[0],
+                projection[1],
+                projection[2],
+                projection[3],
+            );
+            gl::UseProgram(0);
+        }
+    }
+
     /// Invoke renderer with the loader.
     fn with_loader<F: FnOnce(LoaderApi<'_>) -> T, T>(&mut self, func: F) -> T {
         unsafe {

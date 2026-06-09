@@ -37,12 +37,6 @@ pub struct Gles2Renderer {
 }
 
 impl Gles2Renderer {
-    /// Invalidate the cached bound-texture so the next batch re-binds it. Needed after a foreign
-    /// GL consumer (e.g. egui) changes the texture binding behind our back.
-    pub fn reset_texture_cache(&mut self) {
-        self.active_tex = 0;
-    }
-
     pub fn new(allow_dsb: bool, is_gles_context: bool) -> Result<Self, Error> {
         info!("Using OpenGL ES 2.0 renderer");
 

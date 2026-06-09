@@ -276,6 +276,14 @@ impl GlyphCache {
         self.load_common_glyphs(loader);
     }
 
+    /// Reset the registry and reload common glyphs *without* clearing the shared atlas. Used when
+    /// several caches share one atlas that another cache has already cleared this pass, so this
+    /// cache must re-register its glyphs without wiping the just-loaded ones.
+    pub fn reload<L: LoadGlyph>(&mut self, loader: &mut L) {
+        self.cache = Default::default();
+        self.load_common_glyphs(loader);
+    }
+
     /// Update the inner font size.
     ///
     /// NOTE: To reload the renderers's fonts [`Self::reset_glyph_cache`] should be called

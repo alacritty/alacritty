@@ -39,20 +39,6 @@ pub struct Glsl3Renderer {
 }
 
 impl Glsl3Renderer {
-    /// Invalidate the cached bound-texture so the next batch re-binds it. Needed after a foreign
-    /// GL consumer (e.g. egui) changes the texture binding behind our back.
-    pub fn reset_texture_cache(&mut self) {
-        self.active_tex = 0;
-    }
-
-    /// Restore the dual-source subpixel blend function set once in [`Self::new`], which a foreign
-    /// GL consumer (e.g. egui) may have overwritten.
-    pub fn restore_blend_func(&self) {
-        unsafe {
-            gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
-        }
-    }
-
     pub fn new() -> Result<Self, Error> {
         info!("Using OpenGL 3.3 renderer");
 
