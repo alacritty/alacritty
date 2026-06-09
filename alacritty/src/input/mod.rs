@@ -148,6 +148,7 @@ pub trait ActionContext<T: EventListener> {
     fn ai_panel_input(&mut self, _c: char) {}
     /// Delete the last character of the AI chat panel input.
     fn ai_panel_backspace(&mut self) {}
+    fn ai_panel_paste(&mut self, _text: &str) {}
     /// Submit the current AI chat panel input.
     fn ai_panel_submit(&mut self) {}
     /// Scroll the AI chat transcript by `delta` lines (positive scrolls back).

@@ -1350,14 +1350,22 @@ impl Display {
         let panel_lines = config.ai.panel_lines.min(max_rows.saturating_sub(top_line)).max(1);
         let bottom_line = top_line + panel_lines - 1;
 
-        let fg = config.colors.footer_bar_foreground();
-        let bg = config.colors.footer_bar_background();
+        // Use the theme's primary colors so the panel blends with the active (often dark)
+        // color scheme instead of inverting to the footer-bar colors, which default to a
+        // bright background. A thin top border separates the panel from the terminal above.
+        let fg = config.colors.primary.foreground;
+        let bg = config.colors.primary.background;
+        let border = Rgb::new(0xff, 0xff, 0xff);
 
         // Background rectangle covering the whole panel (including window padding).
         let y = size_info.cell_height().mul_add(top_line as f32, size_info.padding_y());
         let height = size_info.cell_height() * panel_lines as f32;
         let rect = RenderRect::new(0., y, size_info.width(), height, bg, 1.);
-        self.renderer.draw_rects(&size_info, &metrics, vec![rect]);
+        // A solid line across the top edge, scaled to the cell height so it stays clearly
+        // visible across DPIs.
+        let border_thickness = (size_info.cell_height() * 0.12).max(2.);
+        let border_rect = RenderRect::new(0., y, size_info.width(), border_thickness, border, 1.);
+        self.renderer.draw_rects(&size_info, &metrics, vec![rect, border_rect]);
 
         // Always damage the panel region so typing/streaming updates are shown.
         self.damage_tracker.frame().add_viewport_rect(
@@ -1376,7 +1384,7 @@ impl Display {
         );
 
         // Header line.
-        let mut header = String::from(" AI assistant");
+        let mut header = format!(" AI assistant  \u{00b7} {}", config.ai.model);
         if chat.awaiting_input.is_some() {
             header.push_str("  \u{00b7} waiting for your input");
         } else if chat.busy {
@@ -1389,8 +1397,31 @@ impl Display {
         let header = compose_header(&header, hint, columns);
         self.draw_panel_line(top_line, &header, fg, bg);
 
-        // Message area rows (between header and input line).
-        let message_rows = panel_lines.saturating_sub(2);
+        // The input block is anchored to the bottom of the panel. While typing it can wrap
+        // onto several rows, pushing the transcript upward; the approval / interactive-prompt
+        // states stay a single line. `content_rows` is everything below the header.
+        let content_rows = panel_lines.saturating_sub(1);
+
+        // Wrapped input lines (tail-clamped so the cursor at the end stays visible) and the
+        // single-line text used for the approval / awaiting-input states.
+        let typing = chat.awaiting_input.is_none() && chat.pending_approval.is_none();
+        let input_lines = if typing {
+            let all = chat.input_lines(columns);
+            // Leave at least one transcript row when the panel is tall enough.
+            let max_rows = content_rows.saturating_sub(1).max(1);
+            let rows = all.len().min(max_rows);
+            all[all.len() - rows..].to_vec()
+        } else if chat.awaiting_input.is_some() {
+            vec!["\u{23f8} respond in the terminal above; resuming when it finishes\u{2026}"
+                .to_owned()]
+        } else {
+            let approval = chat.pending_approval.as_ref().expect("pending approval");
+            vec![format!("run destructive command? [y/N]  {}", approval.command)]
+        };
+        let input_rows = input_lines.len().min(content_rows.max(1));
+
+        // Message area rows (between header and the input block).
+        let message_rows = content_rows.saturating_sub(input_rows);
         if message_rows > 0 {
             let lines = chat.rendered_lines(columns);
             let end = lines.len().saturating_sub(chat.scroll);
@@ -1404,19 +1435,16 @@ impl Display {
             }
         }
 
-        // Input / approval / interactive-prompt line at the bottom of the panel.
-        let input_text = if chat.awaiting_input.is_some() {
-            "\u{23f8} respond in the terminal above; resuming when it finishes\u{2026}".to_owned()
-        } else if let Some(approval) = &chat.pending_approval {
-            format!("run destructive command? [y/N]  {}", approval.command)
-        } else {
-            format!("> {}", chat.input)
-        };
-        self.draw_panel_line(bottom_line, &input_text, fg, bg);
+        // Input block, ending on `bottom_line`.
+        let input_top = bottom_line + 1 - input_rows;
+        for (row, text) in input_lines.iter().enumerate() {
+            self.draw_panel_line(input_top + row, text, fg, bg);
+        }
 
-        // Input cursor.
-        if chat.focused && chat.pending_approval.is_none() && chat.awaiting_input.is_none() {
-            let column = Column(input_text.chars().count().min(columns.saturating_sub(1)));
+        // Input cursor, at the end of the last input line.
+        if chat.focused && typing {
+            let last = input_lines.last().map(String::as_str).unwrap_or("");
+            let column = Column(last.chars().count().min(columns.saturating_sub(1)));
             let width = NonZeroU32::new(1).unwrap();
             let cursor = RenderableCursor::new(
                 Point::new(bottom_line, column),

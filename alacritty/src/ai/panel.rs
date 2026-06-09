@@ -154,6 +154,31 @@ impl ChatPanelState {
 
         lines
     }
+
+    /// Wrap the current input buffer into display lines for the given column width.
+    ///
+    /// The first line carries the `"> "` prompt; continuation lines are indented to align
+    /// under it. Explicit newlines (e.g. from pasted multi-line text) start fresh lines.
+    /// This is display-only — `input` is never mutated, so submit still sends the exact
+    /// buffer. Always returns at least one line.
+    pub fn input_lines(&self, columns: usize) -> Vec<String> {
+        let width = columns.max(1);
+        let prefix = "> ";
+        let indent = " ".repeat(prefix.len());
+        let body_width = width.saturating_sub(prefix.chars().count()).max(1);
+
+        let mut lines = Vec::new();
+        for (i, paragraph) in self.input.split('\n').enumerate() {
+            for segment in wrap(paragraph, body_width) {
+                let lead = if lines.is_empty() && i == 0 { prefix } else { &indent };
+                lines.push(format!("{lead}{segment}"));
+            }
+        }
+        if lines.is_empty() {
+            lines.push(prefix.to_owned());
+        }
+        lines
+    }
 }
 
 /// Greedy word-wrap a single line to `width` columns, hard-breaking overlong words.
@@ -217,6 +242,27 @@ mod tests {
     #[test]
     fn wrap_hard_breaks_long_words() {
         assert_eq!(wrap("abcdefghij", 4), vec!["abcd", "efgh", "ij"]);
+    }
+
+    #[test]
+    fn input_lines_empty_is_prompt_only() {
+        let state = ChatPanelState::default();
+        assert_eq!(state.input_lines(40), vec!["> "]);
+    }
+
+    #[test]
+    fn input_lines_wrap_and_indent() {
+        let mut state = ChatPanelState::default();
+        // body_width = 6 - 2 = 4; "abcdefghij" hard-breaks into 4-char chunks.
+        state.input = "abcdefghij".to_owned();
+        assert_eq!(state.input_lines(6), vec!["> abcd", "  efgh", "  ij"]);
+    }
+
+    #[test]
+    fn input_lines_preserve_newlines() {
+        let mut state = ChatPanelState::default();
+        state.input = "one\ntwo".to_owned();
+        assert_eq!(state.input_lines(40), vec!["> one", "  two"]);
     }
 
     #[test]

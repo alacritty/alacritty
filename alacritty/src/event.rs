@@ -1377,6 +1377,12 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     /// Paste a text into the terminal.
     fn paste(&mut self, text: &str, bracketed: bool) {
+        // Route paste into the AI chat panel input while it is focused, instead of the PTY.
+        if self.ai_panel_focused() {
+            self.ai_panel_paste(text);
+            return;
+        }
+
         if self.search_active() {
             for c in text.chars() {
                 self.search_input(c);
@@ -1441,6 +1447,18 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     fn ai_panel_backspace(&mut self) {
         self.chat.input.pop();
+        *self.dirty = true;
+    }
+
+    fn ai_panel_paste(&mut self, text: &str) {
+        // Preserve newlines for multi-line prompts (normalizing CRLF / lone CR to '\n');
+        // drop other control characters.
+        let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
+        for c in normalized.chars() {
+            if c == '\n' || !c.is_control() {
+                self.chat.input.push(c);
+            }
+        }
         *self.dirty = true;
     }
 
