@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use winit::event::{ElementState, KeyEvent};
 #[cfg(target_os = "macos")]
 use winit::keyboard::ModifiersKeyState;
-use winit::keyboard::{Key, KeyLocation, ModifiersState, NamedKey};
+use winit::keyboard::{Key, KeyCode, KeyLocation, ModifiersState, NamedKey, PhysicalKey};
 #[cfg(target_os = "macos")]
 use winit::platform::macos::OptionAsAlt;
 
@@ -203,17 +203,20 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         } else {
             key.logical_key.clone()
         };
+        let physical_key = physical_key_binding(key, mods);
 
         // Get the action of a key binding.
         let mut binding_action = |binding: &KeyBinding| {
-            let key = match (&binding.trigger, &logical_key) {
+            let binding_key = match (&binding.trigger, &logical_key) {
                 (BindingKey::Scancode(_), _) => BindingKey::Scancode(key.physical_key),
                 (_, code) => {
                     BindingKey::Keycode { key: code.clone(), location: key.location.into() }
                 },
             };
 
-            if binding.is_triggered_by(mode, mods, &key) {
+            if binding.is_triggered_by(mode, mods, &binding_key)
+                || physical_key.as_ref().is_some_and(|key| binding.is_triggered_by(mode, mods, key))
+            {
                 // Pass through the key if any of the bindings has the `ReceiveChar` action.
                 *suppress_chars.get_or_insert(true) &= binding.action != Action::ReceiveChar;
 
@@ -286,6 +289,95 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             }
         }
     }
+}
+
+/// Get a layout-independent binding key for a physical keyboard position.
+fn physical_key_binding(key: &KeyEvent, mods: ModifiersState) -> Option<BindingKey> {
+    let PhysicalKey::Code(key_code) = key.physical_key else {
+        return None;
+    };
+
+    let character = us_keyboard_character(key_code, mods.shift_key())?;
+    Some(BindingKey::Keycode {
+        key: Key::Character(character.into()),
+        location: key.location.into(),
+    })
+}
+
+/// Translate a physical key into its US keyboard character.
+fn us_keyboard_character(key_code: KeyCode, shift: bool) -> Option<&'static str> {
+    let character = match key_code {
+        KeyCode::Backquote if shift => "~",
+        KeyCode::Backquote => "`",
+        KeyCode::Backslash => "\\",
+        KeyCode::BracketLeft if shift => "{",
+        KeyCode::BracketLeft => "[",
+        KeyCode::BracketRight if shift => "}",
+        KeyCode::BracketRight => "]",
+        KeyCode::Comma if shift => "<",
+        KeyCode::Comma => ",",
+        KeyCode::Digit0 if shift => ")",
+        KeyCode::Digit0 => "0",
+        KeyCode::Digit1 if shift => "!",
+        KeyCode::Digit1 => "1",
+        KeyCode::Digit2 if shift => "@",
+        KeyCode::Digit2 => "2",
+        KeyCode::Digit3 if shift => "#",
+        KeyCode::Digit3 => "3",
+        KeyCode::Digit4 if shift => "$",
+        KeyCode::Digit4 => "4",
+        KeyCode::Digit5 if shift => "%",
+        KeyCode::Digit5 => "5",
+        KeyCode::Digit6 if shift => "^",
+        KeyCode::Digit6 => "6",
+        KeyCode::Digit7 if shift => "&",
+        KeyCode::Digit7 => "7",
+        KeyCode::Digit8 if shift => "*",
+        KeyCode::Digit8 => "8",
+        KeyCode::Digit9 if shift => "(",
+        KeyCode::Digit9 => "9",
+        KeyCode::Equal if shift => "+",
+        KeyCode::Equal => "=",
+        KeyCode::KeyA => "a",
+        KeyCode::KeyB => "b",
+        KeyCode::KeyC => "c",
+        KeyCode::KeyD => "d",
+        KeyCode::KeyE => "e",
+        KeyCode::KeyF => "f",
+        KeyCode::KeyG => "g",
+        KeyCode::KeyH => "h",
+        KeyCode::KeyI => "i",
+        KeyCode::KeyJ => "j",
+        KeyCode::KeyK => "k",
+        KeyCode::KeyL => "l",
+        KeyCode::KeyM => "m",
+        KeyCode::KeyN => "n",
+        KeyCode::KeyO => "o",
+        KeyCode::KeyP => "p",
+        KeyCode::KeyQ => "q",
+        KeyCode::KeyR => "r",
+        KeyCode::KeyS => "s",
+        KeyCode::KeyT => "t",
+        KeyCode::KeyU => "u",
+        KeyCode::KeyV => "v",
+        KeyCode::KeyW => "w",
+        KeyCode::KeyX => "x",
+        KeyCode::KeyY => "y",
+        KeyCode::KeyZ => "z",
+        KeyCode::Minus if shift => "_",
+        KeyCode::Minus => "-",
+        KeyCode::Period if shift => ">",
+        KeyCode::Period => ".",
+        KeyCode::Quote if shift => "\"",
+        KeyCode::Quote => "'",
+        KeyCode::Semicolon if shift => ":",
+        KeyCode::Semicolon => ";",
+        KeyCode::Slash if shift => "?",
+        KeyCode::Slash => "/",
+        _ => return None,
+    };
+
+    Some(character)
 }
 
 /// Build a key's keyboard escape sequence based on the given `key`, `mods`, and `mode`.
@@ -715,4 +807,28 @@ fn is_control_character(text: &str) -> bool {
     // does not match the reported text (`^H`), despite not technically being part of C0 or C1.
     let codepoint = text.bytes().next().unwrap();
     text.len() == 1 && (codepoint < 0x20 || (0x7f..=0x9f).contains(&codepoint))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn physical_key_letters_ignore_shift() {
+        assert_eq!(us_keyboard_character(KeyCode::KeyC, false), Some("c"));
+        assert_eq!(us_keyboard_character(KeyCode::KeyC, true), Some("c"));
+    }
+
+    #[test]
+    fn physical_key_punctuation_honors_shift() {
+        assert_eq!(us_keyboard_character(KeyCode::Slash, false), Some("/"));
+        assert_eq!(us_keyboard_character(KeyCode::Slash, true), Some("?"));
+        assert_eq!(us_keyboard_character(KeyCode::Digit8, false), Some("8"));
+        assert_eq!(us_keyboard_character(KeyCode::Digit8, true), Some("*"));
+    }
+
+    #[test]
+    fn physical_key_ignores_non_textual_keys() {
+        assert_eq!(us_keyboard_character(KeyCode::F1, false), None);
+    }
 }
