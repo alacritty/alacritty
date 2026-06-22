@@ -133,6 +133,23 @@ pub fn viewport_to_point(display_offset: usize, point: Point<usize>) -> Point {
     Point::new(line, point.column)
 }
 
+/// Shift a tracked point so it follows its grid content across a scroll.
+fn rotate_prompt_mark(mark: &mut Option<Point>, region: &Range<Line>, delta: i32) {
+    let Some(point) = mark.as_mut() else { return };
+
+    if !((point.line >= region.start || region.start == 0) && point.line < region.end) {
+        return;
+    }
+
+    let new_line = point.line - delta;
+    if new_line >= region.end || (new_line < region.start && region.start != 0) {
+        *mark = None;
+        return;
+    }
+
+    point.line = new_line;
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LineDamageBounds {
     /// Damaged line number.
@@ -325,6 +342,9 @@ pub struct Term<T> {
     /// Information about damaged cells.
     damage: TermDamageState,
 
+    /// Position recorded by "prompt start" on the primary screen.
+    prompt_mark: Option<Point>,
+
     /// Config directly for the terminal.
     config: Config,
 }
@@ -441,6 +461,7 @@ impl<T> Term<T> {
             selection: Default::default(),
             title: Default::default(),
             mode: Default::default(),
+            prompt_mark: None,
         }
     }
 
@@ -651,6 +672,47 @@ impl<T> Term<T> {
         &mut self.grid
     }
 
+    /// Record the cursor position as the start of the active prompt.
+    pub fn mark_prompt_start(&mut self) {
+        if self.mode.contains(TermMode::ALT_SCREEN) {
+            return;
+        }
+        self.prompt_mark = Some(self.grid.cursor.point);
+    }
+
+    /// Forget the active prompt mark.
+    pub fn clear_prompt_mark(&mut self) {
+        self.prompt_mark = None;
+    }
+
+    /// Erase from the active prompt mark to the end of the viewport.
+    ///
+    /// Called before grid resize so prompt chrome (e.g. fish's right prompt) is
+    /// discarded. The shell should redraw the prompt after SIGWINCH on a clean
+    /// grid.
+    fn clear_active_prompt(&mut self) {
+        let Some(mark) = self.prompt_mark.take() else { return };
+        let screen_lines = self.screen_lines() as i32;
+        if mark.line.0 < 0 || mark.line.0 >= screen_lines {
+            return;
+        }
+
+        let bg = self.grid.cursor.template.bg;
+        let columns = Column(self.columns());
+        let start_col = cmp::min(mark.column, columns);
+        for cell in &mut self.grid[mark.line][start_col..columns] {
+            *cell = bg.into();
+        }
+        if mark.line.0 + 1 < screen_lines {
+            self.grid.reset_region((mark.line + 1)..);
+        }
+
+        self.damage.damage_line(mark.line.0 as usize, mark.column.0, columns.0 - 1);
+        for line in (mark.line.0 + 1)..screen_lines {
+            self.damage.damage_line(line as usize, 0, columns.0.saturating_sub(1));
+        }
+    }
+
     /// Resize terminal to new dimensions.
     pub fn resize<S: Dimensions>(&mut self, size: S) {
         let old_cols = self.columns();
@@ -665,6 +727,9 @@ impl<T> Term<T> {
         }
 
         debug!("New num_cols is {num_cols} and num_lines is {num_lines}");
+
+        // Clear the active prompt before resizing so the shell redraw lands on an empty area.
+        self.clear_active_prompt();
 
         // Move vi mode cursor with the content.
         let history_size = self.history_size();
@@ -731,6 +796,7 @@ impl<T> Term<T> {
         mem::swap(&mut self.grid, &mut self.inactive_grid);
         self.mode ^= TermMode::ALT_SCREEN;
         self.selection = None;
+        self.prompt_mark = None;
         self.mark_fully_damaged();
     }
 
@@ -750,6 +816,9 @@ impl<T> Term<T> {
         // Scroll selection.
         self.selection =
             self.selection.take().and_then(|s| s.rotate(self, &region, -(lines as i32)));
+
+        // Scroll prompt mark along with its content.
+        rotate_prompt_mark(&mut self.prompt_mark, &region, -(lines as i32));
 
         // Scroll vi mode cursor.
         let line = &mut self.vi_mode_cursor.point.line;
@@ -776,6 +845,9 @@ impl<T> Term<T> {
 
         // Scroll selection.
         self.selection = self.selection.take().and_then(|s| s.rotate(self, &region, lines as i32));
+
+        // Scroll prompt mark along with its content.
+        rotate_prompt_mark(&mut self.prompt_mark, &region, lines as i32);
 
         self.grid.scroll_up(&region, lines);
 
@@ -1845,6 +1917,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.title_stack = Vec::new();
         self.title = None;
         self.selection = None;
+        self.prompt_mark = None;
         self.vi_mode_cursor = Default::default();
         self.keyboard_mode_stack = Default::default();
         self.inactive_keyboard_mode_stack = Default::default();
@@ -1874,6 +1947,18 @@ impl<T: EventListener> Handler for Term<T> {
     fn set_hyperlink(&mut self, hyperlink: Option<Hyperlink>) {
         trace!("Setting hyperlink: {hyperlink:?}");
         self.grid.cursor.template.set_hyperlink(hyperlink.map(|e| e.into()));
+    }
+
+    /// Record the prompt position so a later resize can clear it.
+    #[inline]
+    fn prompt_start(&mut self) {
+        self.mark_prompt_start();
+    }
+
+    /// Command output begins, the prompt is no longer active.
+    #[inline]
+    fn command_start(&mut self) {
+        self.clear_prompt_mark();
     }
 
     /// Set a terminal attribute.
@@ -2911,6 +2996,98 @@ mod tests {
 
         assert_eq!(term.history_size(), 0);
         assert_eq!(term.grid.cursor.point, Point::new(Line(19), Column(0)));
+    }
+
+    #[test]
+    fn prompt_mark_clears_to_end_of_viewport_on_resize() {
+        // Simulates fish's right-prompt layout. A prompt sits on its own line
+        // with content placed to the far right via cursor positioning, plus
+        // stale content below it. After OSC 133 ;A and a resize, the region
+        // from the prompt mark to the end of the viewport must be erased so the
+        // shell's SIGWINCH redraw lands on a clean grid.
+        let mut size = TermSize::new(8, 3);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
+
+        // Left prompt at col 0, right prompt at col 7.
+        term.grid[Line(0)][Column(0)].c = '$';
+        term.grid[Line(0)][Column(7)].c = 'R';
+        // Some leftover content on the line below.
+        term.grid[Line(1)][Column(0)].c = 'x';
+        term.grid[Line(1)][Column(1)].c = 'y';
+
+        // Cursor sits at the prompt input position, record the mark there.
+        term.grid.cursor.point = Point::new(Line(0), Column(2));
+        term.mark_prompt_start();
+        assert_eq!(term.prompt_mark, Some(Point::new(Line(0), Column(2))));
+
+        // Shrink columns, then resize triggers prompt-area clearing.
+        size.columns = 4;
+        term.resize(size);
+
+        // Prompt mark consumed.
+        assert_eq!(term.prompt_mark, None);
+
+        // The left prompt (left of the mark) survives.
+        assert_eq!(term.grid[Line(0)][Column(0)].c, '$');
+        // Cells from the mark column to end-of-row are cleared (the right prompt is gone).
+        for col in 2..4 {
+            assert_eq!(term.grid[Line(0)][Column(col)].c, ' ');
+        }
+        // All rows below the mark are cleared.
+        for col in 0..4 {
+            assert_eq!(term.grid[Line(1)][Column(col)].c, ' ');
+            assert_eq!(term.grid[Line(2)][Column(col)].c, ' ');
+        }
+    }
+
+    #[test]
+    fn prompt_mark_dropped_on_alt_screen_swap() {
+        let size = TermSize::new(8, 3);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
+        term.grid.cursor.point = Point::new(Line(0), Column(0));
+        term.mark_prompt_start();
+        assert!(term.prompt_mark.is_some());
+
+        term.set_private_mode(NamedPrivateMode::SwapScreenAndSetRestoreCursor.into());
+        assert_eq!(term.prompt_mark, None);
+    }
+
+    #[test]
+    fn mark_prompt_start_ignored_on_alt_screen() {
+        let size = TermSize::new(8, 3);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
+        term.set_private_mode(NamedPrivateMode::SwapScreenAndSetRestoreCursor.into());
+        term.mark_prompt_start();
+        assert_eq!(term.prompt_mark, None);
+    }
+
+    #[test]
+    fn prompt_mark_follows_content_through_scroll() {
+        let size = TermSize::new(4, 4);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
+
+        term.grid.cursor.point = Point::new(Line(2), Column(0));
+        term.mark_prompt_start();
+        assert_eq!(term.prompt_mark, Some(Point::new(Line(2), Column(0))));
+
+        // Linefeed at the bottom row scrolls the grid; the mark rotates with the content.
+        term.grid.cursor.point = Point::new(Line(3), Column(0));
+        term.linefeed();
+        assert_eq!(term.prompt_mark, Some(Point::new(Line(1), Column(0))));
+    }
+
+    #[test]
+    fn osc_133_sequences_drive_prompt_mark() {
+        let size = TermSize::new(8, 3);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
+        let mut parser: ansi::Processor = ansi::Processor::new();
+
+        term.grid.cursor.point = Point::new(Line(0), Column(2));
+        parser.advance(&mut term, b"\x1b]133;A\x07");
+        assert_eq!(term.prompt_mark, Some(Point::new(Line(0), Column(2))));
+
+        parser.advance(&mut term, b"\x1b]133;C\x07");
+        assert_eq!(term.prompt_mark, None);
     }
 
     #[test]
