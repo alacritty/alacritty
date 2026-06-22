@@ -228,9 +228,9 @@ impl<'a> RenderDamageIterator<'a> {
         let size_info = &self.size_info;
         let y_top = size_info.height() - size_info.padding_y();
         let x = size_info.padding_x() + line_damage.left as u32 * size_info.cell_width();
-        let y = y_top - (line_damage.line + 1) as u32 * size_info.cell_height();
+        let y = y_top as i32 - (line_damage.line + 1) as i32 * size_info.cell_height() as i32;
         let width = (line_damage.right - line_damage.left + 1) as u32 * size_info.cell_width();
-        Rect::new(x as i32, y as i32, width as i32, size_info.cell_height() as i32)
+        Rect::new(x as i32, y, width as i32, size_info.cell_height() as i32)
     }
 
     // Make sure to damage near cells to include wide chars.
@@ -349,6 +349,20 @@ mod tests {
         let rect = Rect::new(bound * 2, bound * 2, rect_side, rect_side);
         let rect = RenderDamageIterator::overdamage(&size_info, rect);
         assert_eq!(Rect::new(bound * 2 - cell_size, bound * 2 - cell_size / 2, 0, 0), rect);
+    }
+
+    #[test]
+    fn damage_line_outside_viewport() {
+        // A small window with a large cell size can leave a damaged line below
+        // what fits in the viewport. Its rect sits off the top of the screen.
+        let size_info: SizeInfo<u32> = SizeInfo::new(100., 100., 10., 40., 0., 0., true).into();
+
+        // Line 2 wants y = 100 - 3 * 40, which is negative.
+        let damage = [LineDamageBounds::new(2, 0, 0)];
+        let iter = RenderDamageIterator::new(TermDamageIterator::new(&damage, 0), &size_info);
+
+        // The y math must not underflow and panic.
+        let _: Vec<Rect> = iter.collect();
     }
 
     #[test]
