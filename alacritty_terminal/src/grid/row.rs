@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::grid::GridCell;
 use crate::index::Column;
-use crate::term::cell::ResetDiscriminant;
+use crate::term::cell::{Flags, ResetDiscriminant};
 
 /// A row in the grid.
 #[derive(Default, Clone, Debug)]
@@ -83,7 +83,11 @@ impl<T: Default> Row<T> {
 
         self.occ = min(self.occ, columns);
 
-        if new_row.is_empty() { None } else { Some(new_row) }
+        if new_row.is_empty() || new_row.iter().all(|cell| cell.flags().contains(Flags::GRAPHICS)) {
+            None
+        } else {
+            Some(new_row)
+        }
     }
 
     /// Reset all cells in the row to the `template` cell.
