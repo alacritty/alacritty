@@ -3,3 +3,9 @@
 *.ico
 *.png
 *.rtf
+
+# File types with a mixed formatting is intentional.
+# Disabling only check for some properties (like indent_size) is currently not supported.
+
+# Often mixed indentation for example due to alignment with previous line
+*.rs
