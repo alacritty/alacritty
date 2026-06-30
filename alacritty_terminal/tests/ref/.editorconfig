@@ -1,0 +1,9 @@
+# The automated generated .json and .recording files here have no final newline.
+[*]
+insert_final_newline = false
+
+# The automated .recording files have different line endings.
+# Some have CRLF and some LF. Furthermore, trimming could lead to removal of CR.
+[*.recording]
+end_of_line = unset
+trim_trailing_whitespace = false
