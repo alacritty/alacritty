@@ -66,10 +66,13 @@ impl DamageTracker {
     pub fn resize(&mut self, screen_lines: usize, columns: usize) {
         self.screen_lines = screen_lines;
         self.columns = columns;
+        // Both frames need a full redraw, since with double buffering the buffer which is
+        // about to be swapped in after the next `swap_damage` still holds stale content
+        // rendered at the old size, which partial damage wouldn't overwrite.
         for frame in &mut self.frames {
             frame.reset(screen_lines, columns);
+            frame.full = true;
         }
-        self.frame().full = true;
     }
 
     /// Damage vi cursor inside the viewport.
