@@ -114,6 +114,17 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: _false_
 
+*padding_color* = _"Background"_ | _"Extend"_
+
+	Determines how pixels outside the terminal grid are colored.
+
+	*Background*
+		Fill padding with the terminal's primary background color.
+	*Extend*
+		Extend the nearest grid cell's background color into the padding.
+
+	Default: _"Background"_
+
 *decorations* = _"Full"_ | _"None"_ | _"Transparent"_ | _"Buttonless"_
 
 	Window decorations.

@@ -15,6 +15,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Fixed `alacritty-escapes(7)` manpage missing from macOS install
 - Added the `Open Alacritty here` entry to the right-click context menu for folders on Windows
 
+### Added
+
+- `window.padding_color` option to extend edge cell backgrounds into window padding
+
 ### Fixed
 
 - Spurious "Failed to set new owner of XCB selection" warnings on X11

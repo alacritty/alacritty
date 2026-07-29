@@ -35,6 +35,9 @@ pub struct WindowConfig {
     /// Spread out additional padding evenly.
     pub dynamic_padding: bool,
 
+    /// Color source for pixels outside the terminal grid.
+    pub padding_color: PaddingColor,
+
     /// Use dynamic title.
     pub dynamic_title: bool,
 
@@ -81,6 +84,7 @@ impl Default for WindowConfig {
             decorations: Default::default(),
             startup_mode: Default::default(),
             dynamic_padding: Default::default(),
+            padding_color: Default::default(),
             resize_increments: Default::default(),
             decorations_theme_variant: Default::default(),
             option_as_alt: Default::default(),
@@ -153,6 +157,16 @@ impl WindowConfig {
     pub fn theme(&self) -> Option<WinitTheme> {
         self.decorations_theme_variant.map(WinitTheme::from)
     }
+}
+
+#[derive(ConfigDeserialize, Serialize, Default, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum PaddingColor {
+    /// Fill padding with the terminal's primary background color.
+    #[default]
+    Background,
+
+    /// Extend the nearest grid cell's background color into the padding.
+    Extend,
 }
 
 #[derive(ConfigDeserialize, Serialize, Debug, Clone, PartialEq, Eq)]

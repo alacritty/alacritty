@@ -290,6 +290,7 @@ impl WindowContext {
         let window_config = &old_config.window;
         if window_config.padding(1.) != self.config.window.padding(1.)
             || window_config.dynamic_padding != self.config.window.dynamic_padding
+            || window_config.padding_color != self.config.window.padding_color
             || window_config.resize_increments != self.config.window.resize_increments
         {
             self.display.pending_update.dirty = true;

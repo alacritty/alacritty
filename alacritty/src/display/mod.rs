@@ -39,9 +39,9 @@ use alacritty_terminal::vte::ansi::{CursorShape, NamedColor};
 use crate::config::UiConfig;
 use crate::config::debug::RendererPreference;
 use crate::config::font::Font;
-use crate::config::window::Dimensions;
 #[cfg(not(windows))]
 use crate::config::window::StartupMode;
+use crate::config::window::{Dimensions, PaddingColor};
 use crate::display::bell::VisualBell;
 use crate::display::color::{List, Rgb};
 use crate::display::content::{RenderableContent, RenderableCursor};
@@ -797,6 +797,89 @@ impl Display {
         let metrics = self.glyph_cache.font_metrics();
         let size_info = self.size_info;
 
+        let mut edge_backgrounds = Vec::new();
+
+        if config.window.padding_color == PaddingColor::Extend {
+            // Extend explicit edge-cell backgrounds into the pixels which do not
+            // fit a complete terminal cell.
+            let grid_left = size_info.padding_x();
+            let grid_top = size_info.padding_y();
+            let grid_right = grid_left + size_info.columns() as f32 * size_info.cell_width();
+            let grid_bottom = grid_top + size_info.screen_lines() as f32 * size_info.cell_height();
+            let right_remainder = (size_info.width() - grid_right).max(0.);
+            let bottom_remainder = (size_info.height() - grid_bottom).max(0.);
+
+            for cell in &grid_cells {
+                if cell.bg_alpha == 0. {
+                    continue;
+                }
+
+                let column = cell.point.column.0;
+                let line = cell.point.line;
+                let cell_x = grid_left + column as f32 * size_info.cell_width();
+                let cell_y = grid_top + line as f32 * size_info.cell_height();
+
+                if column == 0 && grid_left > 0. {
+                    edge_backgrounds.push(RenderRect::new(
+                        0.,
+                        cell_y,
+                        grid_left,
+                        size_info.cell_height(),
+                        cell.bg,
+                        cell.bg_alpha,
+                    ));
+                }
+                if column + 1 == size_info.columns() && right_remainder > 0. {
+                    edge_backgrounds.push(RenderRect::new(
+                        grid_right,
+                        cell_y,
+                        right_remainder,
+                        size_info.cell_height(),
+                        cell.bg,
+                        cell.bg_alpha,
+                    ));
+                }
+                if line == 0 && grid_top > 0. {
+                    let x = if column == 0 { 0. } else { cell_x };
+                    let width = size_info.cell_width()
+                        + if column == 0 { grid_left } else { 0. }
+                        + if column + 1 == size_info.columns() { right_remainder } else { 0. };
+                    edge_backgrounds.push(RenderRect::new(
+                        x,
+                        0.,
+                        width,
+                        grid_top,
+                        cell.bg,
+                        cell.bg_alpha,
+                    ));
+                }
+                if line + 1 == size_info.screen_lines() && bottom_remainder > 0. {
+                    let x = if column == 0 { 0. } else { cell_x };
+                    let width = size_info.cell_width()
+                        + if column == 0 { grid_left } else { 0. }
+                        + if column + 1 == size_info.columns() { right_remainder } else { 0. };
+                    edge_backgrounds.push(RenderRect::new(
+                        x,
+                        grid_bottom,
+                        width,
+                        bottom_remainder,
+                        cell.bg,
+                        cell.bg_alpha,
+                    ));
+                }
+            }
+        }
+
+        for rect in &edge_backgrounds {
+            self.damage_tracker.frame().add_viewport_rect(
+                &size_info,
+                rect.x as i32,
+                rect.y as i32,
+                rect.width.ceil() as i32,
+                rect.height.ceil() as i32,
+            );
+        }
+
         let vi_mode = terminal.mode().contains(TermMode::VI);
         let vi_cursor_point = if vi_mode { Some(terminal.vi_mode_cursor.point) } else { None };
 
@@ -878,7 +961,8 @@ impl Display {
             self.renderer.draw_cells(&size_info, glyph_cache, cells);
         }
 
-        let mut rects = lines.rects(&metrics, &size_info);
+        let mut rects = edge_backgrounds;
+        rects.extend(lines.rects(&metrics, &size_info));
 
         if let Some(vi_cursor_point) = vi_cursor_point {
             // Indicate vi mode by showing the cursor's position in the top right corner.

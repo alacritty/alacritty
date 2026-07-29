@@ -412,6 +412,19 @@ mod tests {
         toml::from_str::<UiConfig>("").unwrap();
     }
 
+    #[test]
+    fn padding_color_config() {
+        let config = toml::from_str::<UiConfig>(
+            r#"
+            [window]
+            padding_color = "Extend"
+            "#,
+        )
+        .unwrap();
+
+        assert_eq!(config.window.padding_color, window::PaddingColor::Extend);
+    }
+
     fn yaml_to_toml(contents: &str) -> String {
         let mut value: serde_yaml::Value = serde_yaml::from_str(contents).unwrap();
         prune_yaml_nulls(&mut value, false);
