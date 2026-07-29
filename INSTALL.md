@@ -301,7 +301,11 @@ sudo tic -xe alacritty,alacritty-direct extra/alacritty.info
 ### Desktop Entry
 
 Many Linux and BSD distributions support desktop entries for adding applications
-to system menus. This will install the desktop entry for Alacritty:
+to system menus.
+
+#### System-wide install
+
+This will install Alacritty and asociated desktop files system-wide:
 
 ```sh
 sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
@@ -313,6 +317,21 @@ sudo update-desktop-database
 If you are having problems with Alacritty's logo, you can replace it with
 prerendered PNGs and simplified SVGs available in the `extra/logo/compat`
 directory.
+
+#### User-only install
+
+If you are on a system where you are not allowed to access `/local`, or you
+just do not want to install the application system wide, many distributions
+allow you to "install" applications in your home directory.
+
+```sh
+# using 'install' to avoid multiple mkdir/cp/chmod commands
+install -D target/release/alacritty ~/.local/bin
+install -m644 -D extra/logo/alacritty-term.svg ~/.local/share/icons/hicolor/scalable/apps/Alacritty.svg
+install -m644 -D extra/linux/Alacritty.desktop ~/.local/share/applications/
+update-desktop-database ~/.local/share/applications
+```
+
 
 ### Manual Page
 
