@@ -231,7 +231,14 @@ impl ApplicationHandler<Event> for Processor {
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
 
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
-        if cause != StartCause::Init || self.cli_options.daemon {
+        if cause != StartCause::Init {
+            return;
+        }
+
+        #[cfg(target_os = "macos")]
+        crate::macos::clear_menu_shortcuts();
+
+        if self.cli_options.daemon {
             return;
         }
 
