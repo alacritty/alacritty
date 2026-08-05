@@ -27,11 +27,6 @@ pub struct WindowConfig {
     /// Startup mode.
     pub startup_mode: StartupMode,
 
-    /// XEmbed parent.
-    #[config(skip)]
-    #[serde(skip_serializing)]
-    pub embed: Option<u32>,
-
     /// Spread out additional padding evenly.
     pub dynamic_padding: bool,
 
@@ -72,7 +67,6 @@ impl Default for WindowConfig {
         Self {
             dynamic_title: true,
             blur: Default::default(),
-            embed: Default::default(),
             padding: Default::default(),
             opacity: Default::default(),
             position: Default::default(),

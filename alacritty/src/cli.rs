@@ -29,10 +29,6 @@ pub struct Options {
     #[clap(long, conflicts_with("daemon"))]
     pub ref_test: bool,
 
-    /// X11 window ID to embed Alacritty within (decimal or hexadecimal with "0x" prefix).
-    #[clap(long)]
-    pub embed: Option<String>,
-
     /// Specify alternative configuration file [default:
     /// $XDG_CONFIG_HOME/alacritty/alacritty.toml].
     #[cfg(not(any(target_os = "macos", windows)))]
@@ -96,7 +92,6 @@ impl Options {
             config.ipc_socket = Some(true);
         }
 
-        config.window.embed = self.embed.as_ref().and_then(|embed| parse_hex_or_decimal(embed));
         config.debug.print_events |= self.print_events;
         config.debug.log_level = max(config.debug.log_level, self.log_level());
         config.debug.ref_test |= self.ref_test;
@@ -142,6 +137,11 @@ fn parse_class(input: &str) -> Result<Class, String> {
     };
 
     Ok(Class::new(general, instance))
+}
+
+/// Parse the embed CLI parameter.
+fn parse_embed(input: &str) -> Result<u32, String> {
+    parse_hex_or_decimal(input).ok_or_else(|| String::from("Invalid window ID"))
 }
 
 /// Convert to hex if possible, else decimal
@@ -299,6 +299,10 @@ pub struct WindowOptions {
     #[clap(flatten)]
     /// Window options which could be passed via IPC.
     pub window_identity: WindowIdentity,
+
+    /// X11 window ID to embed Alacritty within (decimal or hexadecimal with "0x" prefix).
+    #[clap(long, value_parser = parse_embed)]
+    pub embed: Option<u32>,
 
     #[clap(skip)]
     #[cfg(target_os = "macos")]
@@ -532,6 +536,34 @@ mod tests {
     fn invalid_hex_to_decimal() {
         let value = parse_hex_or_decimal("0xa0xx0d");
         assert_eq!(value, None);
+    }
+
+    #[test]
+    fn embed_flag_sets_window_options() {
+        let options = Options::parse_from(["alacritty", "--embed", "0xa0000d"]);
+        assert_eq!(options.window_options.embed, Some(10485773));
+    }
+
+    #[test]
+    fn embed_flag_defaults_to_none() {
+        let options = Options::parse_from(["alacritty"]);
+        assert_eq!(options.window_options.embed, None);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn create_window_ipc_subcommand_parses_embed() {
+        let options =
+            Options::parse_from(["alacritty", "msg", "create-window", "--embed", "10485773"]);
+        match options.subcommands {
+            Some(Subcommands::Msg(msg_options)) => match msg_options.message {
+                SocketMessage::CreateWindow(window_options) => {
+                    assert_eq!(window_options.embed, Some(10485773));
+                },
+                _ => panic!("expected create-window subcommand"),
+            },
+            _ => panic!("expected msg subcommand"),
+        }
     }
 
     #[cfg(target_os = "linux")]
