@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, mpsc};
 use polling::os::iocp::{CompletionPacket, PollerIocpExt};
 use polling::{Event, Poller};
 
-use windows_sys::Win32::Foundation::{BOOLEAN, FALSE, HANDLE};
+use windows_sys::Win32::Foundation::{FALSE, HANDLE};
 use windows_sys::Win32::System::Threading::{
     GetExitCodeProcess, GetProcessId, INFINITE, RegisterWaitForSingleObject, UnregisterWait,
     WT_EXECUTEINWAITTHREAD, WT_EXECUTEONLYONCE,
@@ -30,8 +30,8 @@ struct ChildExitSender {
 }
 
 /// WinAPI callback to run when child process exits.
-extern "system" fn child_exit_callback(ctx: *mut c_void, timed_out: BOOLEAN) {
-    if timed_out != 0 {
+extern "system" fn child_exit_callback(ctx: *mut c_void, timed_out: bool) {
+    if timed_out {
         return;
     }
 

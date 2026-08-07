@@ -65,7 +65,7 @@ dependencies = [
  "toml",
  "toml_edit 0.24.0+spec-1.1.0",
  "unicode-width",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
  "winit",
  "xdg",
 ]
@@ -114,7 +114,7 @@ dependencies = [
  "signal-hook",
  "unicode-width",
  "vte",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
