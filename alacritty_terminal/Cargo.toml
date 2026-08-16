@@ -17,15 +17,20 @@ serde = ["dep:serde", "bitflags/serde", "vte/serde"]
 [dependencies]
 base64 = "0.22.0"
 bitflags = "2.4.1"
-home = "0.5.5"
-libc = "0.2"
 log = "0.4"
 parking_lot = "0.12.0"
-polling = "3.8.0"
 regex-automata = "0.4.3"
 unicode-width = "0.2.0"
 vte = { version = "0.15.0", default-features = false, features = ["std", "ansi"] }
 serde = { version = "1", features = ["derive", "rc"], optional = true }
+
+# Only the PTY half (tty / event_loop / thread) needs these, and that half is
+# cfg'd out on wasm32 — `polling` in particular has no wasm32 backend, so as an
+# unconditional dependency it makes the whole crate unbuildable there.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+home = "0.5.5"
+libc = "0.2"
+polling = "3.8.0"
 
 [target.'cfg(unix)'.dependencies]
 rustix-openpty = "0.2.0"

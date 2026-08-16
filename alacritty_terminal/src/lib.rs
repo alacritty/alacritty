@@ -5,13 +5,16 @@
 #![cfg_attr(clippy, deny(warnings))]
 
 pub mod event;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod event_loop;
 pub mod grid;
 pub mod index;
 pub mod selection;
 pub mod sync;
 pub mod term;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod thread;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod tty;
 pub mod vi_mode;
 
