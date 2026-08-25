@@ -49,6 +49,10 @@ pub struct Options {
     #[clap(long, value_hint = ValueHint::FilePath)]
     pub config_file: Option<PathBuf>,
 
+    /// Additional configuration files merged after the primary configuration file.
+    #[clap(long, value_hint = ValueHint::FilePath)]
+    pub config_add: Vec<PathBuf>,
+
     /// Path for IPC socket creation.
     #[cfg(unix)]
     #[clap(long, value_hint = ValueHint::FilePath)]

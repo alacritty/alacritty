@@ -119,27 +119,17 @@ impl From<YamlError> for Error {
 
 /// Load the configuration file.
 pub fn load(options: &mut Options) -> UiConfig {
-    let config_path = options
-        .config_file
-        .clone()
-        .or_else(|| installed_config("toml"))
-        .or_else(|| installed_config("yml"));
-
-    // Load the config using the following fallback behavior:
-    //  - Config path + CLI overrides
-    //  - CLI overrides
-    //  - Default
-    let mut config = config_path
-        .as_ref()
-        .and_then(|config_path| load_from(config_path).ok())
-        .unwrap_or_else(|| {
+    let paths = config_paths(options);
+    let mut config = if paths.is_empty() {
+        info!(target: LOG_TARGET_CONFIG, "No config file found; using default");
+        UiConfig::default()
+    } else {
+        load_from(&paths).unwrap_or_else(|_| {
             let mut config = UiConfig::default();
-            match config_path {
-                Some(config_path) => config.config_paths.push(config_path),
-                None => info!(target: LOG_TARGET_CONFIG, "No config file found; using default"),
-            }
+            config.config_paths = paths;
             config
-        });
+        })
+    };
 
     after_loading(&mut config, options);
 
@@ -150,44 +140,50 @@ pub fn load(options: &mut Options) -> UiConfig {
 pub fn reload(config_path: &Path, options: &mut Options) -> Result<UiConfig> {
     debug!("Reloading configuration file: {config_path:?}");
 
-    // Load config, propagating errors.
-    let mut config = load_from(config_path)?;
-
+    let mut config = load_from(&config_paths(options))?;
     after_loading(&mut config, options);
 
     Ok(config)
 }
 
-/// Modifications after the `UiConfig` object is created.
+fn config_paths(options: &Options) -> Vec<PathBuf> {
+    options
+        .config_file
+        .clone()
+        .or_else(|| installed_config("toml"))
+        .or_else(|| installed_config("yml"))
+        .into_iter()
+        .chain(options.config_add.iter().cloned())
+        .collect()
+}
+
+/// Modifications after the [`UiConfig`] object is created.
 fn after_loading(config: &mut UiConfig, options: &mut Options) {
-    // Override config with CLI options.
     options.override_config(config);
 }
 
-/// Load configuration file and log errors.
-fn load_from(path: &Path) -> Result<UiConfig> {
-    match read_config(path) {
-        Ok(config) => Ok(config),
-        Err(Error::Io(io)) if io.kind() == io::ErrorKind::NotFound => {
-            error!(target: LOG_TARGET_CONFIG, "Unable to load config {path:?}: File not found");
-            Err(Error::Io(io))
-        },
-        Err(err) => {
-            error!(target: LOG_TARGET_CONFIG, "Unable to load config {path:?}: {err}");
-            Err(err)
-        },
-    }
-}
-
-/// Deserialize configuration file from path.
-fn read_config(path: &Path) -> Result<UiConfig> {
+/// Load configuration files and log errors.
+fn load_from(paths: &[PathBuf]) -> Result<UiConfig> {
     let mut config_paths = Vec::new();
-    let config_value = parse_config(path, &mut config_paths, IMPORT_RECURSION_LIMIT)?;
+    let mut config_value = Value::Table(Table::new());
 
-    // Deserialize to concrete type.
+    for path in paths {
+        let config = match parse_config(path, &mut config_paths, IMPORT_RECURSION_LIMIT) {
+            Ok(config) => config,
+            Err(Error::Io(io)) if io.kind() == io::ErrorKind::NotFound => {
+                error!(target: LOG_TARGET_CONFIG, "Unable to load config {path:?}: File not found");
+                return Err(Error::Io(io));
+            },
+            Err(err) => {
+                error!(target: LOG_TARGET_CONFIG, "Unable to load config {path:?}: {err}");
+                return Err(err);
+            },
+        };
+        config_value = serde_utils::merge(config_value, config);
+    }
+
     let mut config = UiConfig::deserialize(config_value)?;
     config.config_paths = config_paths;
-
     Ok(config)
 }
 
@@ -410,6 +406,21 @@ mod tests {
     #[test]
     fn empty_config() {
         toml::from_str::<UiConfig>("").unwrap();
+    }
+
+    #[test]
+    fn config_add_merges_after_primary_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path().join("base.toml");
+        let add = dir.path().join("add.toml");
+        fs::write(&base, "[window]\ndynamic_title = false\nopacity = 0.5\n").unwrap();
+        fs::write(&add, "[window]\ndynamic_padding = true\ndynamic_title = true\n").unwrap();
+
+        let config = load_from(&[base.clone(), add.clone()]).unwrap();
+        assert!(config.window.dynamic_padding);
+        assert!(config.window.dynamic_title);
+        assert_eq!(config.window.opacity.as_f32(), 0.5);
+        assert_eq!(config.config_paths, vec![base, add]);
     }
 
     fn yaml_to_toml(contents: &str) -> String {
