@@ -26,6 +26,7 @@ end
 
 complete -c alacritty -n "__fish_alacritty_needs_command" -l embed -d 'X11 window ID to embed Alacritty within (decimal or hexadecimal with "0x" prefix)' -r
 complete -c alacritty -n "__fish_alacritty_needs_command" -l config-file -d 'Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.toml]' -r -F
+complete -c alacritty -n "__fish_alacritty_needs_command" -l config-add -d 'Additional configuration files merged after the primary configuration file' -r -F
 complete -c alacritty -n "__fish_alacritty_needs_command" -l socket -d 'Path for IPC socket creation' -r -F
 complete -c alacritty -n "__fish_alacritty_needs_command" -l working-directory -d 'Start the shell in the specified working directory' -r -F
 complete -c alacritty -n "__fish_alacritty_needs_command" -s e -l command -d 'Command and args to execute (must be last argument)' -r

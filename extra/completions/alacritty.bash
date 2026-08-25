@@ -74,7 +74,7 @@ _alacritty() {
 
     case "${cmd}" in
         alacritty)
-            opts="-q -v -e -T -o -h -V --print-events --ref-test --embed --config-file --socket --daemon --working-directory --hold --command --title --class --option --help --version msg migrate help"
+            opts="-q -v -e -T -o -h -V --print-events --ref-test --embed --config-file --config-add --socket --daemon --working-directory --hold --command --title --class --option --help --version msg migrate help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -85,6 +85,21 @@ _alacritty() {
                     return 0
                     ;;
                 --config-file)
+                    local oldifs
+                    if [ -n "${IFS+x}" ]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    if [ -n "${oldifs+x}" ]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
+                    return 0
+                    ;;
+                --config-add)
                     local oldifs
                     if [ -n "${IFS+x}" ]; then
                         oldifs="$IFS"

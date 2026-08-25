@@ -17,6 +17,7 @@ _alacritty() {
     _arguments "${_arguments_options[@]}" : \
 '--embed=[X11 window ID to embed Alacritty within (decimal or hexadecimal with "0x" prefix)]:EMBED:_default' \
 '--config-file=[Specify alternative configuration file \[default\: \$XDG_CONFIG_HOME/alacritty/alacritty.toml\]]:CONFIG_FILE:_files' \
+'--config-add=[Additional configuration files merged after the primary configuration file]:CONFIG_ADD:_files' \
 '--socket=[Path for IPC socket creation]:SOCKET:_files' \
 '--working-directory=[Start the shell in the specified working directory]:WORKING_DIRECTORY:_files' \
 '*-e+[Command and args to execute (must be last argument)]:COMMAND:_default' \
