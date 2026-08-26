@@ -15,14 +15,12 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Fixed `alacritty-escapes(7)` manpage missing from macOS install
 - Added the `Open Alacritty here` entry to the right-click context menu for folders on Windows
 
-### Changed
-- Set a limit on zerowidth characters retained per grid cell to keep memory use bounded
-
 ### Fixed
 
 - Spurious "Failed to set new owner of XCB selection" warnings on X11
 - Lacking permissions to launch software sending Apple events
 - Off-by-one in vi mode ParagraphUp action
+- Unbounded per-cell memory usage for zero-width cells
 
 ## 0.17.0
 

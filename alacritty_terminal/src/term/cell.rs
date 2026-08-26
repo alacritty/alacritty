@@ -11,8 +11,9 @@ use crate::index::Column;
 use crate::vte::ansi::{Color, Hyperlink as VteHyperlink, NamedColor};
 
 /// Maximum number of zerowidth characters to retain per grid cell.
-// Setting a maximum keeps memory use per grid cell bounded so that
-// extreme Zalgo text doesn't become a DoS vector.
+///
+/// This enforces an upper bound on memory usage per cell, to ensure
+/// malicous applications cannot use this as a DoS vector.
 const MAX_ZEROWIDTH_CHARS: usize = 9;
 
 bitflags! {
