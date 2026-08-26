@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use arrayvec::ArrayVec;
 use bitflags::bitflags;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -10,6 +11,8 @@ use crate::index::Column;
 use crate::vte::ansi::{Color, Hyperlink as VteHyperlink, NamedColor};
 
 /// Maximum number of zerowidth characters to retain per grid cell.
+// Setting a maximum keeps memory use per grid cell bounded so that
+// extreme Zalgo text doesn't become a DoS vector.
 const MAX_ZEROWIDTH_CHARS: usize = 9;
 
 bitflags! {
@@ -126,7 +129,7 @@ impl ResetDiscriminant<Color> for Cell {
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CellExtra {
-    zerowidth: Vec<char>,
+    zerowidth: ArrayVec<char, MAX_ZEROWIDTH_CHARS>,
     underline_color: Option<Color>,
     hyperlink: Option<Hyperlink>,
 }
@@ -165,12 +168,8 @@ impl Cell {
     /// Write a new zerowidth character to this cell.
     #[inline]
     pub fn push_zerowidth(&mut self, character: char) {
-        if self.extra.as_ref().is_some_and(|extra| extra.zerowidth.len() >= MAX_ZEROWIDTH_CHARS) {
-            return;
-        }
-
         let extra = self.extra.get_or_insert(Default::default());
-        Arc::make_mut(extra).zerowidth.push(character);
+        let _ = Arc::make_mut(extra).zerowidth.try_push(character);
     }
 
     /// Remove all wide char data from a cell.
@@ -178,7 +177,7 @@ impl Cell {
     pub fn clear_wide(&mut self) {
         self.flags.remove(Flags::WIDE_CHAR);
         if let Some(extra) = self.extra.as_mut() {
-            Arc::make_mut(extra).zerowidth = Vec::new();
+            Arc::make_mut(extra).zerowidth = ArrayVec::new();
         }
         self.c = ' ';
     }
