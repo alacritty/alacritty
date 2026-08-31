@@ -34,8 +34,12 @@ impl<T: Default> Row<T> {
     /// Create a new terminal row.
     ///
     /// Ideally the `template` should be `Copy` in all performance sensitive scenarios.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `columns == 0`.
     pub fn new(columns: usize) -> Row<T> {
-        debug_assert!(columns >= 1);
+        assert!(columns >= 1);
 
         let mut inner: Vec<T> = Vec::with_capacity(columns);
 
@@ -47,6 +51,8 @@ impl<T: Default> Row<T> {
                 ptr::write(ptr, T::default());
                 ptr = ptr.offset(1);
             }
+            // SAFETY: The `columns >= 1` assertion above ensures that this write
+            // is in-bounds.
             ptr::write(ptr, T::default());
 
             inner.set_len(columns);
