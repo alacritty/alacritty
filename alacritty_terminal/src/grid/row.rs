@@ -2,7 +2,7 @@
 
 use std::cmp::{max, min};
 use std::ops::{Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo, RangeToInclusive};
-use std::{ptr, slice};
+use std::{iter, slice};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -33,30 +33,13 @@ impl<T: PartialEq> PartialEq for Row<T> {
 impl<T: Default> Row<T> {
     /// Create a new terminal row.
     ///
-    /// Ideally the `template` should be `Copy` in all performance sensitive scenarios.
-    ///
     /// # Panics
     ///
     /// Panics if `columns == 0`.
     pub fn new(columns: usize) -> Row<T> {
         assert!(columns >= 1);
 
-        let mut inner: Vec<T> = Vec::with_capacity(columns);
-
-        // This is a slightly optimized version of `std::vec::Vec::resize`.
-        unsafe {
-            let mut ptr = inner.as_mut_ptr();
-
-            for _ in 1..columns {
-                ptr::write(ptr, T::default());
-                ptr = ptr.offset(1);
-            }
-            // SAFETY: The `columns >= 1` assertion above ensures that this write
-            // is in-bounds.
-            ptr::write(ptr, T::default());
-
-            inner.set_len(columns);
-        }
+        let inner: Vec<T> = iter::repeat_with(T::default).take(columns).collect();
 
         Row { inner, occ: 0 }
     }
