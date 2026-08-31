@@ -32,15 +32,8 @@ impl<T: PartialEq> PartialEq for Row<T> {
 
 impl<T: Default> Row<T> {
     /// Create a new terminal row.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `columns == 0`.
     pub fn new(columns: usize) -> Row<T> {
-        assert!(columns >= 1);
-
-        let inner: Vec<T> = iter::repeat_with(T::default).take(columns).collect();
-
+        let inner = iter::repeat_with(T::default).take(columns).collect();
         Row { inner, occ: 0 }
     }
 
