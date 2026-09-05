@@ -8,11 +8,10 @@ use crate::config::ui_config;
 #[derive(ConfigDeserialize, Serialize, Default, Clone, Debug, PartialEq, Eq)]
 pub struct Mouse {
     pub hide_when_typing: bool,
-    #[serde(skip_serializing)]
     pub bindings: MouseBindings,
 }
 
-#[derive(SerdeReplace, Clone, Debug, PartialEq, Eq)]
+#[derive(SerdeReplace, Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct MouseBindings(pub Vec<MouseBinding>);
 
 impl Default for MouseBindings {

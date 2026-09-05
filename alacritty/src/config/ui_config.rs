@@ -173,11 +173,10 @@ impl UiConfig {
 #[derive(ConfigDeserialize, Serialize, Default, Clone, Debug, PartialEq)]
 struct Keyboard {
     /// Keybindings.
-    #[serde(skip_serializing)]
     bindings: KeyBindings,
 }
 
-#[derive(SerdeReplace, Clone, Debug, PartialEq, Eq)]
+#[derive(SerdeReplace, Serialize, Clone, Debug, PartialEq, Eq)]
 struct KeyBindings(Vec<KeyBinding>);
 
 impl Default for KeyBindings {
@@ -685,6 +684,25 @@ mod tests {
     use alacritty_terminal::term::test::mock_term;
 
     use crate::display::hint::visible_regex_match_iter;
+
+    #[test]
+    fn ui_config_ipc_json_includes_bindings() {
+        // Ensure the config IPC reply contains all key/mouse bindings.
+        //
+        // This is a regression test for the missing `keyboard`/`mouse` bindings in
+        // `alacritty msg get-config`, which require `UiConfig`'s full serialization.
+        let config = UiConfig::default();
+        let json = serde_json::to_string(&config).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+        let keyboard_bindings = value["keyboard"]["bindings"].as_array();
+        assert!(keyboard_bindings.is_some(), "keyboard bindings missing from IPC config");
+        assert!(!keyboard_bindings.unwrap().is_empty());
+
+        let mouse_bindings = value["mouse"]["bindings"].as_array();
+        assert!(mouse_bindings.is_some(), "mouse bindings missing from IPC config");
+        assert!(!mouse_bindings.unwrap().is_empty());
+    }
 
     #[test]
     fn positive_url_parsing_regex_test() {

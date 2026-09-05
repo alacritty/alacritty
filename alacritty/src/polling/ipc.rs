@@ -144,6 +144,11 @@ pub fn send_reply(stream: &mut UnixStream, message: SocketReply) {
 /// Send IPC message reply, returning possible errors.
 fn send_reply_fallible(stream: &mut UnixStream, message: SocketReply) -> IoResult<()> {
     let json = serde_json::to_string(&message).map_err(IoError::other)?;
+
+    // Switch the stream back to blocking mode to allow writing replies which exceed the
+    // kernel's socket buffer size in a single write.
+    stream.set_nonblocking(false)?;
+
     stream.write_all(json.as_bytes())?;
     stream.flush()?;
     Ok(())
