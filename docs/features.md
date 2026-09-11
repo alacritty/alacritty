@@ -84,3 +84,15 @@ that.
 Alacritty supports running multiple terminal emulators from the same Alacritty
 instance. New windows can be created either by using the `CreateNewWindow`
 keybinding action, or by executing the `alacritty msg create-window` subcommand.
+
+## ANSI escape sanitization
+
+Alacritty strips ANSI escape sequences at several boundaries where PTY output
+reaches something other than the terminal grid: bracketed paste, window
+titles, OSC 52 clipboard writes, and log/`--print-events` output.
+
+This is handled by [`distill-strip-ansi`], which also ships as a standalone
+`strip-ansi` CLI for sanitizing build logs, CI output, or other untrusted
+text outside of a terminal.
+
+[`distill-strip-ansi`]: https://github.com/belt/distill-strip-ansi
