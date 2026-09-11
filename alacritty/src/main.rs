@@ -41,6 +41,7 @@ mod message_bar;
 mod migrate;
 #[cfg(windows)]
 mod panic;
+mod paste;
 #[cfg(unix)]
 mod polling;
 mod renderer;
