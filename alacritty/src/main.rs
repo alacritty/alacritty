@@ -47,6 +47,7 @@ mod polling;
 mod renderer;
 mod scheduler;
 mod string;
+mod text_sanitize;
 mod window_context;
 
 mod gl {

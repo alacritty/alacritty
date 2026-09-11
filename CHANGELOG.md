@@ -18,6 +18,8 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Fixed
 
 - Bracketed paste not stripping full ANSI escape sequences from pasted text
+- Window title and OSC 52 clipboard writes not stripping ANSI escape sequences
+- Log messages not stripping ANSI escape sequences embedded in PTY-controlled text (titles, hyperlinks, `--print-events` dumps)
 - Spurious "Failed to set new owner of XCB selection" warnings on X11
 - Lacking permissions to launch software sending Apple events
 - Off-by-one in vi mode ParagraphUp action

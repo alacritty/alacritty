@@ -1862,7 +1862,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 EventType::Terminal(event) => match event {
                     TerminalEvent::Title(title) => {
                         if !self.ctx.preserve_title && self.ctx.config.window.dynamic_title {
-                            self.ctx.window().set_title(title);
+                            self.ctx
+                                .window()
+                                .set_title(crate::text_sanitize::sanitize_title(&title));
                         }
                     },
                     TerminalEvent::ResetTitle => {
@@ -1896,6 +1898,8 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     TerminalEvent::ClipboardStore(clipboard_type, content) => {
                         if self.ctx.terminal.is_focused {
+                            let content =
+                                crate::text_sanitize::sanitize_clipboard_payload(&content);
                             self.ctx.clipboard.store(clipboard_type, content);
                         }
                     },
