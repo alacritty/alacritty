@@ -10,9 +10,10 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Instant;
-use std::{env, process};
+use std::{env, fmt, process};
 
 use log::{Level, LevelFilter};
+use strip_ansi::strip_str;
 use winit::event_loop::EventLoopProxy;
 
 use crate::cli::Options;
@@ -170,7 +171,7 @@ fn create_log_message(record: &log::Record<'_>, target: &str, start: Instant) ->
     let alignment = message.len();
 
     // Push lines with added extra padding on the next line, which is trimmed later.
-    let lines = record.args().to_string();
+    let lines = sanitize_log_args(record.args());
     for line in lines.split('\n') {
         let line = format!("{}\n{:width$}", line, "", width = alignment);
         message.push_str(&line);
@@ -179,6 +180,10 @@ fn create_log_message(record: &log::Record<'_>, target: &str, start: Instant) ->
     // Drop extra trailing alignment.
     message.truncate(message.len() - alignment);
     message
+}
+
+fn sanitize_log_args(args: &fmt::Arguments<'_>) -> String {
+    strip_str(&args.to_string()).into_owned()
 }
 
 /// Check if log messages from a crate should be logged.
@@ -245,5 +250,24 @@ impl Write for OnDemandLogFile {
 
     fn flush(&mut self) -> Result<(), io::Error> {
         self.file()?.flush()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn log_args_preserve_plain_text() {
+        assert_eq!(
+            sanitize_log_args(&format_args!("Setting title to 'my-shell'")),
+            "Setting title to 'my-shell'"
+        );
+    }
+
+    #[test]
+    fn log_args_strip_ansi() {
+        let args = format_args!("Setting title to '\x1b[31mevil\x1b[0m'");
+        assert_eq!(sanitize_log_args(&args), "Setting title to 'evil'");
     }
 }
