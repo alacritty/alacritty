@@ -485,6 +485,15 @@ impl Display {
         // Set resize increments for the newly created window.
         if config.window.resize_increments {
             window.set_resize_increments(PhysicalSize::new(cell_width, cell_height));
+            // winit applies increments against the minimum inner size as the
+            // baseline (at least on X11/Wayland). Without a padding-aware
+            // minimum the WM snaps to bare-cell multiples and eats the
+            // padding, shrinking the grid by a column/row. See issue #9047.
+            let padding = config.window.padding(scale_factor);
+            window.set_min_inner_size(Some(PhysicalSize::new(
+                (2. * padding.0).ceil() as u32,
+                (2. * padding.1).ceil() as u32,
+            )));
         }
 
         window.set_visible(true);
@@ -708,6 +717,14 @@ impl Display {
         // Update resize increments.
         if config.window.resize_increments {
             self.window.set_resize_increments(PhysicalSize::new(cell_width, cell_height));
+            // Keep the increment baseline padding-aware on font/scale
+            // changes too (see above, issue #9047).
+            let scale_factor = self.window.scale_factor as f32;
+            let padding = config.window.padding(scale_factor);
+            self.window.set_min_inner_size(Some(PhysicalSize::new(
+                (2. * padding.0).ceil() as u32,
+                (2. * padding.1).ceil() as u32,
+            )));
         }
 
         // Resize when terminal when its dimensions have changed.
