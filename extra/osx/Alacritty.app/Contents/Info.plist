@@ -58,5 +58,7 @@
     <string>An application in Alacritty requires elevated permissions.</string>
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>An application in Alacritty wants to use Bluetooth.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>An application in Alacritty wants to access the local network.</string>
 </dict>
 </plist>
