@@ -21,6 +21,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Lacking permissions to launch software sending Apple events
 - Off-by-one in vi mode ParagraphUp action
 - Unbounded per-cell memory usage for zero-width cells
+- `window.resize_increments` cutting off a row/column when `window.padding` isn't a multiple of half the cell size
 
 ## 0.17.0
 

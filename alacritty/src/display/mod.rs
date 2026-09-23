@@ -485,6 +485,11 @@ impl Display {
         // Set resize increments for the newly created window.
         if config.window.resize_increments {
             window.set_resize_increments(PhysicalSize::new(cell_width, cell_height));
+
+            // Winit uses the minimum inner size as the base for resize increment
+            // snapping, so it must include the padding or the grid will be off by
+            // one row/column whenever the padding isn't a multiple of the cell size.
+            window.set_min_inner_size(Some(PhysicalSize::new(2. * padding.0, 2. * padding.1)));
         }
 
         window.set_visible(true);
@@ -708,6 +713,10 @@ impl Display {
         // Update resize increments.
         if config.window.resize_increments {
             self.window.set_resize_increments(PhysicalSize::new(cell_width, cell_height));
+
+            // See the comment in Display::new for why the minimum inner size needs
+            // to be kept in sync with the padding here too.
+            self.window.set_min_inner_size(Some(PhysicalSize::new(2. * padding.0, 2. * padding.1)));
         }
 
         // Resize when terminal when its dimensions have changed.
@@ -1631,4 +1640,51 @@ fn window_size(
     let height = (padding.1).mul_add(2., grid_height).floor();
 
     PhysicalSize::new(width as u32, height as u32)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Simulate the X11/Wayland resize-increment snap: the window manager
+    /// clamps a requested size down to the largest `base + N * increment`
+    /// that does not exceed it, using the window's minimum inner size as
+    /// `base`. See issue #9047.
+    fn wm_snap(requested: f32, base: f32, increment: f32) -> f32 {
+        base + ((requested - base) / increment).floor() * increment
+    }
+
+    /// Regression test for #9047: setting the minimum inner size to twice
+    /// the padding must reproduce the exact requested grid size for every
+    /// padding value, not just ones that are a half-cell multiple.
+    #[test]
+    fn resize_increments_min_size_accounts_for_padding() {
+        let cell_width = 6.;
+        let columns: usize = 100;
+        let requested_grid_width = columns as f32 * cell_width;
+
+        for padding in 0..=5 {
+            let padding = padding as f32;
+            let requested_width = 2. * padding + requested_grid_width;
+
+            // Without a padding-aware minimum, the WM snaps against a base
+            // of zero, which is the historical bug: padding that isn't a
+            // half-cell multiple gets eaten and a column is lost.
+            let buggy_width = wm_snap(requested_width, 0., cell_width);
+            if padding % (cell_width / 2.) != 0. {
+                assert_ne!(
+                    buggy_width, requested_width,
+                    "padding {padding} expected to reproduce the historical bug"
+                );
+            }
+
+            // With the fix, the minimum inner size includes the padding, so
+            // the WM snap reproduces the requested width exactly.
+            let fixed_width = wm_snap(requested_width, 2. * padding, cell_width);
+            assert_eq!(fixed_width, requested_width);
+
+            let size_info = SizeInfo::new(fixed_width, 1000., cell_width, 1., padding, 0., false);
+            assert_eq!(size_info.columns(), columns);
+        }
+    }
 }

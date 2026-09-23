@@ -388,6 +388,15 @@ impl Window {
         self.window.set_resize_increments(Some(increments));
     }
 
+    /// Set the minimum inner size the window can be resized to.
+    ///
+    /// This is used as the base size for resize increment snapping on X11 and
+    /// Wayland, so it needs to be kept in sync with the padding whenever resize
+    /// increments are enabled.
+    pub fn set_min_inner_size(&self, min_size: Option<PhysicalSize<f32>>) {
+        self.window.set_min_inner_size(min_size);
+    }
+
     /// Toggle the window's fullscreen state.
     pub fn toggle_fullscreen(&self) {
         self.set_fullscreen(self.window.fullscreen().is_none());
