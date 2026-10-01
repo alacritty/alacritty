@@ -57,10 +57,15 @@ xdg = "3.0.0"
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 png = { version = "0.17.5", default-features = false, optional = true }
 
+[target.'cfg(not(any(target_os = "macos", windows)))'.dependencies]
+wl-clipboard-rs = { version = "0.9.3", optional = true }
+x11rb = { version = "0.13", default-features = false, optional = true }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.1"
 objc2-foundation = { version = "0.3.1", default-features = false, features = [
     "std",
+    "NSArray",
     "NSString",
     "NSLocale",
     "NSUserDefaults",
@@ -68,6 +73,7 @@ objc2-foundation = { version = "0.3.1", default-features = false, features = [
 objc2-app-kit = { version = "0.3.1", default-features = false, features = [
     "std",
     "NSColorSpace",
+    "NSPasteboard",
     "NSResponder",
     "NSView",
     "NSWindow",
@@ -79,6 +85,8 @@ windows-sys = { version = "0.59", features = [
     "Win32_UI_WindowsAndMessaging",
     "Win32_System_Threading",
     "Win32_System_Console",
+    "Win32_System_DataExchange",
+    "Win32_System_Ole",
     "Win32_Foundation",
 ]}
 
@@ -93,8 +101,10 @@ x11 = [
     "glutin/x11",
     "glutin/glx",
     "png",
+    "x11rb",
 ]
 wayland = [
+    "wl-clipboard-rs",
     "copypasta/wayland",
     "glutin/wayland",
     "winit/wayland",

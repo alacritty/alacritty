@@ -115,7 +115,7 @@ pub enum Action {
     #[config(skip)]
     Mouse(MouseAction),
 
-    /// Paste contents of system clipboard.
+    /// Paste clipboard text, or send Ctrl+V for image-only clipboards.
     Paste,
 
     /// Store current selection into clipboard.

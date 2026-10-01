@@ -802,7 +802,14 @@ _https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead_
 		*None*
 			No action.
 		*Paste*
-			Paste contents of system clipboard.
+			Paste contents of system clipboard. If no text is available and the
+			clipboard offers an image, send *Ctrl+V* without bracketed paste markers.
+			The application must support *Ctrl+V* image paste and have access to the
+			same system clipboard; image data is not sent through the terminal.
+			Applications without this support receive an ordinary *Ctrl+V* keystroke.
+			Image paste is ignored in search and inline search. On Wayland, image
+			detection requires the compositor's ext-data-control or wlr-data-control
+			protocol. Selection paste remains text-only.
 		*Copy*
 			Store current selection into clipboard.
 		*IncreaseFontSize*

@@ -326,7 +326,16 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ClearSelection => ctx.clear_selection(),
             Action::Paste => {
                 let text = ctx.clipboard_mut().load(ClipboardType::Clipboard);
-                ctx.paste(&text, true);
+                if text.is_empty()
+                    && !ctx.search_active()
+                    && !ctx.inline_search_state().char_pending
+                    && ctx.clipboard_mut().has_image()
+                {
+                    // Applications supporting Ctrl+V image paste read the clipboard themselves.
+                    ctx.paste("\x16", false);
+                } else {
+                    ctx.paste(&text, true);
+                }
             },
             Action::PasteSelection => {
                 let text = ctx.clipboard_mut().load(ClipboardType::Selection);
@@ -1175,6 +1184,8 @@ mod tests {
         pub modifiers: Modifiers,
         config: &'a UiConfig,
         inline_search_state: &'a mut InlineSearchState,
+        search_active: bool,
+        pasted: Vec<(String, bool)>,
     }
 
     impl<T: EventListener> super::ActionContext<T> for ActionContext<'_, T> {
@@ -1196,7 +1207,7 @@ mod tests {
         }
 
         fn search_active(&self) -> bool {
-            false
+            self.search_active
         }
 
         fn terminal(&self) -> &Term<T> {
@@ -1266,6 +1277,10 @@ mod tests {
             self.clipboard
         }
 
+        fn paste(&mut self, text: &str, bracketed: bool) {
+            self.pasted.push((text.into(), bracketed));
+        }
+
         #[cfg(target_os = "macos")]
         fn event_loop(&self) -> &ActiveEventLoop {
             unimplemented!();
@@ -1324,6 +1339,8 @@ mod tests {
                     message_buffer: &mut message_buffer,
                     inline_search_state: &mut inline_search_state,
                     config: &cfg,
+                    search_active: false,
+                    pasted: Vec::new(),
                 };
 
                 let mut processor = Processor::new(context);
@@ -1344,6 +1361,84 @@ mod tests {
                 assert_eq!(processor.ctx.mouse.click_state, $end_state);
             }
         }
+    }
+
+    fn paste_action(
+        mut clipboard: Clipboard,
+        action: Action,
+        search_active: bool,
+        inline_search: bool,
+    ) -> Vec<(String, bool)> {
+        let cfg = UiConfig::default();
+        let size = SizeInfo::new(21., 51., 3., 3., 0., 0., false);
+        let mut terminal = Term::new(cfg.term_options(), &size, MockEventProxy);
+        let mut mouse = Mouse::default();
+        let mut message_buffer = MessageBuffer::default();
+        let mut inline_search_state = InlineSearchState::default();
+        inline_search_state.char_pending = inline_search;
+        let mut context = ActionContext {
+            terminal: &mut terminal,
+            size_info: &size,
+            mouse: &mut mouse,
+            clipboard: &mut clipboard,
+            message_buffer: &mut message_buffer,
+            modifiers: Default::default(),
+            config: &cfg,
+            inline_search_state: &mut inline_search_state,
+            search_active,
+            pasted: Vec::new(),
+        };
+
+        action.execute(&mut context);
+        context.pasted
+    }
+
+    #[test]
+    fn paste_image_forwards_control_v() {
+        let clipboard = Clipboard::new_test("", || true);
+        let pasted = paste_action(clipboard, Action::Paste, false, false);
+        assert_eq!(pasted, [("\x16".into(), false)]);
+    }
+
+    #[test]
+    fn paste_text_does_not_query_images() {
+        let clipboard = Clipboard::new_test("hello\nworld", || panic!("image query on text paste"));
+        let pasted = paste_action(clipboard, Action::Paste, false, false);
+        assert_eq!(pasted, [("hello\nworld".into(), true)]);
+    }
+
+    #[test]
+    fn paste_text_takes_priority_over_images() {
+        let clipboard = Clipboard::new_test("image description", || true);
+        let pasted = paste_action(clipboard, Action::Paste, false, false);
+        assert_eq!(pasted, [("image description".into(), true)]);
+    }
+
+    #[test]
+    fn paste_empty_clipboard_does_not_forward_control_v() {
+        let pasted = paste_action(Clipboard::new_nop(), Action::Paste, false, false);
+        assert_eq!(pasted, [(String::new(), true)]);
+    }
+
+    #[test]
+    fn paste_search_does_not_query_images() {
+        let clipboard = Clipboard::new_test("", || panic!("image query during search"));
+        let pasted = paste_action(clipboard, Action::Paste, true, false);
+        assert_eq!(pasted, [(String::new(), true)]);
+    }
+
+    #[test]
+    fn paste_inline_search_does_not_query_images() {
+        let clipboard = Clipboard::new_test("", || panic!("image query during inline search"));
+        let pasted = paste_action(clipboard, Action::Paste, false, true);
+        assert_eq!(pasted, [(String::new(), true)]);
+    }
+
+    #[test]
+    fn paste_selection_does_not_forward_images() {
+        let clipboard = Clipboard::new_test("", || panic!("image query on selection paste"));
+        let pasted = paste_action(clipboard, Action::PasteSelection, false, false);
+        assert_eq!(pasted, [(String::new(), true)]);
     }
 
     macro_rules! test_process_binding {
