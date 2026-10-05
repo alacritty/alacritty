@@ -12,6 +12,7 @@
 #[cfg(not(any(feature = "x11", feature = "wayland", target_os = "macos", windows)))]
 compile_error!(r#"at least one of the "x11"/"wayland" features must be enabled"#);
 
+use std::cell::Cell;
 use std::error::Error;
 use std::fmt::Write as _;
 use std::io::{self, Write};
@@ -105,15 +106,22 @@ fn msg(mut options: MessageOptions) -> Result<(), Box<dyn Error>> {
 
 /// Temporary files stored for Alacritty.
 ///
-/// This stores temporary files to automate their destruction through its `Drop` implementation.
-struct TemporaryFiles {
+/// The files are deleted in `Processor::exiting`, which is reached on every exit path that shuts
+/// down the event loop and with `Drop` as a fallback.
+pub struct TemporaryFiles {
     #[cfg(unix)]
     socket_path: Option<PathBuf>,
     log_file: Option<PathBuf>,
+    /// Whether the log file removal was already reported.
+    log_reported: Cell<bool>,
 }
 
-impl Drop for TemporaryFiles {
-    fn drop(&mut self) {
+impl TemporaryFiles {
+    /// Delete all temporary files.
+    ///
+    /// Since the files are gone afterwards, repeating this only removes files which were
+    /// recreated in the meantime, like a log file written to while shutting down.
+    pub fn cleanup(&self) {
         // Clean up the IPC socket file.
         #[cfg(unix)]
         if let Some(socket_path) = self.socket_path.as_deref() {
@@ -122,10 +130,16 @@ impl Drop for TemporaryFiles {
 
         // Clean up logfile.
         if let Some(log_file) = &self.log_file {
-            if fs::remove_file(log_file).is_ok() {
+            if fs::remove_file(log_file).is_ok() && !self.log_reported.replace(true) {
                 let _ = writeln!(io::stdout(), "Deleted log file at \"{}\"", log_file.display());
             }
         }
+    }
+}
+
+impl Drop for TemporaryFiles {
+    fn drop(&mut self) {
+        self.cleanup();
     }
 }
 
@@ -185,6 +199,10 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     #[cfg(target_os = "macos")]
     macos::disable_autofill();
 
+    // Remove sockets of old instances which did not clean up after themselves.
+    #[cfg(unix)]
+    ipc::remove_dead_sockets();
+
     // Spawn the Unix I/O event polling thread.
     #[cfg(unix)]
     let socket_path = match IoListener::spawn(&config, &options, window_event_loop.create_proxy()) {
@@ -196,16 +214,17 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
         },
     };
 
-    // Setup automatic RAII cleanup for our files.
+    // Setup cleanup for our temporary files.
     let log_cleanup = log_file.filter(|_| !config.debug.persistent_logging);
-    let _files = TemporaryFiles {
+    let temporary_files = TemporaryFiles {
         #[cfg(unix)]
         socket_path,
         log_file: log_cleanup,
+        log_reported: Cell::new(false),
     };
 
     // Event processor.
-    let mut processor = Processor::new(config, options, &window_event_loop);
+    let mut processor = Processor::new(config, options, temporary_files, &window_event_loop);
 
     // Start event loop and block until shutdown.
     let result = processor.run(window_event_loop);

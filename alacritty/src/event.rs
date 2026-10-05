@@ -44,6 +44,7 @@ use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, ClipboardType, Term, TermMode};
 use alacritty_terminal::vte::ansi::NamedColor;
 
+use crate::TemporaryFiles;
 #[cfg(unix)]
 use crate::cli::{IpcConfig, ParsedOptions};
 use crate::cli::{Options as CliOptions, WindowOptions};
@@ -98,6 +99,7 @@ pub struct Processor {
     global_ipc_options: ParsedOptions,
     cli_options: CliOptions,
     config: Rc<UiConfig>,
+    temporary_files: TemporaryFiles,
 }
 
 impl Processor {
@@ -105,6 +107,7 @@ impl Processor {
     pub fn new(
         config: UiConfig,
         cli_options: CliOptions,
+        temporary_files: TemporaryFiles,
         event_loop: &EventLoop<Event>,
     ) -> Processor {
         let proxy = event_loop.create_proxy();
@@ -141,6 +144,7 @@ impl Processor {
             #[cfg(unix)]
             global_ipc_options: Default::default(),
             config_monitor,
+            temporary_files,
         }
     }
 
@@ -513,6 +517,8 @@ impl ApplicationHandler<Event> for Processor {
         // SAFETY: The clipboard must be dropped before the event loop, so use the nop clipboard
         // as a safe placeholder.
         self.clipboard = Clipboard::new_nop();
+
+        self.temporary_files.cleanup();
     }
 }
 

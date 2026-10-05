@@ -186,33 +186,53 @@ fn find_socket(socket_path: Option<PathBuf>) -> IoResult<UnixStream> {
     }
 
     // Search for sockets files.
-    for entry in fs::read_dir(socket_dir())?.filter_map(|entry| entry.ok()) {
-        let path = entry.path();
+    socket_paths()?
+        .find_map(|path| try_connect(&path))
+        .ok_or_else(|| IoError::new(ErrorKind::NotFound, "no socket found"))
+}
 
-        // Skip files that aren't Alacritty sockets.
-        let socket_prefix = socket_prefix();
-        if path
-            .file_name()
+/// Iterate over the IPC sockets of all instances sharing this display server.
+fn socket_paths() -> IoResult<impl Iterator<Item = PathBuf>> {
+    let socket_prefix = socket_prefix();
+    let entries = fs::read_dir(socket_dir())?;
+
+    Ok(entries.filter_map(|entry| entry.ok()).map(|entry| entry.path()).filter(move |path| {
+        path.file_name()
             .and_then(OsStr::to_str)
-            .filter(|file| file.starts_with(&socket_prefix) && file.ends_with(".sock"))
-            .is_none()
-        {
-            continue;
-        }
+            .is_some_and(|file| file.starts_with(&socket_prefix) && file.ends_with(".sock"))
+    }))
+}
 
-        // Attempt to connect to the socket.
-        match UnixStream::connect(&path) {
-            Ok(socket) => return Ok(socket),
-            // Delete orphan sockets.
-            Err(error) if error.kind() == ErrorKind::ConnectionRefused => {
-                let _ = fs::remove_file(&path);
-            },
-            // Ignore other errors like permission issues.
-            Err(_) => (),
-        }
+/// Remove sockets of instances which aren't running.
+///
+/// If an instance was closed without properly cleaning itself up (i.e. via SIGKILL) then IPC
+/// sockets are left behind. This will clean them up.
+pub fn remove_dead_sockets() {
+    let socket_paths = match socket_paths() {
+        Ok(socket_paths) => socket_paths,
+        Err(err) => {
+            warn!("Unable to iterate old IPC sockets: {err}");
+            return;
+        },
+    };
+
+    for path in socket_paths {
+        let _ = try_connect(&path);
     }
+}
 
-    Err(IoError::new(ErrorKind::NotFound, "no socket found"))
+/// Connect to a socket or remove it if no instance is listening.
+fn try_connect(path: &Path) -> Option<UnixStream> {
+    match UnixStream::connect(path) {
+        Ok(socket) => Some(socket),
+        // Delete orphan sockets.
+        Err(err) if err.kind() == ErrorKind::ConnectionRefused => {
+            let _ = fs::remove_file(path);
+            None
+        },
+        // Ignore other errors like permission issues.
+        Err(_) => None,
+    }
 }
 
 /// File prefix matching all available sockets.

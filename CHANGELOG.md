@@ -21,6 +21,9 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Lacking permissions to launch software sending Apple events
 - Off-by-one in vi mode ParagraphUp action
 - Unbounded per-cell memory usage for zero-width cells
+- IPC socket and log file left behind when quitting Alacritty on macOS
+- IPC socket and log file not being removed on `SIGHUP`
+- Stale IPC socket files persisting after Alacritty was killed
 
 ## 0.17.0
 
