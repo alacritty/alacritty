@@ -216,6 +216,10 @@ impl<'a> TextRenderer<'a> for Gles2Renderer {
             current_atlas: &mut self.current_atlas,
         }
     }
+
+    fn reset_active_tex(&mut self) {
+        self.active_tex = 0;
+    }
 }
 
 /// Maximum items to be drawn in a batch.
