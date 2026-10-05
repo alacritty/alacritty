@@ -10,13 +10,14 @@ pub const MAX_SCROLLBACK_LINES: u32 = 100_000;
 #[derive(ConfigDeserialize, Serialize, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Scrolling {
     pub multiplier: u8,
+    pub velocity: Velocity,
 
     history: ScrollingHistory,
 }
 
 impl Default for Scrolling {
     fn default() -> Self {
-        Self { multiplier: 3, history: Default::default() }
+        Self { multiplier: 3, velocity: Default::default(), history: Default::default() }
     }
 }
 
@@ -48,6 +49,27 @@ impl<'de> Deserialize<'de> for ScrollingHistory {
             )))
         } else {
             Ok(Self(lines))
+        }
+    }
+}
+
+#[derive(ConfigDeserialize, Serialize, Default, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Velocity {
+    /// Enable velocity only for touch scrolling.
+    #[default]
+    Auto,
+    /// Enable velocity for all input sources.
+    On,
+    /// Disable velocity for all input sources.
+    Off,
+}
+
+impl Velocity {
+    pub fn unwrap_or(&self, default: bool) -> bool {
+        match self {
+            Self::Auto => default,
+            Self::On => true,
+            Self::Off => false,
         }
     }
 }

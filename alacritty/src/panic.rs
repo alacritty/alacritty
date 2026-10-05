@@ -11,8 +11,8 @@ use alacritty_terminal::tty::windows::win32_string;
 // dialog box as well as writes the panic to STDERR.
 pub fn attach_handler() {
     panic::set_hook(Box::new(|panic_info| {
-        let _ = writeln!(io::stderr(), "{}", panic_info);
-        let msg = format!("{}\n\nPress Ctrl-C to Copy", panic_info);
+        let _ = writeln!(io::stderr(), "{panic_info}");
+        let msg = format!("{panic_info}\n\nPress Ctrl-C to Copy");
         unsafe {
             MessageBoxW(
                 ptr::null_mut(),

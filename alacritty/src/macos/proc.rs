@@ -31,9 +31,9 @@ impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Error::InvalidSize => write!(f, "Invalid proc_pidinfo return size"),
-            Error::Io(err) => write!(f, "Error getting current working directory: {}", err),
+            Error::Io(err) => write!(f, "Error getting current working directory: {err}"),
             Error::IntoString(err) => {
-                write!(f, "Error when parsing current working directory: {}", err)
+                write!(f, "Error when parsing current working directory: {err}")
             },
         }
     }
