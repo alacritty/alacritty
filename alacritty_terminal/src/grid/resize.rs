@@ -51,8 +51,12 @@ impl<T: GridCell + Default + PartialEq> Grid<T> {
         self.raw.grow_visible_lines(target);
         self.lines = target;
 
-        let history_size = self.history_size();
-        let from_history = min(history_size, lines_added);
+        // This is always zero on Windows. ConPTY keeps a screen buffer of its own
+        // and anchors it to the top when the viewport grows
+        #[cfg(not(windows))]
+        let from_history = min(self.history_size(), lines_added);
+        #[cfg(windows)]
+        let from_history = 0;
 
         // Move existing lines up for every line that couldn't be pulled from history.
         if from_history != lines_added {
