@@ -1990,6 +1990,16 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             *self.ctx.dirty = true;
                         }
 
+                        // Redraw to apply/remove the unfocused fade if it's enabled.
+                        // The fade changes every cell's colors without modifying terminal
+                        // content, so the grid damage tracker won't pick it up on its own;
+                        // Martk the frame fully damaged to avoid Wayland's partial-damage
+                        // swap only repaint cells that are already damanged for other reasons.
+                        if self.ctx.config.colors.unfocused_fade.as_f32() < 1. {
+                            self.ctx.display.damage_tracker.frame().mark_fully_damaged();
+                            *self.ctx.dirty = true;
+                        }
+
                         // Reset the urgency hint when gaining focus.
                         if is_focused {
                             self.ctx.window().set_urgent(false);
