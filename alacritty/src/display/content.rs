@@ -13,7 +13,7 @@ use alacritty_terminal::term::{self, RenderableContent as TerminalContent, Term,
 use alacritty_terminal::vte::ansi::{Color, CursorShape, NamedColor};
 
 use crate::config::UiConfig;
-use crate::display::color::{CellRgb, DIM_FACTOR, List, Rgb};
+use crate::display::color::{CellRgb, List, Rgb, DIM_FACTOR};
 use crate::display::hint::{self, HintState};
 use crate::display::{Display, SizeInfo};
 use crate::event::SearchState;
@@ -35,6 +35,7 @@ pub struct RenderableContent<'a> {
     colors: &'a List,
     focused_match: Option<&'a Match>,
     size: &'a SizeInfo,
+    fade_factor: f32,
 }
 
 impl<'a> RenderableContent<'a> {
@@ -73,6 +74,9 @@ impl<'a> RenderableContent<'a> {
             None
         };
 
+        // Dim foreground colors while unfocused
+        let fade_factor = if term.is_focused { 1. } else { config.colors.unfocused_fade.as_f32() };
+
         Self {
             colors: &display.colors,
             size: &display.size_info,
@@ -84,6 +88,7 @@ impl<'a> RenderableContent<'a> {
             search,
             config,
             hint,
+            fade_factor,
         }
     }
 
@@ -103,6 +108,15 @@ impl<'a> RenderableContent<'a> {
     /// Get the RGB value for a color index.
     pub fn color(&self, color: usize) -> Rgb {
         self.terminal_content.colors[color].map(Rgb).unwrap_or(self.colors[color])
+    }
+
+    /// Apply the unfocused fade to a color.
+    pub fn fade(&self, color: Rgb) -> Rgb {
+        if self.fade_factor != 1. {
+            color * self.fade_factor
+        } else {
+            color
+        }
     }
 
     pub fn selection_range(&self) -> Option<SelectionRange> {
@@ -284,6 +298,12 @@ impl RenderableCell {
         let underline = cell
             .underline_color()
             .map_or(fg, |underline| Self::compute_fg_rgb(content, underline, flags));
+
+        // Apply unfocused fade to all content on screen.
+        if content.fade_factor != 1. {
+            fg = fg * content.fade_factor;
+            bg = bg * content.fade_factor;
+        }
 
         let zerowidth = cell.zerowidth();
         let hyperlink = cell.hyperlink();
