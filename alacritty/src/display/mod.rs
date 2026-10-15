@@ -483,9 +483,7 @@ impl Display {
         }
 
         // Set resize increments for the newly created window.
-        if config.window.resize_increments {
-            window.set_resize_increments(PhysicalSize::new(cell_width, cell_height));
-        }
+        apply_resize_increments(&window, config, cell_width, cell_height);
 
         window.set_visible(true);
 
@@ -705,10 +703,8 @@ impl Display {
         let search_lines = usize::from(search_active);
         new_size.reserve_lines(message_bar_lines + search_lines);
 
-        // Update resize increments.
-        if config.window.resize_increments {
-            self.window.set_resize_increments(PhysicalSize::new(cell_width, cell_height));
-        }
+        // Update resize increments when the font, scale, or padding changes.
+        apply_resize_increments(&self.window, config, cell_width, cell_height);
 
         // Resize when terminal when its dimensions have changed.
         if self.size_info.screen_lines() != new_size.screen_lines
@@ -1614,6 +1610,32 @@ fn compute_cell_size(config: &UiConfig, metrics: &crossfont::Metrics) -> (f32, f
     )
 }
 
+/// Apply cell-sized resize increments using padding as the snap baseline.
+///
+/// On X11 and Wayland, winit snaps the inner size to `min_inner_size + n * increment`.
+/// Padding is not part of the cell increment, so it has to be included in the minimum
+/// size. Otherwise the window manager rounds down to a multiple of the cell and the
+/// grid loses a column or row.
+fn apply_resize_increments(window: &Window, config: &UiConfig, cell_width: f32, cell_height: f32) {
+    if !config.window.resize_increments {
+        return;
+    }
+
+    let (padding_x, padding_y) = config.window.padding(window.scale_factor as f32);
+    // Set the baseline before the increments, so a manager that applies the hint
+    // immediately snaps against the padding.
+    window.set_min_inner_size(resize_increments_min_size(padding_x, padding_y));
+    window.set_resize_increments(PhysicalSize::new(cell_width, cell_height));
+}
+
+/// Minimum inner size for [`apply_resize_increments`].
+///
+/// This is the padding on both sides of the grid. Snapped sizes are then
+/// `2 * padding + n * cell`.
+fn resize_increments_min_size(padding_x: f32, padding_y: f32) -> PhysicalSize<u32> {
+    PhysicalSize::new((padding_x * 2.).floor() as u32, (padding_y * 2.).floor() as u32)
+}
+
 /// Calculate the size of the window given padding, terminal dimensions and cell size.
 fn window_size(
     config: &UiConfig,
@@ -1631,4 +1653,106 @@ fn window_size(
     let height = (padding.1).mul_add(2., grid_height).floor();
 
     PhysicalSize::new(width as u32, height as u32)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::config::UiConfig;
+
+    /// Floor `size` onto the X11/Wayland increment grid: `base + n * increment`.
+    fn snap_to_increment(size: u32, base: u32, increment: u32) -> u32 {
+        let size = size.max(base);
+        base + (size - base) / increment * increment
+    }
+
+    fn config_with_padding(
+        columns: usize,
+        lines: usize,
+        padding_x: u16,
+        padding_y: u16,
+    ) -> UiConfig {
+        let dimensions = format!("dimensions = {{ columns = {columns}, lines = {lines} }}");
+        let padding = format!("padding = {{ x = {padding_x}, y = {padding_y} }}");
+        toml::from_str(&format!("[window]\n{dimensions}\n{padding}")).unwrap()
+    }
+
+    #[test]
+    fn resize_increments_min_size_preserves_padding_grid() {
+        // Reported in #9047 for a 6px-wide cell. A zero baseline (no minimum size)
+        // floors the window to a multiple of the cell and drops a column whenever
+        // twice the padding is not itself a multiple of the cell.
+        let cell = 6u32;
+        let columns = 100usize;
+        let lines = 24usize;
+        // padding, expected width, width snapped from a zero baseline, columns that fit.
+        let cases = [
+            (0u16, 600u32, 600u32, 100usize),
+            (1, 602, 600, 99),
+            (2, 604, 600, 99),
+            (3, 606, 606, 100),
+            (4, 608, 606, 99),
+            (5, 610, 606, 99),
+        ];
+
+        for (padding, expected_width, zero_base_width, zero_base_columns) in cases {
+            let config = config_with_padding(columns, lines, padding, padding);
+            let dimensions = config.window.dimensions().unwrap();
+            let requested = super::window_size(&config, dimensions, cell as f32, cell as f32, 1.);
+            assert_eq!(requested.width, expected_width, "padding {padding}");
+            assert_eq!(
+                requested.height,
+                lines as u32 * cell + u32::from(padding) * 2,
+                "padding {padding}"
+            );
+
+            let (padding_x, padding_y) = config.window.padding(1.);
+            let min_size = super::resize_increments_min_size(padding_x, padding_y);
+            assert_eq!(min_size.width, u32::from(padding) * 2, "padding {padding}");
+            assert_eq!(min_size.height, u32::from(padding) * 2, "padding {padding}");
+
+            let snapped_width = snap_to_increment(requested.width, min_size.width, cell);
+            let snapped_height = snap_to_increment(requested.height, min_size.height, cell);
+            assert_eq!(snapped_width, expected_width, "padding {padding}");
+            assert_eq!(snapped_height, requested.height, "padding {padding}");
+            assert_eq!(
+                (snapped_width - min_size.width) / cell,
+                columns as u32,
+                "padding {padding}"
+            );
+            assert_eq!(
+                (snapped_height - min_size.height) / cell,
+                lines as u32,
+                "padding {padding}"
+            );
+
+            let buggy_width = snap_to_increment(requested.width, 0, cell);
+            assert_eq!(buggy_width, zero_base_width, "padding {padding}");
+            let buggy_columns = buggy_width.saturating_sub(u32::from(padding) * 2) / cell;
+            assert_eq!(buggy_columns as usize, zero_base_columns, "padding {padding}");
+        }
+    }
+
+    #[test]
+    fn resize_increments_min_size_uses_scaled_padding() {
+        let config = config_with_padding(80, 24, 2, 3);
+        let scale = 2.;
+        let (padding_x, padding_y) = config.window.padding(scale);
+        assert_eq!((padding_x, padding_y), (4., 6.));
+
+        let min_size = super::resize_increments_min_size(padding_x, padding_y);
+        assert_eq!((min_size.width, min_size.height), (8, 12));
+
+        let cell_width = 10.;
+        let cell_height = 20.;
+        let requested = super::window_size(
+            &config,
+            config.window.dimensions().unwrap(),
+            cell_width,
+            cell_height,
+            scale,
+        );
+        assert_eq!((requested.width, requested.height), (808, 492));
+        assert_eq!(snap_to_increment(requested.width, min_size.width, cell_width as u32), 808);
+        assert_eq!(snap_to_increment(requested.height, min_size.height, cell_height as u32), 492);
+    }
 }

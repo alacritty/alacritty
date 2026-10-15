@@ -388,6 +388,11 @@ impl Window {
         self.window.set_resize_increments(Some(increments));
     }
 
+    /// Set the minimum inner size used as the baseline for resize increments.
+    pub fn set_min_inner_size(&self, size: PhysicalSize<u32>) {
+        self.window.set_min_inner_size(Some(size));
+    }
+
     /// Toggle the window's fullscreen state.
     pub fn toggle_fullscreen(&self) {
         self.set_fullscreen(self.window.fullscreen().is_none());
