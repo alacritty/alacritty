@@ -100,7 +100,14 @@ impl Message {
         // Append close button to first line.
         if button_len <= num_cols {
             if let Some(line) = lines.get_mut(0) {
-                line.truncate(num_cols - button_len);
+                // Column count matches `chars().count()`: fullwidth characters already have a
+                // trailing spacer. Truncate on a char boundary; a byte index panics inside
+                // multibyte UTF-8.
+                let end = line
+                    .char_indices()
+                    .nth(num_cols - button_len)
+                    .map_or(line.len(), |(index, _)| index);
+                line.truncate(end);
                 line.push_str(CLOSE_BUTTON_TEXT);
             }
         }
@@ -268,6 +275,32 @@ mod tests {
             String::from("hahahahahahahahaha [X]"),
             String::from("[MESSAGE TRUNCATED]   ")
         ]);
+    }
+
+    #[test]
+    fn multibyte_close_button_truncation() {
+        let input = "é".repeat(16);
+        let mut message_buffer = MessageBuffer::default();
+        message_buffer.push(Message::new(input, MessageType::Error));
+        let size = SizeInfo::new(10., 10., 1., 1., 0., 0., false);
+
+        let lines = message_buffer.message().unwrap().text(&size);
+
+        // Byte truncation of the padded first line used to panic inside `é`.
+        assert_eq!(lines, vec![String::from("éééééé [X]"), String::from("éééééééééé")]);
+    }
+
+    #[test]
+    fn wide_char_close_button_truncation() {
+        let input = "あéééé";
+        let mut message_buffer = MessageBuffer::default();
+        message_buffer.push(Message::new(input.into(), MessageType::Error));
+        let size = SizeInfo::new(5., 10., 1., 1., 0., 0., false);
+
+        let lines = message_buffer.message().unwrap().text(&size);
+
+        // Byte index `num_cols - button_len` used to fall inside `あ`.
+        assert_eq!(lines, vec![String::from("あ [X]"), String::from("éééé ")]);
     }
 
     #[test]
