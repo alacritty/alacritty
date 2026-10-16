@@ -18,7 +18,7 @@ pub fn set_locale_environment() {
 
         // Assume `C` locale means unchanged, since it is the default anyways.
         if env_locale != "C" {
-            debug!("Using environment locale: {}", env_locale);
+            debug!("Using environment locale: {env_locale}");
             return;
         }
     }
@@ -32,7 +32,7 @@ pub fn set_locale_environment() {
     // Check if system locale was valid or not.
     if lc_all.is_null() {
         // Use fallback locale.
-        debug!("Using fallback locale: {}", FALLBACK_LOCALE);
+        debug!("Using fallback locale: {FALLBACK_LOCALE}");
 
         let fallback_locale_c = CString::new(FALLBACK_LOCALE).unwrap();
         unsafe { setlocale(LC_CTYPE, fallback_locale_c.as_ptr()) };
@@ -40,7 +40,7 @@ pub fn set_locale_environment() {
         unsafe { env::set_var("LC_CTYPE", FALLBACK_LOCALE) };
     } else {
         // Use system locale.
-        debug!("Using system locale: {}", system_locale);
+        debug!("Using system locale: {system_locale}");
 
         unsafe { env::set_var("LC_ALL", system_locale) };
     }
@@ -63,7 +63,7 @@ fn system_locale() -> String {
         let language_code = locale.languageCode();
         #[allow(deprecated)]
         if let Some(country_code) = locale.countryCode() {
-            format!("{}_{}.UTF-8", language_code, country_code)
+            format!("{language_code}_{country_code}.UTF-8")
         } else {
             // Fall back to en_US in case the country code is not available.
             "en_US.UTF-8".into()
