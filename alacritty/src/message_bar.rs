@@ -100,7 +100,11 @@ impl Message {
         // Append close button to first line.
         if button_len <= num_cols {
             if let Some(line) = lines.get_mut(0) {
-                line.truncate(num_cols - button_len);
+                let end = line
+                    .char_indices()
+                    .nth(num_cols - button_len)
+                    .map_or(line.len(), |(index, _)| index);
+                line.truncate(end);
                 line.push_str(CLOSE_BUTTON_TEXT);
             }
         }
@@ -205,6 +209,19 @@ mod tests {
         let lines = message_buffer.message().unwrap().text(&size);
 
         assert_eq!(lines, vec![String::from("a   [X]")]);
+    }
+
+    #[test]
+    fn appends_close_button_after_multibyte_text() {
+        let input = "é".repeat(40);
+        let expected = format!("{input}{}{}", " ".repeat(37), CLOSE_BUTTON_TEXT);
+        let mut message_buffer = MessageBuffer::default();
+        message_buffer.push(Message::new(input, MessageType::Error));
+        let size = SizeInfo::new(80., 10., 1., 1., 0., 0., false);
+
+        let lines = message_buffer.message().unwrap().text(&size);
+
+        assert_eq!(lines, vec![expected]);
     }
 
     #[test]
