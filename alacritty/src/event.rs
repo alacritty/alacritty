@@ -29,13 +29,15 @@ use log::{debug, error, info, warn};
 #[cfg(windows)]
 use windows_sys::Win32::System::Console::FreeConsole;
 use winit::application::ApplicationHandler;
+use winit::data_transfer::{DataTransferId, TypeHint};
 use winit::dpi::PhysicalPosition;
 use winit::event::{
     ButtonSource, ElementState, FingerId, Ime, Modifiers, MouseButton, PointerKind, PointerSource,
     StartCause, TouchPhase, WindowEvent,
 };
 use winit::event_loop::{
-    ActiveEventLoop, ControlFlow, DeviceEvents, EventLoop, EventLoopProxy as WinitWakeUpProxy,
+    ActiveEventLoop, ControlFlow, DeviceEvents, DndAction, EventLoop,
+    EventLoopProxy as WinitWakeUpProxy,
 };
 use winit::raw_window_handle::HasDisplayHandle;
 use winit::window::WindowId;
@@ -224,10 +226,7 @@ impl Processor {
                 | WindowEvent::TouchpadPressure { .. }
                 | WindowEvent::RotationGesture { .. }
                 | WindowEvent::PinchGesture { .. }
-                | WindowEvent::DragEntered { .. }
                 | WindowEvent::PanGesture { .. }
-                | WindowEvent::DragMoved { .. }
-                | WindowEvent::DragLeft { .. }
                 | WindowEvent::Destroyed
                 | WindowEvent::ThemeChanged(_)
                 | WindowEvent::Moved(_)
@@ -290,7 +289,7 @@ impl ApplicationHandler for Processor {
 
     fn window_event(
         &mut self,
-        _event_loop: &dyn ActiveEventLoop,
+        event_loop: &dyn ActiveEventLoop,
         window_id: WindowId,
         event: WindowEvent,
     ) {
@@ -311,8 +310,7 @@ impl ApplicationHandler for Processor {
         let is_redraw = matches!(event, WindowEvent::RedrawRequested);
 
         window_context.handle_event(
-            #[cfg(target_os = "macos")]
-            _event_loop,
+            event_loop,
             &self.proxy,
             &mut self.clipboard,
             &mut self.scheduler,
@@ -465,6 +463,14 @@ impl ApplicationHandler for Processor {
                         event_loop.exit();
                     }
                 },
+                (EventType::Frame, Some(window_id)) => {
+                    if let Some(window_context) = self.windows.get_mut(window_id) {
+                        window_context.display.window.has_frame = true;
+                        if window_context.dirty {
+                            window_context.display.window.request_redraw();
+                        }
+                    }
+                },
                 // Shutdown all windows.
                 #[cfg(unix)]
                 (EventType::Shutdown, _) => event_loop.exit(),
@@ -473,7 +479,6 @@ impl ApplicationHandler for Processor {
                     let event = WinitEvent::UserEvent(Event::new(payload, None));
                     for window_context in self.windows.values_mut() {
                         window_context.handle_event(
-                            #[cfg(target_os = "macos")]
                             event_loop,
                             &self.proxy,
                             &mut self.clipboard,
@@ -485,7 +490,6 @@ impl ApplicationHandler for Processor {
                 (payload, Some(window_id)) => {
                     if let Some(window_context) = self.windows.get_mut(window_id) {
                         window_context.handle_event(
-                            #[cfg(target_os = "macos")]
                             event_loop,
                             &self.proxy,
                             &mut self.clipboard,
@@ -506,7 +510,6 @@ impl ApplicationHandler for Processor {
         // Dispatch event to all windows.
         for window_context in self.windows.values_mut() {
             window_context.handle_event(
-                #[cfg(target_os = "macos")]
                 event_loop,
                 &self.proxy,
                 &mut self.clipboard,
@@ -705,7 +708,6 @@ pub struct ActionContext<'a, N, T> {
     pub config: &'a UiConfig,
     pub cursor_blink_timed_out: &'a mut bool,
     pub prev_bell_cmd: &'a mut Option<Instant>,
-    #[cfg(target_os = "macos")]
     pub event_loop: &'a dyn ActiveEventLoop,
     pub event_proxy: &'a EventLoopProxy,
     pub scheduler: &'a mut Scheduler,
@@ -713,6 +715,7 @@ pub struct ActionContext<'a, N, T> {
     pub inline_search_state: &'a mut InlineSearchState,
     pub dirty: &'a mut bool,
     pub occluded: &'a mut bool,
+    pub data_transfer_queue: &'a mut HashMap<DataTransferId, AsyncRequest>,
     pub preserve_title: bool,
     #[cfg(not(windows))]
     pub master_fd: RawFd,
@@ -1517,7 +1520,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.config
     }
 
-    #[cfg(target_os = "macos")]
     fn event_loop(&self) -> &dyn ActiveEventLoop {
         self.event_loop
     }
@@ -1875,6 +1877,22 @@ pub struct AccumulatedScroll {
     pub y: f64,
 }
 
+pub struct AsyncRequest {
+    /// State of the request.
+    pub state: AsyncRequestState,
+}
+
+/// State of the winit's async serial request.
+#[derive(Debug)]
+pub enum AsyncRequestState {
+    /// Waiting for the request to arrive.
+    Started,
+    /// Waiting for data to finish fetching.
+    WaitingData,
+    /// Data fetched, but we wait for confirmation.
+    WaitingConfirmation(String),
+}
+
 impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
     /// Handle events from winit.
     pub fn handle_event(&mut self, event: WinitEvent) {
@@ -2056,10 +2074,56 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     WindowEvent::Occluded(occluded) => {
                         *self.ctx.occluded = occluded;
                     },
-                    WindowEvent::DragDropped { paths, .. } => {
-                        for path in paths {
-                            let path: String = path.to_string_lossy().into();
-                            self.ctx.paste(&(path + " "), true);
+                    WindowEvent::DragEntered { id, .. } => {
+                        // If it's plain text, try to fetch it, but only paste once the
+                        // `DragDropped` got delivered.
+                        let _ = self.ctx.event_loop().set_valid_dnd_actions(id, &[DndAction::Copy]);
+                        let ty = TypeHint::Plaintext;
+                        if let Ok(_serial) = self.ctx.event_loop().fetch_data_transfer(id, &ty) {
+                            self.ctx
+                                .data_transfer_queue
+                                .insert(id, AsyncRequest { state: AsyncRequestState::Started });
+                        }
+                    },
+                    WindowEvent::DragDropped { id, .. } => {
+                        if let Some(request) = self.ctx.data_transfer_queue.get_mut(&id) {
+                            if let AsyncRequestState::WaitingConfirmation(ref mut value) =
+                                request.state
+                            {
+                                // Request no longer needed at this point.
+                                let value: String = std::mem::take(value);
+                                self.ctx.paste(&value, true);
+                                self.ctx.data_transfer_queue.remove(&id);
+                            } else {
+                                request.state = AsyncRequestState::WaitingData;
+                            }
+                        }
+                    },
+                    WindowEvent::DragLeft { id } => {
+                        let _ = self.ctx.data_transfer_queue.remove(&id);
+                    },
+                    WindowEvent::DataTransferReceived { id, value, .. } => {
+                        match value.type_().hint() {
+                            Some(TypeHint::Plaintext) => {
+                                let value = match value.try_as_string() {
+                                    Ok(value) => value,
+                                    Err(_) => {
+                                        self.ctx.data_transfer_queue.remove(&id);
+                                        return;
+                                    },
+                                };
+
+                                if let Some(request) = self.ctx.data_transfer_queue.get_mut(&id) {
+                                    if matches!(request.state, AsyncRequestState::WaitingData) {
+                                        self.ctx.paste(&value, true);
+                                        self.ctx.data_transfer_queue.remove(&id);
+                                    } else {
+                                        request.state =
+                                            AsyncRequestState::WaitingConfirmation(value);
+                                    }
+                                }
+                            },
+                            _ => (),
                         }
                     },
                     WindowEvent::PointerEntered { position, kind, .. } => {
@@ -2107,6 +2171,8 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             *self.ctx.dirty = true;
                         },
                         Ime::DeleteSurrounding { .. } => (),
+                        // TODO: remove with stable release of winit.
+                        _ => (),
                     },
 
                     WindowEvent::KeyboardInput { is_synthetic: true, .. }
@@ -2115,14 +2181,17 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     | WindowEvent::TouchpadPressure { .. }
                     | WindowEvent::RotationGesture { .. }
                     | WindowEvent::PinchGesture { .. }
-                    | WindowEvent::DragEntered { .. }
                     | WindowEvent::PanGesture { .. }
-                    | WindowEvent::DragMoved { .. }
-                    | WindowEvent::DragLeft { .. }
+                    | WindowEvent::DragPosition { .. }
+                    | WindowEvent::OutgoingDragDropped { .. }
+                    | WindowEvent::OutgoingDragCanceled { .. }
+                    | WindowEvent::HoldGesture { .. }
                     | WindowEvent::RedrawRequested
                     | WindowEvent::Destroyed
                     | WindowEvent::Moved(_)
                     | WindowEvent::ThemeChanged(_) => (),
+                    // TODO: remove with stable release of winit.
+                    _ => (),
                 }
             },
             WinitEvent::AboutToWait => (),

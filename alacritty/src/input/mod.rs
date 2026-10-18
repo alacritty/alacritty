@@ -18,7 +18,6 @@ use log::debug;
 use winit::cursor::CursorIcon;
 use winit::dpi::PhysicalPosition;
 use winit::event::{ElementState, Modifiers, MouseButton, MouseScrollDelta, TouchPhase};
-#[cfg(target_os = "macos")]
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::ModifiersState;
 #[cfg(target_os = "macos")]
@@ -106,7 +105,6 @@ pub trait ActionContext<T: EventListener> {
     fn pop_message(&mut self) {}
     fn message(&self) -> Option<&Message>;
     fn config(&self) -> &UiConfig;
-    #[cfg(target_os = "macos")]
     fn event_loop(&self) -> &dyn ActiveEventLoop;
     fn mouse_mode(&self) -> bool;
     fn clipboard_mut(&mut self) -> &mut Clipboard;
@@ -752,6 +750,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                     _ => (),
                 }
             },
+            _ => (),
         }
     }
 
@@ -1261,7 +1260,6 @@ mod tests {
             self.clipboard
         }
 
-        #[cfg(target_os = "macos")]
         fn event_loop(&self) -> &dyn ActiveEventLoop {
             unimplemented!();
         }
@@ -1360,7 +1358,8 @@ mod tests {
             button: MouseButton::Left.into(),
             device_id: None,
             primary: true,
-            position: Default::default()
+            position: Default::default(),
+            is_macos_activation_click: false,
         },
         end_state: ClickState::Click,
         input_delay: Duration::ZERO,
@@ -1375,7 +1374,8 @@ mod tests {
             button: MouseButton::Right.into(),
             device_id: None,
             primary: true,
-            position: Default::default()
+            position: Default::default(),
+            is_macos_activation_click: false,
         },
         end_state: ClickState::Click,
         input_delay: Duration::ZERO,
@@ -1390,7 +1390,8 @@ mod tests {
             button: MouseButton::Middle.into(),
             device_id: None,
             primary: true,
-            position: Default::default()
+            position: Default::default(),
+            is_macos_activation_click: false,
         },
         end_state: ClickState::Click,
         input_delay: Duration::ZERO,
@@ -1405,7 +1406,8 @@ mod tests {
             button: MouseButton::Left.into(),
             device_id: None,
             primary: true,
-            position: Default::default()
+            position: Default::default(),
+            is_macos_activation_click: false,
         },
         end_state: ClickState::DoubleClick,
         input_delay: Duration::ZERO,
@@ -1420,7 +1422,8 @@ mod tests {
             button: MouseButton::Left.into(),
             device_id: None,
             primary: true,
-            position: Default::default()
+            position: Default::default(),
+            is_macos_activation_click: false,
         },
         end_state: ClickState::Click,
         input_delay: CLICK_THRESHOLD,
@@ -1435,7 +1438,8 @@ mod tests {
             button: MouseButton::Left.into(),
             device_id: None,
             primary: true,
-            position: Default::default()
+            position: Default::default(),
+            is_macos_activation_click: false,
         },
         end_state: ClickState::TripleClick,
         input_delay: Duration::ZERO,
@@ -1450,7 +1454,8 @@ mod tests {
             button: MouseButton::Left.into(),
             device_id: None,
             primary: true,
-            position: Default::default()
+            position: Default::default(),
+            is_macos_activation_click: false,
         },
         end_state: ClickState::Click,
         input_delay: CLICK_THRESHOLD,
@@ -1465,7 +1470,8 @@ mod tests {
             button: MouseButton::Right.into(),
             device_id: None,
             primary: true,
-            position: Default::default()
+            position: Default::default(),
+            is_macos_activation_click: false,
         },
         end_state: ClickState::Click,
         input_delay: Duration::ZERO,

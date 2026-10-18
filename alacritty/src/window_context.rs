@@ -1,5 +1,6 @@
 //! Terminal window context.
 
+use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
@@ -16,6 +17,7 @@ use glutin::display::GetGlDisplay;
 use glutin::platform::x11::X11GlConfigExt;
 use log::info;
 use serde_json as json;
+use winit::data_transfer::DataTransferId;
 use winit::event::{Modifiers, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::raw_window_handle::HasDisplayHandle;
@@ -36,8 +38,8 @@ use crate::config::UiConfig;
 use crate::display::Display;
 use crate::display::window::Window;
 use crate::event::{
-    ActionContext, Event, EventLoopProxy, EventProxy, InlineSearchState, Mouse, SearchState,
-    TouchPurpose, WinitEvent,
+    ActionContext, AsyncRequest, Event, EventLoopProxy, EventProxy, InlineSearchState, Mouse,
+    SearchState, TouchPurpose, WinitEvent,
 };
 #[cfg(unix)]
 use crate::logging::LOG_TARGET_IPC_CONFIG;
@@ -59,6 +61,7 @@ pub struct WindowContext {
     search_state: SearchState,
     notifier: Notifier,
     mouse: Mouse,
+    data_transfer_queue: HashMap<DataTransferId, AsyncRequest>,
     touch: TouchPurpose,
     occluded: bool,
     preserve_title: bool,
@@ -247,6 +250,7 @@ impl WindowContext {
             cursor_blink_timed_out: Default::default(),
             prev_bell_cmd: Default::default(),
             inline_search_state: Default::default(),
+            data_transfer_queue: Default::default(),
             message_buffer: Default::default(),
             window_config: Default::default(),
             search_state: Default::default(),
@@ -402,7 +406,7 @@ impl WindowContext {
     /// Process events for this terminal window.
     pub fn handle_event(
         &mut self,
-        #[cfg(target_os = "macos")] event_loop: &dyn ActiveEventLoop,
+        event_loop: &dyn ActiveEventLoop,
         event_proxy: &EventLoopProxy,
         clipboard: &mut Clipboard,
         scheduler: &mut Scheduler,
@@ -432,6 +436,7 @@ impl WindowContext {
             prev_bell_cmd: &mut self.prev_bell_cmd,
             message_buffer: &mut self.message_buffer,
             inline_search_state: &mut self.inline_search_state,
+            data_transfer_queue: &mut self.data_transfer_queue,
             search_state: &mut self.search_state,
             modifiers: &mut self.modifiers,
             notifier: &mut self.notifier,
@@ -448,7 +453,6 @@ impl WindowContext {
             preserve_title: self.preserve_title,
             config: &self.config,
             event_proxy,
-            #[cfg(target_os = "macos")]
             event_loop,
             clipboard,
             scheduler,

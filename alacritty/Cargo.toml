@@ -43,7 +43,7 @@ tempfile = "3.12.0"
 toml.workspace = true
 toml_edit.workspace = true
 unicode-width = "0.2.0"
-winit = { version = "=0.31.0-beta.2", default-features = false, features = ["serde"] }
+winit = { version = "=0.31.0-beta.3", default-features = false, features = ["serde"] }
 
 [build-dependencies]
 gl_generator = "0.14.0"
