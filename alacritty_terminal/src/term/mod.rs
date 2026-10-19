@@ -1855,6 +1855,16 @@ impl<T: EventListener> Handler for Term<T> {
 
         self.event_proxy.send_event(Event::CursorBlinkingChange);
         self.mark_fully_damaged();
+
+        // glibc tends to not release the memory until everything associated with the `Term` is
+        // removed due to fragmentation. Though, even there's a fragmentation we could still
+        // release the _physical_ memory back fragmenting the address space.
+        //
+        // The fragmentation will fixup itself once the `Term` is fully dropped.
+        #[cfg(all(target_env = "gnu", target_os = "linux"))]
+        unsafe {
+            libc::malloc_trim(0);
+        }
     }
 
     #[inline]
