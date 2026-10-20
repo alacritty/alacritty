@@ -1288,22 +1288,26 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         // Load mouse point, treating message bar and padding as the closest cell.
         let display_offset = self.terminal().grid().display_offset();
-        let point = self.mouse().point(&self.size_info(), display_offset);
+        let mut point = self.mouse().point(&self.size_info(), display_offset);
+        point.line = min(point.line, self.terminal.bottommost_line());
 
         let cell_side = self.mouse().cell_side;
 
-        let selection = match &mut self.terminal_mut().selection {
+        let mut selection = match self.terminal_mut().selection.take() {
             Some(selection) => selection,
             None => return,
         };
 
-        selection.ty = selection_type;
-        self.update_selection(point, cell_side);
+        selection.expand(self.terminal(), selection_type, point, cell_side);
 
         // Move vi mode cursor to mouse click position.
         if self.terminal().mode().contains(TermMode::VI) && !self.search_active() {
             self.terminal_mut().vi_mode_cursor.point = point;
+            selection.include_all();
         }
+
+        self.terminal_mut().selection = Some(selection);
+        self.mark_dirty();
     }
 
     /// Get the semantic word at the specified point.
