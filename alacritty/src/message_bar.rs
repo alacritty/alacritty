@@ -100,7 +100,11 @@ impl Message {
         // Append close button to first line.
         if button_len <= num_cols {
             if let Some(line) = lines.get_mut(0) {
-                line.truncate(num_cols - button_len);
+                let button_start = line
+                    .char_indices()
+                    .nth(num_cols - button_len)
+                    .map_or(line.len(), |(byte_index, _)| byte_index);
+                line.truncate(button_start);
                 line.push_str(CLOSE_BUTTON_TEXT);
             }
         }
@@ -374,6 +378,17 @@ mod tests {
             String::from("c 👩 d  "),
             String::from("fgh    ")
         ]);
+    }
+
+    #[test]
+    fn wrap_truncation_with_unicode() {
+        let mut message_buffer = MessageBuffer::default();
+        message_buffer.push(Message::new("éééaX".into(), MessageType::Error));
+        let size = SizeInfo::new(8., 10., 1., 1., 0., 0., false);
+
+        let lines = message_buffer.message().unwrap().text(&size);
+
+        assert_eq!(lines[0], "éééa [X]");
     }
 
     #[test]
