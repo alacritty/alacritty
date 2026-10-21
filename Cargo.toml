@@ -22,4 +22,6 @@ toml_edit = "0.24.0"
 
 # TODO: Validation of fix for #6978. Remove before next release and use released `x11-clipboard`.
 [patch.crates-io]
+vte = { git = "https://github.com/rudolf-blue/vte-fork.git", rev = "e35db9ba7c6d54fb741adc26b48dd8c49658f075" }
+
 x11-clipboard = { git = "https://github.com/quininer/x11-clipboard.git", rev = "19ab2163cf0bd0db607e827a5214571990307866" }
