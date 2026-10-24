@@ -1,8 +1,7 @@
 //! Process window events.
 
-use crate::ConfigMonitor;
-use glutin::config::GetGlConfig;
 use std::borrow::Cow;
+use std::cell::Cell;
 use std::cmp::min;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -15,23 +14,30 @@ use std::os::unix::io::RawFd;
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::rc::Rc;
-#[cfg(unix)]
 use std::sync::Arc;
+use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
 use ahash::RandomState;
 use crossfont::Size as FontSize;
-use glutin::config::Config as GlutinConfig;
-use glutin::display::GetGlDisplay;
+use glutin::config::{Config as GlutinConfig, GetGlConfig};
+#[cfg(not(target_os = "macos"))]
+use glutin::display::{Display as GlDisplay, GetGlDisplay};
 use log::{debug, error, info, warn};
+#[cfg(windows)]
+use windows_sys::Win32::System::Console::FreeConsole;
 use winit::application::ApplicationHandler;
+use winit::data_transfer::{DataTransferId, DataTransferSendBuilder, TypeHint};
+use winit::dpi::PhysicalPosition;
 use winit::event::{
-    ElementState, Event as WinitEvent, Ime, Modifiers, MouseButton, StartCause,
-    Touch as TouchEvent, WindowEvent,
+    ButtonSource, ElementState, FingerId, Ime, Modifiers, MouseButton, PointerKind, PointerSource,
+    StartCause, TouchPhase, WindowEvent,
 };
-use winit::event_loop::{ActiveEventLoop, ControlFlow, DeviceEvents, EventLoop, EventLoopProxy};
-use winit::raw_window_handle::HasDisplayHandle;
+use winit::event_loop::{
+    ActiveEventLoop, ControlFlow, DeviceEvents, DndAction, EventLoop,
+    EventLoopProxy as WinitWakeUpProxy,
+};
 use winit::window::WindowId;
 
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify};
@@ -44,10 +50,10 @@ use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, ClipboardType, Term, TermMode};
 use alacritty_terminal::vte::ansi::NamedColor;
 
+use crate::ConfigMonitor;
 #[cfg(unix)]
 use crate::cli::{IpcConfig, ParsedOptions};
 use crate::cli::{Options as CliOptions, WindowOptions};
-use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, UiConfig};
 #[cfg(not(windows))]
@@ -57,7 +63,7 @@ use crate::display::color::Rgb;
 use crate::display::hint::HintMatch;
 use crate::display::window::{ImeInhibitor, Window};
 use crate::display::{Display, Preedit, SizeInfo};
-use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
+use crate::input::{self, ActionContext as _, ClibpoardFormat, FONT_SIZE_STEP};
 use crate::logging::{LOG_TARGET_CONFIG, LOG_TARGET_WINIT};
 use crate::message_bar::{Message, MessageBuffer};
 #[cfg(unix)]
@@ -85,14 +91,13 @@ const BELL_CMD_COOLDOWN: Duration = Duration::from_millis(100);
 /// Stores some state from received events and dispatches actions when they are
 /// triggered.
 pub struct Processor {
-    pub config_monitor: Option<ConfigMonitor>,
-
-    clipboard: Clipboard,
+    config_monitor: Option<ConfigMonitor>,
     scheduler: Scheduler,
     initial_window_options: Option<WindowOptions>,
-    initial_window_error: Option<Box<dyn Error>>,
+    initial_window_error: Rc<Cell<Option<Box<dyn Error>>>>,
     windows: HashMap<WindowId, WindowContext, RandomState>,
-    proxy: EventLoopProxy<Event>,
+    proxy: EventLoopProxy,
+    user_events_rx: Receiver<Event>,
     gl_config: Option<GlutinConfig>,
     #[cfg(unix)]
     global_ipc_options: ParsedOptions,
@@ -105,18 +110,15 @@ impl Processor {
     pub fn new(
         config: UiConfig,
         cli_options: CliOptions,
-        event_loop: &EventLoop<Event>,
+        event_loop: &EventLoop,
+        proxy: EventLoopProxy,
+        user_events_rx: Receiver<Event>,
     ) -> Processor {
-        let proxy = event_loop.create_proxy();
         let scheduler = Scheduler::new(proxy.clone());
         let initial_window_options = Some(cli_options.window_options.clone());
 
         // Disable all device events, since we don't care about them.
         event_loop.listen_device_events(DeviceEvents::Never);
-
-        // SAFETY: Since this takes a pointer to the winit event loop, it MUST be dropped first,
-        // which is done in `loop_exiting`.
-        let clipboard = unsafe { Clipboard::new(event_loop.display_handle().unwrap().as_raw()) };
 
         // Create a config monitor.
         //
@@ -124,19 +126,18 @@ impl Processor {
         // config changes are processed in the main loop.
         let mut config_monitor = None;
         if config.live_config_reload() {
-            config_monitor =
-                ConfigMonitor::new(config.config_paths.clone(), event_loop.create_proxy());
+            config_monitor = ConfigMonitor::new(config.config_paths.clone(), proxy.clone());
         }
 
         Processor {
             initial_window_options,
-            initial_window_error: None,
+            initial_window_error: Default::default(),
+            user_events_rx,
             cli_options,
             proxy,
             scheduler,
             gl_config: None,
             config: Rc::new(config),
-            clipboard,
             windows: Default::default(),
             #[cfg(unix)]
             global_ipc_options: Default::default(),
@@ -150,7 +151,7 @@ impl Processor {
     /// will be used for the rest of the windows.
     pub fn create_initial_window(
         &mut self,
-        event_loop: &ActiveEventLoop,
+        event_loop: &dyn ActiveEventLoop,
         window_options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
         let window_context = WindowContext::initial(
@@ -169,7 +170,7 @@ impl Processor {
     /// Create a new terminal window.
     pub fn create_window(
         &mut self,
-        event_loop: &ActiveEventLoop,
+        event_loop: &dyn ActiveEventLoop,
         options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
         let gl_config = self.gl_config.as_ref().unwrap();
@@ -197,9 +198,10 @@ impl Processor {
     /// Run the event loop.
     ///
     /// The result is exit code generate from the loop.
-    pub fn run(&mut self, event_loop: EventLoop<Event>) -> Result<(), Box<dyn Error>> {
+    pub fn run(self, event_loop: EventLoop) -> Result<(), Box<dyn Error>> {
+        let initial_window_error = self.initial_window_error.clone();
         let result = event_loop.run_app(self);
-        match self.initial_window_error.take() {
+        match initial_window_error.take() {
             Some(initial_window_error) => Err(initial_window_error),
             _ => result.map_err(Into::into),
         }
@@ -214,33 +216,59 @@ impl Processor {
                 | WindowEvent::DoubleTapGesture { .. }
                 | WindowEvent::TouchpadPressure { .. }
                 | WindowEvent::RotationGesture { .. }
-                | WindowEvent::CursorEntered { .. }
                 | WindowEvent::PinchGesture { .. }
-                | WindowEvent::AxisMotion { .. }
                 | WindowEvent::PanGesture { .. }
-                | WindowEvent::HoveredFileCancelled
                 | WindowEvent::Destroyed
                 | WindowEvent::ThemeChanged(_)
-                | WindowEvent::HoveredFile(_)
                 | WindowEvent::Moved(_)
         )
     }
 }
 
-impl ApplicationHandler<Event> for Processor {
-    fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
+impl Drop for Processor {
+    fn drop(&mut self) {
+        info!("Exiting the event loop");
 
-    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
+        #[cfg(not(target_os = "macos"))]
+        if let Some(GlDisplay::Egl(display)) = self.gl_config.take().map(|conf| conf.display()) {
+            // Ensure that all the windows are dropped, so the destructors for
+            // renderer and contexts ran.
+            self.windows.clear();
+
+            // SAFETY: the display is being destroyed after destroying all the
+            // windows, thus no attempt to access the EGL state will be made.
+            unsafe { display.terminate() };
+        }
+
+        // Terminate the config monitor.
+        if let Some(config_monitor) = self.config_monitor.take() {
+            config_monitor.shutdown();
+        }
+
+        // Without explicitly detaching the console cmd won't redraw it's prompt.
+        #[cfg(windows)]
+        unsafe {
+            FreeConsole()
+        };
+    }
+}
+
+impl ApplicationHandler for Processor {
+    fn resumed(&mut self, _event_loop: &dyn ActiveEventLoop) {}
+
+    fn can_create_surfaces(&mut self, _event_loop: &dyn ActiveEventLoop) {}
+
+    fn new_events(&mut self, event_loop: &dyn ActiveEventLoop, cause: StartCause) {
         if cause != StartCause::Init || self.cli_options.daemon {
             return;
         }
 
-        if let Some(window_options) = self.initial_window_options.take() {
-            if let Err(err) = self.create_initial_window(event_loop, window_options) {
-                self.initial_window_error = Some(err);
-                event_loop.exit();
-                return;
-            }
+        if let Some(window_options) = self.initial_window_options.take()
+            && let Err(err) = self.create_initial_window(event_loop, window_options)
+        {
+            self.initial_window_error.set(Some(err));
+            event_loop.exit();
+            return;
         }
 
         info!("Initialisation complete");
@@ -248,7 +276,7 @@ impl ApplicationHandler<Event> for Processor {
 
     fn window_event(
         &mut self,
-        _event_loop: &ActiveEventLoop,
+        event_loop: &dyn ActiveEventLoop,
         window_id: WindowId,
         event: WindowEvent,
     ) {
@@ -269,12 +297,10 @@ impl ApplicationHandler<Event> for Processor {
         let is_redraw = matches!(event, WindowEvent::RedrawRequested);
 
         window_context.handle_event(
-            #[cfg(target_os = "macos")]
-            _event_loop,
+            event_loop,
             &self.proxy,
-            &mut self.clipboard,
             &mut self.scheduler,
-            WinitEvent::WindowEvent { window_id, event },
+            WinitEvent::WindowEvent(event),
         );
 
         if is_redraw {
@@ -282,188 +308,185 @@ impl ApplicationHandler<Event> for Processor {
         }
     }
 
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: Event) {
-        if self.config.debug.print_events {
-            info!(target: LOG_TARGET_WINIT, "{event:?}");
-        }
+    fn proxy_wake_up(&mut self, event_loop: &dyn ActiveEventLoop) {
+        while let Ok(event) = self.user_events_rx.try_recv() {
+            if self.config.debug.print_events {
+                info!(target: LOG_TARGET_WINIT, "{event:?}");
+            }
 
-        // Handle events which don't mandate the WindowId.
-        match (event.payload, event.window_id.as_ref()) {
-            // Process IPC config update.
-            #[cfg(unix)]
-            (EventType::IpcConfig(ipc_config), window_id) => {
-                // Try and parse options as toml.
-                let mut options = ParsedOptions::from_options(&ipc_config.options);
+            // Handle events which don't mandate the WindowId.
+            match (event.payload, event.window_id.as_ref()) {
+                // Process IPC config update.
+                #[cfg(unix)]
+                (EventType::IpcConfig(ipc_config), window_id) => {
+                    // Try and parse options as toml.
+                    let mut options = ParsedOptions::from_options(&ipc_config.options);
 
-                // Override IPC config for each window with matching ID.
-                for (_, window_context) in self
-                    .windows
-                    .iter_mut()
-                    .filter(|(id, _)| window_id.is_none() || window_id == Some(*id))
-                {
-                    if ipc_config.reset {
-                        window_context.reset_window_config(self.config.clone());
-                    } else {
-                        window_context.add_window_config(self.config.clone(), &options);
-                    }
-                }
-
-                // Persist global options for future windows.
-                if window_id.is_none() {
-                    if ipc_config.reset {
-                        self.global_ipc_options.clear();
-                    } else {
-                        self.global_ipc_options.append(&mut options);
-                    }
-                }
-            },
-            // Process IPC config requests.
-            #[cfg(unix)]
-            (EventType::IpcGetConfig(stream), window_id) => {
-                // Get the config for the requested window ID.
-                let config = match self.windows.iter().find(|(id, _)| window_id == Some(*id)) {
-                    Some((_, window_context)) => window_context.config(),
-                    None => &self.global_ipc_options.override_config_rc(self.config.clone()),
-                };
-
-                // Convert config to JSON format.
-                let config_json = match serde_json::to_string(&config) {
-                    Ok(config_json) => config_json,
-                    Err(err) => {
-                        error!("Failed config serialization: {err}");
-                        return;
-                    },
-                };
-
-                // Send JSON config to the socket.
-                if let Ok(mut stream) = stream.try_clone() {
-                    ipc::send_reply(&mut stream, SocketReply::GetConfig(config_json));
-                }
-            },
-            (EventType::ConfigReload(path), _) => {
-                // Clear config logs from message bar for all terminals.
-                for window_context in self.windows.values_mut() {
-                    if !window_context.message_buffer.is_empty() {
-                        window_context.message_buffer.remove_target(LOG_TARGET_CONFIG);
-                        window_context.display.pending_update.dirty = true;
-                    }
-                }
-
-                // Load config and update each terminal.
-                if let Ok(config) = config::reload(&path, &mut self.cli_options) {
-                    self.config = Rc::new(config);
-
-                    // Restart config monitor if imports changed.
-                    if let Some(monitor) = self.config_monitor.take() {
-                        let paths = &self.config.config_paths;
-                        self.config_monitor = if monitor.needs_restart(paths) {
-                            monitor.shutdown();
-                            ConfigMonitor::new(paths.clone(), self.proxy.clone())
+                    // Override IPC config for each window with matching ID.
+                    for (_, window_context) in self
+                        .windows
+                        .iter_mut()
+                        .filter(|(id, _)| window_id.is_none() || window_id == Some(*id))
+                    {
+                        if ipc_config.reset {
+                            window_context.reset_window_config(self.config.clone());
                         } else {
-                            Some(monitor)
-                        };
+                            window_context.add_window_config(self.config.clone(), &options);
+                        }
                     }
 
+                    // Persist global options for future windows.
+                    if window_id.is_none() {
+                        if ipc_config.reset {
+                            self.global_ipc_options.clear();
+                        } else {
+                            self.global_ipc_options.append(&mut options);
+                        }
+                    }
+                },
+                // Process IPC config requests.
+                #[cfg(unix)]
+                (EventType::IpcGetConfig(stream), window_id) => {
+                    // Get the config for the requested window ID.
+                    let config = match self.windows.iter().find(|(id, _)| window_id == Some(*id)) {
+                        Some((_, window_context)) => window_context.config(),
+                        None => &self.global_ipc_options.override_config_rc(self.config.clone()),
+                    };
+
+                    // Convert config to JSON format.
+                    let config_json = match serde_json::to_string(&config) {
+                        Ok(config_json) => config_json,
+                        Err(err) => {
+                            error!("Failed config serialization: {err}");
+                            continue;
+                        },
+                    };
+
+                    // Send JSON config to the socket.
+                    if let Ok(mut stream) = stream.try_clone() {
+                        ipc::send_reply(&mut stream, SocketReply::GetConfig(config_json));
+                    }
+                },
+                (EventType::ConfigReload(path), _) => {
+                    // Clear config logs from message bar for all terminals.
                     for window_context in self.windows.values_mut() {
-                        window_context.update_config(self.config.clone());
+                        if !window_context.message_buffer.is_empty() {
+                            window_context.message_buffer.remove_target(LOG_TARGET_CONFIG);
+                            window_context.display.pending_update.dirty = true;
+                        }
                     }
-                }
-            },
-            // Create a new terminal window.
-            (EventType::CreateWindow(options), _) => {
-                // XXX Ensure that no context is current when creating a new window,
-                // otherwise it may lock the backing buffer of the
-                // surface of current context when asking
-                // e.g. EGL on Wayland to create a new context.
-                for window_context in self.windows.values_mut() {
-                    window_context.display.make_not_current();
-                }
 
-                if self.gl_config.is_none() {
-                    // Handle initial window creation in daemon mode.
-                    if let Err(err) = self.create_initial_window(event_loop, options) {
-                        self.initial_window_error = Some(err);
+                    // Load config and update each terminal.
+                    if let Ok(config) = config::reload(&path, &mut self.cli_options) {
+                        self.config = Rc::new(config);
+
+                        // Restart config monitor if imports changed.
+                        if let Some(monitor) = self.config_monitor.take() {
+                            let paths = &self.config.config_paths;
+                            self.config_monitor = if monitor.needs_restart(paths) {
+                                monitor.shutdown();
+                                ConfigMonitor::new(paths.clone(), self.proxy.clone())
+                            } else {
+                                Some(monitor)
+                            };
+                        }
+
+                        for window_context in self.windows.values_mut() {
+                            window_context.update_config(self.config.clone());
+                        }
+                    }
+                },
+                // Create a new terminal window.
+                (EventType::CreateWindow(options), _) => {
+                    // XXX Ensure that no context is current when creating a new window,
+                    // otherwise it may lock the backing buffer of the
+                    // surface of current context when asking
+                    // e.g. EGL on Wayland to create a new context.
+                    for window_context in self.windows.values_mut() {
+                        window_context.display.make_not_current();
+                    }
+
+                    if self.gl_config.is_none() {
+                        // Handle initial window creation in daemon mode.
+                        if let Err(err) = self.create_initial_window(event_loop, options) {
+                            self.initial_window_error.set(Some(err));
+                            event_loop.exit();
+                        }
+                    } else if let Err(err) = self.create_window(event_loop, options) {
+                        error!("Could not open window: {err:?}");
+                    }
+                },
+                (EventType::Terminal(TerminalEvent::Wakeup), Some(window_id)) => {
+                    if let Some(window_context) = self.windows.get_mut(window_id) {
+                        window_context.dirty = true;
+                        if window_context.display.window.has_frame {
+                            window_context.display.window.request_redraw();
+                        }
+                    }
+                },
+                (EventType::Terminal(TerminalEvent::Exit), Some(window_id)) => {
+                    // Remove the closed terminal.
+                    let window_context = match self.windows.entry(*window_id) {
+                        // Don't exit when terminal exits if user asked to hold the window.
+                        Entry::Occupied(window_context)
+                            if !window_context.get().display.window.hold =>
+                        {
+                            window_context.remove()
+                        },
+                        _ => continue,
+                    };
+
+                    // Unschedule pending events.
+                    self.scheduler.unschedule_window(window_context.id());
+
+                    // Shutdown if no more terminals are open.
+                    if self.windows.is_empty() && !self.cli_options.daemon {
+                        // Write ref tests of last window to disk.
+                        if self.config.debug.ref_test {
+                            window_context.write_ref_test_results();
+                        }
+
                         event_loop.exit();
                     }
-                } else if let Err(err) = self.create_window(event_loop, options) {
-                    error!("Could not open window: {err:?}");
-                }
-            },
-            // Shutdown all windows.
-            #[cfg(unix)]
-            (EventType::Shutdown, _) => event_loop.exit(),
-            // Process events affecting all windows.
-            (payload, None) => {
-                let event = WinitEvent::UserEvent(Event::new(payload, None));
-                for window_context in self.windows.values_mut() {
-                    window_context.handle_event(
-                        #[cfg(target_os = "macos")]
-                        event_loop,
-                        &self.proxy,
-                        &mut self.clipboard,
-                        &mut self.scheduler,
-                        event.clone(),
-                    );
-                }
-            },
-            (EventType::Terminal(TerminalEvent::Wakeup), Some(window_id)) => {
-                if let Some(window_context) = self.windows.get_mut(window_id) {
-                    window_context.dirty = true;
-                    if window_context.display.window.has_frame {
-                        window_context.display.window.request_redraw();
+                },
+                (EventType::Frame, Some(window_id)) => {
+                    if let Some(window_context) = self.windows.get_mut(window_id) {
+                        window_context.display.window.has_frame = true;
+                        if window_context.dirty {
+                            window_context.display.window.request_redraw();
+                        }
                     }
-                }
-            },
-            (EventType::Terminal(TerminalEvent::Exit), Some(window_id)) => {
-                // Remove the closed terminal.
-                let window_context = match self.windows.entry(*window_id) {
-                    // Don't exit when terminal exits if user asked to hold the window.
-                    Entry::Occupied(window_context)
-                        if !window_context.get().display.window.hold =>
-                    {
-                        window_context.remove()
-                    },
-                    _ => return,
-                };
-
-                // Unschedule pending events.
-                self.scheduler.unschedule_window(window_context.id());
-
-                // Shutdown if no more terminals are open.
-                if self.windows.is_empty() && !self.cli_options.daemon {
-                    // Write ref tests of last window to disk.
-                    if self.config.debug.ref_test {
-                        window_context.write_ref_test_results();
+                },
+                // Shutdown all windows.
+                #[cfg(unix)]
+                (EventType::Shutdown, _) => event_loop.exit(),
+                // Process events affecting all windows.
+                (payload, None) => {
+                    let event = WinitEvent::UserEvent(Event::new(payload, None));
+                    for window_context in self.windows.values_mut() {
+                        window_context.handle_event(
+                            event_loop,
+                            &self.proxy,
+                            &mut self.scheduler,
+                            event.clone(),
+                        );
                     }
-
-                    event_loop.exit();
-                }
-            },
-            // NOTE: This event bypasses batching to minimize input latency.
-            (EventType::Frame, Some(window_id)) => {
-                if let Some(window_context) = self.windows.get_mut(window_id) {
-                    window_context.display.window.has_frame = true;
-                    if window_context.dirty {
-                        window_context.display.window.request_redraw();
+                },
+                (payload, Some(window_id)) => {
+                    if let Some(window_context) = self.windows.get_mut(window_id) {
+                        window_context.handle_event(
+                            event_loop,
+                            &self.proxy,
+                            &mut self.scheduler,
+                            WinitEvent::UserEvent(Event::new(payload, *window_id)),
+                        );
                     }
-                }
-            },
-            (payload, Some(window_id)) => {
-                if let Some(window_context) = self.windows.get_mut(window_id) {
-                    window_context.handle_event(
-                        #[cfg(target_os = "macos")]
-                        event_loop,
-                        &self.proxy,
-                        &mut self.clipboard,
-                        &mut self.scheduler,
-                        WinitEvent::UserEvent(Event::new(payload, *window_id)),
-                    );
-                }
-            },
-        };
+                },
+            }
+        }
     }
 
-    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+    fn about_to_wait(&mut self, event_loop: &dyn ActiveEventLoop) {
         if self.config.debug.print_events {
             info!(target: LOG_TARGET_WINIT, "About to wait");
         }
@@ -471,10 +494,8 @@ impl ApplicationHandler<Event> for Processor {
         // Dispatch event to all windows.
         for window_context in self.windows.values_mut() {
             window_context.handle_event(
-                #[cfg(target_os = "macos")]
                 event_loop,
                 &self.proxy,
-                &mut self.clipboard,
                 &mut self.scheduler,
                 WinitEvent::AboutToWait,
             );
@@ -488,32 +509,30 @@ impl ApplicationHandler<Event> for Processor {
         };
         event_loop.set_control_flow(control_flow);
     }
+}
 
-    fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
-        if self.config.debug.print_events {
-            info!("Exiting the event loop");
-        }
+#[derive(Debug, Clone)]
+pub struct EventLoopProxy {
+    winit_wake_up_proxy: WinitWakeUpProxy,
+    tx: Sender<Event>,
+}
 
-        match self.gl_config.take().map(|config| config.display()) {
-            #[cfg(not(target_os = "macos"))]
-            Some(glutin::display::Display::Egl(display)) => {
-                // Ensure that all the windows are dropped, so the destructors for
-                // Renderer and contexts ran.
-                self.windows.clear();
-
-                // SAFETY: the display is being destroyed after destroying all the
-                // windows, thus no attempt to access the EGL state will be made.
-                unsafe {
-                    display.terminate();
-                }
-            },
-            _ => (),
-        }
-
-        // SAFETY: The clipboard must be dropped before the event loop, so use the nop clipboard
-        // as a safe placeholder.
-        self.clipboard = Clipboard::new_nop();
+impl EventLoopProxy {
+    pub fn new(tx: Sender<Event>, winit_wake_up_proxy: WinitWakeUpProxy) -> Self {
+        Self { tx, winit_wake_up_proxy }
     }
+
+    pub fn send_event(&self, event: Event) {
+        let _ = self.tx.send(event);
+        self.winit_wake_up_proxy.wake_up();
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum WinitEvent {
+    UserEvent(Event),
+    WindowEvent(WindowEvent),
+    AboutToWait,
 }
 
 /// Alacritty events.
@@ -532,7 +551,7 @@ impl Event {
     }
 }
 
-impl From<Event> for WinitEvent<Event> {
+impl From<Event> for WinitEvent {
     fn from(event: Event) -> Self {
         WinitEvent::UserEvent(event)
     }
@@ -663,7 +682,6 @@ impl Default for InlineSearchState {
 pub struct ActionContext<'a, N, T> {
     pub notifier: &'a mut N,
     pub terminal: &'a mut Term<T>,
-    pub clipboard: &'a mut Clipboard,
     pub mouse: &'a mut Mouse,
     pub touch: &'a mut TouchPurpose,
     pub modifiers: &'a mut Modifiers,
@@ -672,14 +690,14 @@ pub struct ActionContext<'a, N, T> {
     pub config: &'a UiConfig,
     pub cursor_blink_timed_out: &'a mut bool,
     pub prev_bell_cmd: &'a mut Option<Instant>,
-    #[cfg(target_os = "macos")]
-    pub event_loop: &'a ActiveEventLoop,
-    pub event_proxy: &'a EventLoopProxy<Event>,
+    pub event_loop: &'a dyn ActiveEventLoop,
+    pub event_proxy: &'a EventLoopProxy,
     pub scheduler: &'a mut Scheduler,
     pub search_state: &'a mut SearchState,
     pub inline_search_state: &'a mut InlineSearchState,
     pub dirty: &'a mut bool,
     pub occluded: &'a mut bool,
+    pub data_transfer_queue: &'a mut HashMap<DataTransferId, DataTransferRequest>,
     pub preserve_title: bool,
     #[cfg(not(windows))]
     pub master_fd: RawFd,
@@ -743,14 +761,66 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     // Copy text selection.
     fn copy_selection(&mut self, ty: ClipboardType) {
         let text = match self.terminal.selection_to_string().filter(|s| !s.is_empty()) {
-            Some(text) => text,
+            Some(text) => Arc::<str>::from(text),
             None => return,
         };
 
         if ty == ClipboardType::Selection && self.config.selection.save_to_clipboard {
-            self.clipboard.store(ClipboardType::Clipboard, text.clone());
+            self.set_clipboard(ClipboardType::Clipboard, text.clone());
         }
-        self.clipboard.store(ty, text);
+
+        self.set_clipboard(ty, text);
+    }
+
+    fn set_clipboard(&mut self, ty: ClipboardType, text: Arc<str>) {
+        let send_data = DataTransferSendBuilder::new(text)
+            .with_type(TypeHint::Plaintext, |text: &Arc<str>, _| Some(text.to_string()))
+            .build();
+        let result = match ty {
+            ClipboardType::Clipboard => self.event_loop().set_clipboard(send_data),
+            ClipboardType::Selection => {
+                let primary_selection = match self.event_loop().primary_selection_ext() {
+                    Some(primary_selection) => primary_selection,
+                    None => return,
+                };
+
+                primary_selection.set_primary_selection(send_data)
+            },
+        };
+
+        if let Err(err) = result {
+            warn!("Failed to copy to clipboard: {err}");
+        }
+    }
+
+    fn load_clipboard(
+        &mut self,
+        ty: ClipboardType,
+        format: Option<Arc<dyn Fn(&str) -> String + Sync + Send + 'static>>,
+    ) {
+        let transfer_id = match ty {
+            ClipboardType::Clipboard => match self.event_loop().clipboard() {
+                Ok(Some(id)) => id,
+                _ => return,
+            },
+            ClipboardType::Selection => {
+                match self.event_loop().primary_selection_ext().map(|ext| ext.primary_selection()) {
+                    Some(Ok(Some(id))) => id,
+                    _ => return,
+                }
+            },
+        };
+
+        match self.event_loop.fetch_data_transfer(transfer_id, &TypeHint::Plaintext) {
+            Ok(_serial) => {
+                self.data_transfer_queue.insert(transfer_id, DataTransferRequest {
+                    state: DataTransferState::ClipboardPaste(format),
+                });
+            },
+            Err(err) => {
+                info!("{err}");
+            },
+        }
     }
 
     fn selection_is_empty(&self) -> bool {
@@ -892,13 +962,12 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             options.window_tabbing_id = tabbing_id;
         }
 
-        let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow(options), None));
+        self.event_proxy.send_event(Event::new(EventType::CreateWindow(options), None));
     }
 
     #[cfg(windows)]
     fn create_new_window(&mut self) {
-        let _ = self
-            .event_proxy
+        self.event_proxy
             .send_event(Event::new(EventType::CreateWindow(WindowOptions::default()), None));
     }
 
@@ -1251,7 +1320,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             },
             // Copy the text to the clipboard.
             HintAction::Action(HintInternalAction::Copy) => {
-                self.clipboard.store(ClipboardType::Clipboard, text);
+                // self.clipboard.store(ClipboardType::Clipboard, text);
             },
             // Write the text to the PTY/search.
             HintAction::Action(HintInternalAction::Paste) => self.paste(&text, true),
@@ -1485,13 +1554,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.config
     }
 
-    #[cfg(target_os = "macos")]
-    fn event_loop(&self) -> &ActiveEventLoop {
+    fn event_loop(&self) -> &dyn ActiveEventLoop {
         self.event_loop
-    }
-
-    fn clipboard_mut(&mut self) -> &mut Clipboard {
-        self.clipboard
     }
 
     fn scheduler_mut(&mut self) -> &mut Scheduler {
@@ -1706,6 +1770,13 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct TouchEvent {
+    pub slot_id: FingerId,
+    pub position: PhysicalPosition<f64>,
+    pub phase: TouchPhase,
+}
+
 /// Identified purpose of the touch input.
 #[derive(Default, Debug)]
 pub enum TouchPurpose {
@@ -1716,7 +1787,7 @@ pub enum TouchPurpose {
     Zoom(TouchZoom),
     ZoomPendingSlot(TouchEvent),
     Tap(TouchEvent),
-    Invalid(HashSet<u64, RandomState>),
+    Invalid(HashSet<FingerId, RandomState>),
 }
 
 /// Touch zooming state.
@@ -1736,7 +1807,7 @@ impl TouchZoom {
         let old_distance = self.distance();
 
         // Update touch slots.
-        if slot.id == self.slots.0.id {
+        if slot.slot_id == self.slots.0.slot_id {
             self.slots.0 = slot;
         } else {
             self.slots.1 = slot;
@@ -1757,8 +1828,8 @@ impl TouchZoom {
 
     /// Calculate distance between slots.
     fn distance(&self) -> f32 {
-        let delta_x = self.slots.0.location.x - self.slots.1.location.x;
-        let delta_y = self.slots.0.location.y - self.slots.1.location.y;
+        let delta_x = self.slots.0.position.x - self.slots.1.position.x;
+        let delta_y = self.slots.0.position.y - self.slots.1.position.y;
         delta_x.hypot(delta_y) as f32
     }
 }
@@ -1836,9 +1907,26 @@ pub struct AccumulatedScroll {
     pub y: f64,
 }
 
+pub struct DataTransferRequest {
+    /// State of the request.
+    pub state: DataTransferState,
+}
+
+/// State of the winit's async serial request.
+pub enum DataTransferState {
+    /// Waiting for the request to arrive.
+    DndStarted,
+    /// Waiting for data to finish fetching.
+    DndWaitingData,
+    /// Data fetched, but we wait for confirmation.
+    DndWaitingConfirmation(String),
+    /// Paste.
+    ClipboardPaste(Option<ClibpoardFormat>),
+}
+
 impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
     /// Handle events from winit.
-    pub fn handle_event(&mut self, event: WinitEvent<Event>) {
+    pub fn handle_event(&mut self, event: WinitEvent) {
         match event {
             WinitEvent::UserEvent(Event { payload, .. }) => match payload {
                 EventType::SearchNext => self.ctx.goto_match(None),
@@ -1887,27 +1975,25 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         self.ctx.display.visual_bell.ring();
 
                         // Execute bell command.
-                        if let Some(bell_command) = &self.ctx.config.bell.command {
-                            if self
+                        if let Some(bell_command) = &self.ctx.config.bell.command
+                            && self
                                 .ctx
                                 .prev_bell_cmd
                                 .is_none_or(|i| i.elapsed() >= BELL_CMD_COOLDOWN)
-                            {
-                                self.ctx.spawn_daemon(bell_command.program(), bell_command.args());
+                        {
+                            self.ctx.spawn_daemon(bell_command.program(), bell_command.args());
 
-                                *self.ctx.prev_bell_cmd = Some(Instant::now());
-                            }
+                            *self.ctx.prev_bell_cmd = Some(Instant::now());
                         }
                     },
                     TerminalEvent::ClipboardStore(clipboard_type, content) => {
                         if self.ctx.terminal.is_focused {
-                            self.ctx.clipboard.store(clipboard_type, content);
+                            self.ctx.set_clipboard(clipboard_type, content.into());
                         }
                     },
                     TerminalEvent::ClipboardLoad(clipboard_type, format) => {
                         if self.ctx.terminal.is_focused {
-                            let text = format(self.ctx.clipboard.load(clipboard_type).as_str());
-                            self.ctx.write_to_pty(text.into_bytes());
+                            self.ctx.load_clipboard(clipboard_type, Some(format));
                         }
                     },
                     TerminalEvent::ColorRequest(index, format) => {
@@ -1935,7 +2021,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 | EventType::CreateWindow(_)
                 | EventType::Frame => (),
             },
-            WinitEvent::WindowEvent { event, .. } => {
+            WinitEvent::WindowEvent(event) => {
                 match event {
                     WindowEvent::CloseRequested => {
                         // User asked to close the window, so no need to hold it.
@@ -1955,7 +2041,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         let font = self.ctx.config.font.clone();
                         display_update_pending.set_font(font.with_size(self.ctx.display.font_size));
                     },
-                    WindowEvent::Resized(size) => {
+                    WindowEvent::SurfaceResized(size) => {
                         // Ignore resize events to zero in any dimension, to avoid issues with Winit
                         // and the ConPTY. A 0x0 resize will also occur when the window is minimized
                         // on Windows.
@@ -1969,19 +2055,32 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         self.key_input(event);
                     },
                     WindowEvent::ModifiersChanged(modifiers) => self.modifiers_input(modifiers),
-                    WindowEvent::MouseInput { state, button, .. } => {
-                        self.ctx.window().set_mouse_visible(true);
-                        self.mouse_input(state, button);
+                    WindowEvent::PointerButton { state, position, button, .. } => {
+                        if let ButtonSource::Touch { finger_id, .. } = button {
+                            let phase = if state.is_pressed() {
+                                TouchPhase::Started
+                            } else {
+                                TouchPhase::Ended
+                            };
+                            self.touch(TouchEvent { slot_id: finger_id, position, phase });
+                        } else if let Some(mouse_button) = button.mouse_button() {
+                            self.ctx.window().set_mouse_visible(true);
+                            self.mouse_input(state, mouse_button);
+                        }
                     },
-                    WindowEvent::CursorMoved { position, .. } => {
-                        self.ctx.window().set_mouse_visible(true);
-                        self.mouse_moved(position);
+                    WindowEvent::PointerMoved { position, source, .. } => {
+                        if let PointerSource::Touch { finger_id, .. } = source {
+                            let phase = TouchPhase::Moved;
+                            self.touch(TouchEvent { slot_id: finger_id, position, phase });
+                        } else {
+                            self.ctx.window().set_mouse_visible(true);
+                            self.mouse_moved(position);
+                        }
                     },
                     WindowEvent::MouseWheel { delta, phase, .. } => {
                         self.ctx.window().set_mouse_visible(true);
                         self.mouse_wheel_input(delta, phase);
                     },
-                    WindowEvent::Touch(touch) => self.touch(touch),
                     WindowEvent::Focused(is_focused) => {
                         self.ctx.terminal.is_focused = is_focused;
 
@@ -2004,17 +2103,114 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     WindowEvent::Occluded(occluded) => {
                         *self.ctx.occluded = occluded;
                     },
-                    WindowEvent::DroppedFile(path) => {
-                        let path: String = path.to_string_lossy().into();
-                        self.ctx.paste(&(path + " "), true);
-                    },
-                    WindowEvent::CursorLeft { .. } => {
-                        self.ctx.mouse.inside_text_area = false;
+                    WindowEvent::DragEntered { id, .. } => {
+                        // If it's uri/plain text, try to fetch it, but only paste once the
+                        // `DragDropped` got delivered.
+                        let data_transfer = match self.ctx.event_loop().data_transfer(id) {
+                            Ok(data_transfer) => data_transfer,
+                            Err(_) => return,
+                        };
+                        // Mark it as copy to signal what it'll do.
+                        let _ = self.ctx.event_loop().set_valid_dnd_actions(id, &[DndAction::Copy]);
+                        // Prefer to copy as URI list and fallback to text.
+                        let ty = if data_transfer.has_type(&TypeHint::UriList) {
+                            TypeHint::UriList
+                        } else if data_transfer.has_type(&TypeHint::Plaintext) {
+                            TypeHint::Plaintext
+                        } else {
+                            return;
+                        };
 
-                        if self.ctx.display().highlighted_hint.is_some() {
-                            *self.ctx.dirty = true;
+                        if let Ok(_serial) = self.ctx.event_loop().fetch_data_transfer(id, &ty) {
+                            self.ctx.data_transfer_queue.insert(id, DataTransferRequest {
+                                state: DataTransferState::DndStarted,
+                            });
                         }
                     },
+                    WindowEvent::DragDropped { id, .. } => {
+                        if let Some(request) = self.ctx.data_transfer_queue.get_mut(&id) {
+                            if let DataTransferState::DndWaitingConfirmation(ref mut value) =
+                                request.state
+                            {
+                                // Request no longer needed at this point.
+                                let value: String = std::mem::take(value);
+                                self.ctx.paste(&value, true);
+                                self.ctx.data_transfer_queue.remove(&id);
+                            } else {
+                                request.state = DataTransferState::DndWaitingData;
+                            }
+                        }
+                    },
+                    WindowEvent::DragLeft { id } => {
+                        let _ = self.ctx.data_transfer_queue.remove(&id);
+                    },
+                    WindowEvent::DataTransferReceived { id, value, .. } => {
+                        let content = match value.type_().hint() {
+                            Some(TypeHint::Plaintext) => match value.try_as_string() {
+                                Ok(value) => value,
+                                Err(err) => {
+                                    if err.kind() != std::io::ErrorKind::WouldBlock {
+                                        self.ctx.data_transfer_queue.remove(&id);
+                                    }
+                                    return;
+                                },
+                            },
+                            Some(TypeHint::UriList) => match value.try_as_uris() {
+                                Ok(value) => value.join(" "),
+                                Err(err) => {
+                                    if err.kind() != std::io::ErrorKind::WouldBlock {
+                                        self.ctx.data_transfer_queue.remove(&id);
+                                    }
+                                    return;
+                                },
+                            },
+                            _ => return,
+                        };
+
+                        let request = match self.ctx.data_transfer_queue.get_mut(&id) {
+                            Some(request) => request,
+                            None => return,
+                        };
+
+                        match &mut request.state {
+                            DataTransferState::DndStarted
+                            | DataTransferState::DndWaitingConfirmation(_) => {
+                                request.state = DataTransferState::DndWaitingConfirmation(content);
+                            },
+                            DataTransferState::DndWaitingData => {
+                                self.ctx.paste(&content, true);
+                                self.ctx.data_transfer_queue.remove(&id);
+                            },
+                            DataTransferState::ClipboardPaste(format) => {
+                                let text = match format {
+                                    Some(formatter) => formatter(&content),
+                                    None => content,
+                                };
+
+                                self.ctx.paste(&text, true);
+                                self.ctx.data_transfer_queue.remove(&id);
+                            },
+                        }
+                    },
+                    WindowEvent::PointerEntered { position, kind, .. } => {
+                        if !matches!(kind, PointerKind::Touch(_)) {
+                            self.mouse_moved(position);
+                        }
+                    },
+                    WindowEvent::PointerLeft { kind, position, .. } => {
+                        if let PointerKind::Touch(finger_id) = kind {
+                            let phase = TouchPhase::Cancelled;
+                            let position = position.unwrap_or_default();
+                            self.touch(TouchEvent { slot_id: finger_id, position, phase });
+                        } else {
+                            self.ctx.mouse.inside_text_area = false;
+
+                            if self.ctx.display().highlighted_hint.is_some() {
+                                *self.ctx.dirty = true;
+                            }
+                        }
+                    },
+
                     WindowEvent::Ime(ime) => match ime {
                         Ime::Commit(text) => {
                             *self.ctx.dirty = true;
@@ -2040,54 +2236,51 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             self.ctx.display.ime.set_enabled(false);
                             *self.ctx.dirty = true;
                         },
+                        Ime::DeleteSurrounding { .. } => (),
                     },
                     WindowEvent::KeyboardInput { is_synthetic: true, .. }
                     | WindowEvent::ActivationTokenDone { .. }
                     | WindowEvent::DoubleTapGesture { .. }
                     | WindowEvent::TouchpadPressure { .. }
                     | WindowEvent::RotationGesture { .. }
-                    | WindowEvent::CursorEntered { .. }
                     | WindowEvent::PinchGesture { .. }
-                    | WindowEvent::AxisMotion { .. }
                     | WindowEvent::PanGesture { .. }
-                    | WindowEvent::HoveredFileCancelled
-                    | WindowEvent::Destroyed
-                    | WindowEvent::ThemeChanged(_)
-                    | WindowEvent::HoveredFile(_)
+                    | WindowEvent::DragPosition { .. }
+                    | WindowEvent::OutgoingDragDropped { .. }
+                    | WindowEvent::OutgoingDragCanceled { .. }
+                    | WindowEvent::HoldGesture { .. }
                     | WindowEvent::RedrawRequested
-                    | WindowEvent::Moved(_) => (),
+                    | WindowEvent::Destroyed
+                    | WindowEvent::Moved(_)
+                    | WindowEvent::ThemeChanged(_) => (),
+                    // TODO: remove with stable release of winit.
+                    _ => (),
                 }
             },
-            WinitEvent::Suspended
-            | WinitEvent::NewEvents { .. }
-            | WinitEvent::DeviceEvent { .. }
-            | WinitEvent::LoopExiting
-            | WinitEvent::Resumed
-            | WinitEvent::MemoryWarning
-            | WinitEvent::AboutToWait => (),
+            WinitEvent::AboutToWait => (),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct EventProxy {
-    proxy: EventLoopProxy<Event>,
+    proxy: EventLoopProxy,
     window_id: WindowId,
 }
 
 impl EventProxy {
-    pub fn new(proxy: EventLoopProxy<Event>, window_id: WindowId) -> Self {
+    pub fn new(proxy: EventLoopProxy, window_id: WindowId) -> Self {
         Self { proxy, window_id }
     }
 
     /// Send an event to the event loop.
     pub fn send_event(&self, event: EventType) {
-        let _ = self.proxy.send_event(Event::new(event, self.window_id));
+        self.proxy.send_event(Event::new(event, self.window_id));
     }
 }
 
 impl EventListener for EventProxy {
     fn send_event(&self, event: TerminalEvent) {
-        let _ = self.proxy.send_event(Event::new(event.into(), self.window_id));
+        self.proxy.send_event(Event::new(event.into(), self.window_id));
     }
 }
