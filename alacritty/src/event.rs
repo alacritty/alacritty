@@ -2104,10 +2104,23 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         *self.ctx.occluded = occluded;
                     },
                     WindowEvent::DragEntered { id, .. } => {
-                        // If it's plain text, try to fetch it, but only paste once the
+                        // If it's uri/plain text, try to fetch it, but only paste once the
                         // `DragDropped` got delivered.
+                        let data_transfer = match self.ctx.event_loop().data_transfer(id) {
+                            Ok(data_transfer) => data_transfer,
+                            Err(_) => return,
+                        };
+                        // Mark it as copy to signal what it'll do.
                         let _ = self.ctx.event_loop().set_valid_dnd_actions(id, &[DndAction::Copy]);
-                        let ty = TypeHint::Plaintext;
+                        // Prefer to copy as URI list and fallback to text.
+                        let ty = if data_transfer.has_type(&TypeHint::UriList) {
+                            TypeHint::UriList
+                        } else if data_transfer.has_type(&TypeHint::Plaintext) {
+                            TypeHint::Plaintext
+                        } else {
+                            return;
+                        };
+
                         if let Ok(_serial) = self.ctx.event_loop().fetch_data_transfer(id, &ty) {
                             self.ctx.data_transfer_queue.insert(id, DataTransferRequest {
                                 state: DataTransferState::DndStarted,
@@ -2132,43 +2145,51 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         let _ = self.ctx.data_transfer_queue.remove(&id);
                     },
                     WindowEvent::DataTransferReceived { id, value, .. } => {
-                        match value.type_().hint() {
-                            Some(TypeHint::Plaintext) => {
-                                let value = match value.try_as_string() {
-                                    Ok(value) => value,
-                                    Err(_) => {
+                        let content = match value.type_().hint() {
+                            Some(TypeHint::Plaintext) => match value.try_as_string() {
+                                Ok(value) => value,
+                                Err(err) => {
+                                    if err.kind() != std::io::ErrorKind::WouldBlock {
                                         self.ctx.data_transfer_queue.remove(&id);
-                                        return;
-                                    },
-                                };
-
-                                let request = match self.ctx.data_transfer_queue.get_mut(&id) {
-                                    Some(request) => request,
-                                    None => return,
-                                };
-
-                                match &mut request.state {
-                                    DataTransferState::DndStarted
-                                    | DataTransferState::DndWaitingConfirmation(_) => {
-                                        request.state =
-                                            DataTransferState::DndWaitingConfirmation(value);
-                                    },
-                                    DataTransferState::DndWaitingData => {
-                                        self.ctx.paste(&value, true);
-                                        self.ctx.data_transfer_queue.remove(&id);
-                                    },
-                                    DataTransferState::ClipboardPaste(format) => {
-                                        let text = match format {
-                                            Some(formatter) => formatter(&value),
-                                            None => value,
-                                        };
-
-                                        self.ctx.paste(&text, true);
-                                        self.ctx.data_transfer_queue.remove(&id);
-                                    },
-                                }
+                                    }
+                                    return;
+                                },
                             },
-                            _ => (),
+                            Some(TypeHint::UriList) => match value.try_as_uris() {
+                                Ok(value) => value.join(" "),
+                                Err(err) => {
+                                    if err.kind() != std::io::ErrorKind::WouldBlock {
+                                        self.ctx.data_transfer_queue.remove(&id);
+                                    }
+                                    return;
+                                },
+                            },
+                            _ => return,
+                        };
+
+                        let request = match self.ctx.data_transfer_queue.get_mut(&id) {
+                            Some(request) => request,
+                            None => return,
+                        };
+
+                        match &mut request.state {
+                            DataTransferState::DndStarted
+                            | DataTransferState::DndWaitingConfirmation(_) => {
+                                request.state = DataTransferState::DndWaitingConfirmation(content);
+                            },
+                            DataTransferState::DndWaitingData => {
+                                self.ctx.paste(&content, true);
+                                self.ctx.data_transfer_queue.remove(&id);
+                            },
+                            DataTransferState::ClipboardPaste(format) => {
+                                let text = match format {
+                                    Some(formatter) => formatter(&content),
+                                    None => content,
+                                };
+
+                                self.ctx.paste(&text, true);
+                                self.ctx.data_transfer_queue.remove(&id);
+                            },
                         }
                     },
                     WindowEvent::PointerEntered { position, kind, .. } => {
