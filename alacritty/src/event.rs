@@ -263,12 +263,12 @@ impl ApplicationHandler for Processor {
             return;
         }
 
-        if let Some(window_options) = self.initial_window_options.take() {
-            if let Err(err) = self.create_initial_window(event_loop, window_options) {
-                self.initial_window_error.set(Some(err));
-                event_loop.exit();
-                return;
-            }
+        if let Some(window_options) = self.initial_window_options.take()
+            && let Err(err) = self.create_initial_window(event_loop, window_options)
+        {
+            self.initial_window_error.set(Some(err));
+            event_loop.exit();
+            return;
         }
 
         info!("Initialisation complete");
@@ -812,14 +812,15 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         };
 
         match self.event_loop.fetch_data_transfer(transfer_id, &TypeHint::Plaintext) {
-            Ok(_serial) => self.data_transfer_queue.insert(transfer_id, DataTransferRequest {
-                state: DataTransferState::ClipboardPaste(format),
-            }),
+            Ok(_serial) => {
+                self.data_transfer_queue.insert(transfer_id, DataTransferRequest {
+                    state: DataTransferState::ClipboardPaste(format),
+                });
+            },
             Err(err) => {
                 info!("{err}");
-                return;
             },
-        };
+        }
     }
 
     fn selection_is_empty(&self) -> bool {
@@ -1974,16 +1975,15 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         self.ctx.display.visual_bell.ring();
 
                         // Execute bell command.
-                        if let Some(bell_command) = &self.ctx.config.bell.command {
-                            if self
+                        if let Some(bell_command) = &self.ctx.config.bell.command
+                            && self
                                 .ctx
                                 .prev_bell_cmd
                                 .is_none_or(|i| i.elapsed() >= BELL_CMD_COOLDOWN)
-                            {
-                                self.ctx.spawn_daemon(bell_command.program(), bell_command.args());
+                        {
+                            self.ctx.spawn_daemon(bell_command.program(), bell_command.args());
 
-                                *self.ctx.prev_bell_cmd = Some(Instant::now());
-                            }
+                            *self.ctx.prev_bell_cmd = Some(Instant::now());
                         }
                     },
                     TerminalEvent::ClipboardStore(clipboard_type, content) => {

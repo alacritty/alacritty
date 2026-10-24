@@ -120,10 +120,10 @@ impl Drop for TemporaryFiles {
         }
 
         // Clean up logfile.
-        if let Some(log_file) = &self.log_file {
-            if fs::remove_file(log_file).is_ok() {
-                let _ = writeln!(io::stdout(), "Deleted log file at \"{}\"", log_file.display());
-            }
+        if let Some(log_file) = &self.log_file
+            && fs::remove_file(log_file).is_ok()
+        {
+            let _ = writeln!(io::stdout(), "Deleted log file at \"{}\"", log_file.display());
         }
     }
 }

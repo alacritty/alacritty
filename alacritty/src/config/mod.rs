@@ -323,10 +323,10 @@ pub fn normalize_import(base_config_path: &Path, import_path: impl Into<PathBuf>
         import_path = home_dir.join(stripped);
     }
 
-    if import_path.is_relative() {
-        if let Some(base_config_dir) = base_config_path.parent() {
-            import_path = base_config_dir.join(import_path)
-        }
+    if import_path.is_relative()
+        && let Some(base_config_dir) = base_config_path.parent()
+    {
+        import_path = base_config_dir.join(import_path)
     }
 
     import_path

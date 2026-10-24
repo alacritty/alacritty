@@ -26,7 +26,7 @@ impl SignalListener {
     pub fn process_signal(&mut self) -> Result<(), IoError> {
         // Submit shutdown request to the main event loop.
         let event = Event::new(EventType::Shutdown, None);
-        let _ = self.event_proxy.send_event(event);
+        self.event_proxy.send_event(event);
 
         // Ensure signal is drained from pipe.
         self.pipe.read_exact(&mut [0])?;
