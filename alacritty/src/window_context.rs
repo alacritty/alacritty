@@ -33,13 +33,12 @@ use alacritty_terminal::term::{Term, TermMode};
 use alacritty_terminal::tty;
 
 use crate::cli::{ParsedOptions, WindowOptions};
-use crate::clipboard::Clipboard;
 use crate::config::UiConfig;
 use crate::display::Display;
 use crate::display::window::Window;
 use crate::event::{
-    ActionContext, AsyncRequest, Event, EventLoopProxy, EventProxy, InlineSearchState, Mouse,
-    SearchState, TouchPurpose, WinitEvent,
+    ActionContext, DataTransferRequest, Event, EventLoopProxy, EventProxy, InlineSearchState,
+    Mouse, SearchState, TouchPurpose, WinitEvent,
 };
 #[cfg(unix)]
 use crate::logging::LOG_TARGET_IPC_CONFIG;
@@ -61,7 +60,7 @@ pub struct WindowContext {
     search_state: SearchState,
     notifier: Notifier,
     mouse: Mouse,
-    data_transfer_queue: HashMap<DataTransferId, AsyncRequest>,
+    data_transfer_queue: HashMap<DataTransferId, DataTransferRequest>,
     touch: TouchPurpose,
     occluded: bool,
     preserve_title: bool,
@@ -408,7 +407,6 @@ impl WindowContext {
         &mut self,
         event_loop: &dyn ActiveEventLoop,
         event_proxy: &EventLoopProxy,
-        clipboard: &mut Clipboard,
         scheduler: &mut Scheduler,
         event: WinitEvent,
     ) {
@@ -454,7 +452,6 @@ impl WindowContext {
             config: &self.config,
             event_proxy,
             event_loop,
-            clipboard,
             scheduler,
         };
         let mut processor = input::Processor::new(context);

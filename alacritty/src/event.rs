@@ -14,7 +14,6 @@ use std::os::unix::io::RawFd;
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::rc::Rc;
-#[cfg(not(windows))]
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, Instant};
@@ -29,7 +28,7 @@ use log::{debug, error, info, warn};
 #[cfg(windows)]
 use windows_sys::Win32::System::Console::FreeConsole;
 use winit::application::ApplicationHandler;
-use winit::data_transfer::{DataTransferId, TypeHint};
+use winit::data_transfer::{DataTransferId, DataTransferSendBuilder, TypeHint};
 use winit::dpi::PhysicalPosition;
 use winit::event::{
     ButtonSource, ElementState, FingerId, Ime, Modifiers, MouseButton, PointerKind, PointerSource,
@@ -39,7 +38,6 @@ use winit::event_loop::{
     ActiveEventLoop, ControlFlow, DeviceEvents, DndAction, EventLoop,
     EventLoopProxy as WinitWakeUpProxy,
 };
-use winit::raw_window_handle::HasDisplayHandle;
 use winit::window::WindowId;
 
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify};
@@ -56,7 +54,6 @@ use crate::ConfigMonitor;
 #[cfg(unix)]
 use crate::cli::{IpcConfig, ParsedOptions};
 use crate::cli::{Options as CliOptions, WindowOptions};
-use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, UiConfig};
 #[cfg(not(windows))]
@@ -66,7 +63,7 @@ use crate::display::color::Rgb;
 use crate::display::hint::HintMatch;
 use crate::display::window::{ImeInhibitor, Window};
 use crate::display::{Display, Preedit, SizeInfo};
-use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
+use crate::input::{self, ActionContext as _, ClibpoardFormat, FONT_SIZE_STEP};
 use crate::logging::{LOG_TARGET_CONFIG, LOG_TARGET_WINIT};
 use crate::message_bar::{Message, MessageBuffer};
 #[cfg(unix)]
@@ -95,7 +92,6 @@ const BELL_CMD_COOLDOWN: Duration = Duration::from_millis(100);
 /// triggered.
 pub struct Processor {
     config_monitor: Option<ConfigMonitor>,
-    clipboard: Clipboard,
     scheduler: Scheduler,
     initial_window_options: Option<WindowOptions>,
     initial_window_error: Rc<Cell<Option<Box<dyn Error>>>>,
@@ -124,10 +120,6 @@ impl Processor {
         // Disable all device events, since we don't care about them.
         event_loop.listen_device_events(DeviceEvents::Never);
 
-        // SAFETY: Since this takes a pointer to the winit event loop, it MUST be dropped first,
-        // which is done in `loop_exiting`.
-        let clipboard = unsafe { Clipboard::new(event_loop.display_handle().unwrap().as_raw()) };
-
         // Create a config monitor.
         //
         // The monitor watches the config file for changes and reloads it. Pending
@@ -146,7 +138,6 @@ impl Processor {
             scheduler,
             gl_config: None,
             config: Rc::new(config),
-            clipboard,
             windows: Default::default(),
             #[cfg(unix)]
             global_ipc_options: Default::default(),
@@ -249,10 +240,6 @@ impl Drop for Processor {
             unsafe { display.terminate() };
         }
 
-        // SAFETY: The clipboard must be dropped before the event loop, so use the nop clipboard
-        // as a safe placeholder.
-        self.clipboard = Clipboard::new_nop();
-
         // Terminate the config monitor.
         if let Some(config_monitor) = self.config_monitor.take() {
             config_monitor.shutdown();
@@ -312,7 +299,6 @@ impl ApplicationHandler for Processor {
         window_context.handle_event(
             event_loop,
             &self.proxy,
-            &mut self.clipboard,
             &mut self.scheduler,
             WinitEvent::WindowEvent(event),
         );
@@ -481,7 +467,6 @@ impl ApplicationHandler for Processor {
                         window_context.handle_event(
                             event_loop,
                             &self.proxy,
-                            &mut self.clipboard,
                             &mut self.scheduler,
                             event.clone(),
                         );
@@ -492,7 +477,6 @@ impl ApplicationHandler for Processor {
                         window_context.handle_event(
                             event_loop,
                             &self.proxy,
-                            &mut self.clipboard,
                             &mut self.scheduler,
                             WinitEvent::UserEvent(Event::new(payload, *window_id)),
                         );
@@ -512,7 +496,6 @@ impl ApplicationHandler for Processor {
             window_context.handle_event(
                 event_loop,
                 &self.proxy,
-                &mut self.clipboard,
                 &mut self.scheduler,
                 WinitEvent::AboutToWait,
             );
@@ -699,7 +682,6 @@ impl Default for InlineSearchState {
 pub struct ActionContext<'a, N, T> {
     pub notifier: &'a mut N,
     pub terminal: &'a mut Term<T>,
-    pub clipboard: &'a mut Clipboard,
     pub mouse: &'a mut Mouse,
     pub touch: &'a mut TouchPurpose,
     pub modifiers: &'a mut Modifiers,
@@ -715,7 +697,7 @@ pub struct ActionContext<'a, N, T> {
     pub inline_search_state: &'a mut InlineSearchState,
     pub dirty: &'a mut bool,
     pub occluded: &'a mut bool,
-    pub data_transfer_queue: &'a mut HashMap<DataTransferId, AsyncRequest>,
+    pub data_transfer_queue: &'a mut HashMap<DataTransferId, DataTransferRequest>,
     pub preserve_title: bool,
     #[cfg(not(windows))]
     pub master_fd: RawFd,
@@ -779,14 +761,65 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     // Copy text selection.
     fn copy_selection(&mut self, ty: ClipboardType) {
         let text = match self.terminal.selection_to_string().filter(|s| !s.is_empty()) {
-            Some(text) => text,
+            Some(text) => Arc::<str>::from(text),
             None => return,
         };
 
         if ty == ClipboardType::Selection && self.config.selection.save_to_clipboard {
-            self.clipboard.store(ClipboardType::Clipboard, text.clone());
+            self.set_clipboard(ClipboardType::Clipboard, text.clone());
         }
-        self.clipboard.store(ty, text);
+
+        self.set_clipboard(ty, text);
+    }
+
+    fn set_clipboard(&mut self, ty: ClipboardType, text: Arc<str>) {
+        let send_data = DataTransferSendBuilder::new(text)
+            .with_type(TypeHint::Plaintext, |text: &Arc<str>, _| Some(text.to_string()))
+            .build();
+        let result = match ty {
+            ClipboardType::Clipboard => self.event_loop().set_clipboard(send_data),
+            ClipboardType::Selection => {
+                let primary_selection = match self.event_loop().primary_selection_ext() {
+                    Some(primary_selection) => primary_selection,
+                    None => return,
+                };
+
+                primary_selection.set_primary_selection(send_data)
+            },
+        };
+
+        if let Err(err) = result {
+            warn!("Failed to copy to clipboard: {err}");
+        }
+    }
+
+    fn load_clipboard(
+        &mut self,
+        ty: ClipboardType,
+        format: Option<Arc<dyn Fn(&str) -> String + Sync + Send + 'static>>,
+    ) {
+        let transfer_id = match ty {
+            ClipboardType::Clipboard => match self.event_loop().clipboard() {
+                Ok(Some(id)) => id,
+                _ => return,
+            },
+            ClipboardType::Selection => {
+                match self.event_loop().primary_selection_ext().map(|ext| ext.primary_selection()) {
+                    Some(Ok(Some(id))) => id,
+                    _ => return,
+                }
+            },
+        };
+
+        match self.event_loop.fetch_data_transfer(transfer_id, &TypeHint::Plaintext) {
+            Ok(_serial) => self.data_transfer_queue.insert(transfer_id, DataTransferRequest {
+                state: DataTransferState::ClipboardPaste(format),
+            }),
+            Err(err) => {
+                info!("{err}");
+                return;
+            },
+        };
     }
 
     fn selection_is_empty(&self) -> bool {
@@ -1286,7 +1319,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             },
             // Copy the text to the clipboard.
             HintAction::Action(HintInternalAction::Copy) => {
-                self.clipboard.store(ClipboardType::Clipboard, text);
+                // self.clipboard.store(ClipboardType::Clipboard, text);
             },
             // Write the text to the PTY/search.
             HintAction::Action(HintInternalAction::Paste) => self.paste(&text, true),
@@ -1522,10 +1555,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     fn event_loop(&self) -> &dyn ActiveEventLoop {
         self.event_loop
-    }
-
-    fn clipboard_mut(&mut self) -> &mut Clipboard {
-        self.clipboard
     }
 
     fn scheduler_mut(&mut self) -> &mut Scheduler {
@@ -1877,20 +1906,21 @@ pub struct AccumulatedScroll {
     pub y: f64,
 }
 
-pub struct AsyncRequest {
+pub struct DataTransferRequest {
     /// State of the request.
-    pub state: AsyncRequestState,
+    pub state: DataTransferState,
 }
 
 /// State of the winit's async serial request.
-#[derive(Debug)]
-pub enum AsyncRequestState {
+pub enum DataTransferState {
     /// Waiting for the request to arrive.
-    Started,
+    DndStarted,
     /// Waiting for data to finish fetching.
-    WaitingData,
+    DndWaitingData,
     /// Data fetched, but we wait for confirmation.
-    WaitingConfirmation(String),
+    DndWaitingConfirmation(String),
+    /// Paste.
+    ClipboardPaste(Option<ClibpoardFormat>),
 }
 
 impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
@@ -1958,13 +1988,12 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     TerminalEvent::ClipboardStore(clipboard_type, content) => {
                         if self.ctx.terminal.is_focused {
-                            self.ctx.clipboard.store(clipboard_type, content);
+                            self.ctx.set_clipboard(clipboard_type, content.into());
                         }
                     },
                     TerminalEvent::ClipboardLoad(clipboard_type, format) => {
                         if self.ctx.terminal.is_focused {
-                            let text = format(self.ctx.clipboard.load(clipboard_type).as_str());
-                            self.ctx.write_to_pty(text.into_bytes());
+                            self.ctx.load_clipboard(clipboard_type, Some(format));
                         }
                     },
                     TerminalEvent::ColorRequest(index, format) => {
@@ -2080,14 +2109,14 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         let _ = self.ctx.event_loop().set_valid_dnd_actions(id, &[DndAction::Copy]);
                         let ty = TypeHint::Plaintext;
                         if let Ok(_serial) = self.ctx.event_loop().fetch_data_transfer(id, &ty) {
-                            self.ctx
-                                .data_transfer_queue
-                                .insert(id, AsyncRequest { state: AsyncRequestState::Started });
+                            self.ctx.data_transfer_queue.insert(id, DataTransferRequest {
+                                state: DataTransferState::DndStarted,
+                            });
                         }
                     },
                     WindowEvent::DragDropped { id, .. } => {
                         if let Some(request) = self.ctx.data_transfer_queue.get_mut(&id) {
-                            if let AsyncRequestState::WaitingConfirmation(ref mut value) =
+                            if let DataTransferState::DndWaitingConfirmation(ref mut value) =
                                 request.state
                             {
                                 // Request no longer needed at this point.
@@ -2095,7 +2124,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                                 self.ctx.paste(&value, true);
                                 self.ctx.data_transfer_queue.remove(&id);
                             } else {
-                                request.state = AsyncRequestState::WaitingData;
+                                request.state = DataTransferState::DndWaitingData;
                             }
                         }
                     },
@@ -2113,14 +2142,30 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                                     },
                                 };
 
-                                if let Some(request) = self.ctx.data_transfer_queue.get_mut(&id) {
-                                    if matches!(request.state, AsyncRequestState::WaitingData) {
+                                let request = match self.ctx.data_transfer_queue.get_mut(&id) {
+                                    Some(request) => request,
+                                    None => return,
+                                };
+
+                                match &mut request.state {
+                                    DataTransferState::DndStarted
+                                    | DataTransferState::DndWaitingConfirmation(_) => {
+                                        request.state =
+                                            DataTransferState::DndWaitingConfirmation(value);
+                                    },
+                                    DataTransferState::DndWaitingData => {
                                         self.ctx.paste(&value, true);
                                         self.ctx.data_transfer_queue.remove(&id);
-                                    } else {
-                                        request.state =
-                                            AsyncRequestState::WaitingConfirmation(value);
-                                    }
+                                    },
+                                    DataTransferState::ClipboardPaste(format) => {
+                                        let text = match format {
+                                            Some(formatter) => formatter(&value),
+                                            None => value,
+                                        };
+
+                                        self.ctx.paste(&text, true);
+                                        self.ctx.data_transfer_queue.remove(&id);
+                                    },
                                 }
                             },
                             _ => (),
@@ -2171,10 +2216,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             *self.ctx.dirty = true;
                         },
                         Ime::DeleteSurrounding { .. } => (),
-                        // TODO: remove with stable release of winit.
-                        _ => (),
                     },
-
                     WindowEvent::KeyboardInput { is_synthetic: true, .. }
                     | WindowEvent::ActivationTokenDone { .. }
                     | WindowEvent::DoubleTapGesture { .. }

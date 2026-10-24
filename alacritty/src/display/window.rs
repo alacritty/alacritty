@@ -53,7 +53,7 @@ const IDI_ICON: u16 = 0x101;
 #[derive(Debug)]
 pub enum Error {
     /// Error creating the window.
-    WindowCreation(winit::error::RequestError),
+    WindowCreation(winit::error::CreateWindowError),
 
     /// Error dealing with fonts.
     Font(crossfont::Error),
@@ -80,8 +80,8 @@ impl Display for Error {
     }
 }
 
-impl From<winit::error::RequestError> for Error {
-    fn from(val: winit::error::RequestError) -> Self {
+impl From<winit::error::CreateWindowError> for Error {
+    fn from(val: winit::error::CreateWindowError) -> Self {
         Error::WindowCreation(val)
     }
 }

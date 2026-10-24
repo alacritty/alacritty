@@ -12,6 +12,7 @@ use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::mem;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use log::debug;
@@ -32,7 +33,6 @@ use alacritty_terminal::term::{ClipboardType, Term, TermMode};
 use alacritty_terminal::vi_mode::ViMotion;
 use alacritty_terminal::vte::ansi::{ClearMode, Handler};
 
-use crate::clipboard::Clipboard;
 #[cfg(target_os = "macos")]
 use crate::config::window::Decorations;
 use crate::config::{
@@ -81,6 +81,8 @@ pub trait ActionContext<T: EventListener> {
     fn mark_dirty(&mut self) {}
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&mut self, _ty: ClipboardType) {}
+    fn set_clipboard(&mut self, _ty: ClipboardType, _text: Arc<str>) {}
+    fn load_clipboard(&mut self, _ty: ClipboardType, _format: Option<ClibpoardFormat>) {}
     fn start_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
     fn toggle_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
     fn update_selection(&mut self, _point: Point, _side: Side) {}
@@ -107,7 +109,6 @@ pub trait ActionContext<T: EventListener> {
     fn config(&self) -> &UiConfig;
     fn event_loop(&self) -> &dyn ActiveEventLoop;
     fn mouse_mode(&self) -> bool;
-    fn clipboard_mut(&mut self) -> &mut Clipboard;
     fn scheduler_mut(&mut self) -> &mut Scheduler;
     fn start_search(&mut self, _direction: Direction) {}
     fn start_seeded_search(&mut self, _direction: Direction, _text: String) {}
@@ -156,6 +157,8 @@ impl Action {
         }
     }
 }
+
+pub type ClibpoardFormat = Arc<dyn Fn(&str) -> String + Sync + Send + 'static>;
 
 trait Execute<T: EventListener> {
     fn execute<A: ActionContext<T>>(&self, ctx: &mut A);
@@ -320,14 +323,8 @@ impl<T: EventListener> Execute<T> for Action {
             #[cfg(not(any(target_os = "macos", windows)))]
             Action::CopySelection => ctx.copy_selection(ClipboardType::Selection),
             Action::ClearSelection => ctx.clear_selection(),
-            Action::Paste => {
-                let text = ctx.clipboard_mut().load(ClipboardType::Clipboard);
-                ctx.paste(&text, true);
-            },
-            Action::PasteSelection => {
-                let text = ctx.clipboard_mut().load(ClipboardType::Selection);
-                ctx.paste(&text, true);
-            },
+            Action::Paste => ctx.load_clipboard(ClipboardType::Clipboard, None),
+            Action::PasteSelection => ctx.load_clipboard(ClipboardType::Selection, None),
             Action::ToggleFullscreen => ctx.window().toggle_fullscreen(),
             Action::ToggleMaximized => ctx.window().toggle_maximized(),
             #[cfg(target_os = "macos")]
@@ -1164,7 +1161,6 @@ mod tests {
         pub terminal: &'a mut Term<T>,
         pub size_info: &'a SizeInfo,
         pub mouse: &'a mut Mouse,
-        pub clipboard: &'a mut Clipboard,
         pub message_buffer: &'a mut MessageBuffer,
         pub modifiers: Modifiers,
         config: &'a UiConfig,
@@ -1256,10 +1252,6 @@ mod tests {
             self.config
         }
 
-        fn clipboard_mut(&mut self) -> &mut Clipboard {
-            self.clipboard
-        }
-
         fn event_loop(&self) -> &dyn ActiveEventLoop {
             unimplemented!();
         }
@@ -1284,7 +1276,6 @@ mod tests {
         } => {
             #[test]
             fn $name() {
-                let mut clipboard = Clipboard::new_nop();
                 let cfg = UiConfig::default();
                 let size = SizeInfo::new(
                     21.0,
@@ -1312,7 +1303,6 @@ mod tests {
                     terminal: &mut terminal,
                     mouse: &mut mouse,
                     size_info: &size,
-                    clipboard: &mut clipboard,
                     modifiers: Default::default(),
                     message_buffer: &mut message_buffer,
                     inline_search_state: &mut inline_search_state,
