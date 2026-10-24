@@ -35,7 +35,7 @@ use winit::event::{
     StartCause, TouchPhase, WindowEvent,
 };
 use winit::event_loop::{
-    ActiveEventLoop, ControlFlow, DeviceEvents, DndAction, EventLoop,
+    ActiveEventLoop, AsyncRequestSerial, ControlFlow, DeviceEvents, DndAction, EventLoop,
     EventLoopProxy as WinitWakeUpProxy,
 };
 use winit::window::WindowId;
@@ -697,7 +697,7 @@ pub struct ActionContext<'a, N, T> {
     pub inline_search_state: &'a mut InlineSearchState,
     pub dirty: &'a mut bool,
     pub occluded: &'a mut bool,
-    pub data_transfer_queue: &'a mut HashMap<DataTransferId, DataTransferRequest>,
+    pub data_transfer_queue: &'a mut HashMap<DataTransferId, Vec<DataTransferRequest>>,
     pub preserve_title: bool,
     #[cfg(not(windows))]
     pub master_fd: RawFd,
@@ -812,10 +812,13 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         };
 
         match self.event_loop.fetch_data_transfer(transfer_id, &TypeHint::Plaintext) {
-            Ok(_serial) => {
-                self.data_transfer_queue.insert(transfer_id, DataTransferRequest {
+            Ok(serial) => {
+                let request = DataTransferRequest {
+                    serial,
+                    is_dnd: false,
                     state: DataTransferState::ClipboardPaste(format),
-                });
+                };
+                self.data_transfer_queue.entry(transfer_id).or_default().push(request);
             },
             Err(err) => {
                 info!("{err}");
@@ -1320,7 +1323,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             },
             // Copy the text to the clipboard.
             HintAction::Action(HintInternalAction::Copy) => {
-                // self.clipboard.store(ClipboardType::Clipboard, text);
+                self.set_clipboard(ClipboardType::Clipboard, text.into());
             },
             // Write the text to the PTY/search.
             HintAction::Action(HintInternalAction::Paste) => self.paste(&text, true),
@@ -1908,6 +1911,9 @@ pub struct AccumulatedScroll {
 }
 
 pub struct DataTransferRequest {
+    pub serial: AsyncRequestSerial,
+    /// The transfer belongs to drag and drop.
+    pub is_dnd: bool,
     /// State of the request.
     pub state: DataTransferState,
 }
@@ -2121,30 +2127,46 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             return;
                         };
 
-                        if let Ok(_serial) = self.ctx.event_loop().fetch_data_transfer(id, &ty) {
-                            self.ctx.data_transfer_queue.insert(id, DataTransferRequest {
+                        if let Ok(serial) = self.ctx.event_loop().fetch_data_transfer(id, &ty) {
+                            let request = DataTransferRequest {
+                                serial,
+                                is_dnd: true,
                                 state: DataTransferState::DndStarted,
-                            });
+                            };
+                            self.ctx.data_transfer_queue.entry(id).or_default().push(request);
                         }
                     },
                     WindowEvent::DragDropped { id, .. } => {
-                        if let Some(request) = self.ctx.data_transfer_queue.get_mut(&id) {
+                        if let Some(request) =
+                            self.ctx.data_transfer_queue.get_mut(&id).and_then(|requests| {
+                                requests.iter_mut().find(|request| request.is_dnd)
+                            })
+                        {
                             if let DataTransferState::DndWaitingConfirmation(ref mut value) =
                                 request.state
                             {
                                 // Request no longer needed at this point.
                                 let value: String = std::mem::take(value);
+                                let serial = request.serial;
                                 self.ctx.paste(&value, true);
-                                self.ctx.data_transfer_queue.remove(&id);
+                                cleanup_data_request(self.ctx.data_transfer_queue, id, serial);
                             } else {
                                 request.state = DataTransferState::DndWaitingData;
                             }
                         }
                     },
                     WindowEvent::DragLeft { id } => {
-                        let _ = self.ctx.data_transfer_queue.remove(&id);
+                        if let Some(serial) =
+                            self.ctx.data_transfer_queue.get_mut(&id).and_then(|requests| {
+                                requests
+                                    .iter_mut()
+                                    .find_map(|request| request.is_dnd.then_some(request.serial))
+                            })
+                        {
+                            cleanup_data_request(self.ctx.data_transfer_queue, id, serial);
+                        }
                     },
-                    WindowEvent::DataTransferReceived { id, value, .. } => {
+                    WindowEvent::DataTransferReceived { id, value, serial } => {
                         let content = match value.type_().hint() {
                             Some(TypeHint::Plaintext) => match value.try_as_string() {
                                 Ok(value) => value,
@@ -2167,10 +2189,13 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             _ => return,
                         };
 
-                        let request = match self.ctx.data_transfer_queue.get_mut(&id) {
-                            Some(request) => request,
-                            None => return,
-                        };
+                        let request =
+                            match self.ctx.data_transfer_queue.get_mut(&id).and_then(|requests| {
+                                requests.iter_mut().find(|request| request.serial == serial)
+                            }) {
+                                Some(request) => request,
+                                None => return,
+                            };
 
                         match &mut request.state {
                             DataTransferState::DndStarted
@@ -2179,7 +2204,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             },
                             DataTransferState::DndWaitingData => {
                                 self.ctx.paste(&content, true);
-                                self.ctx.data_transfer_queue.remove(&id);
+                                cleanup_data_request(self.ctx.data_transfer_queue, id, serial);
                             },
                             DataTransferState::ClipboardPaste(format) => {
                                 let text = match format {
@@ -2188,7 +2213,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                                 };
 
                                 self.ctx.paste(&text, true);
-                                self.ctx.data_transfer_queue.remove(&id);
+                                cleanup_data_request(self.ctx.data_transfer_queue, id, serial);
                             },
                         }
                     },
@@ -2282,5 +2307,21 @@ impl EventProxy {
 impl EventListener for EventProxy {
     fn send_event(&self, event: TerminalEvent) {
         self.proxy.send_event(Event::new(event.into(), self.window_id));
+    }
+}
+
+/// Clean-up request for the `id`.
+fn cleanup_data_request(
+    state: &mut HashMap<DataTransferId, Vec<DataTransferRequest>>,
+    id: DataTransferId,
+    serial: AsyncRequestSerial,
+) {
+    let requests = match state.get_mut(&id) {
+        Some(requests) => requests,
+        None => return,
+    };
+    requests.retain(|r| r.serial != serial);
+    if requests.is_empty() {
+        state.remove(&id);
     }
 }

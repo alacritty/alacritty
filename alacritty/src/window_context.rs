@@ -60,7 +60,7 @@ pub struct WindowContext {
     search_state: SearchState,
     notifier: Notifier,
     mouse: Mouse,
-    data_transfer_queue: HashMap<DataTransferId, DataTransferRequest>,
+    data_transfer_queue: HashMap<DataTransferId, Vec<DataTransferRequest>>,
     touch: TouchPurpose,
     occluded: bool,
     preserve_title: bool,
