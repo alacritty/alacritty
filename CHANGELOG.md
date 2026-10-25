@@ -8,7 +8,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Notable changes to the `alacritty_terminal` crate are documented in its
 [CHANGELOG](./alacritty_terminal/CHANGELOG.md).
 
-## 0.17.0-dev
+## 0.18.0-dev
+
+### Packaging
+
+- Fixed `alacritty-escapes(7)` manpage missing from macOS install
+- Added the `Open Alacritty here` entry to the right-click context menu for folders on Windows
+
+### Fixed
+
+- Spurious "Failed to set new owner of XCB selection" warnings on X11
+- Lacking permissions to launch software sending Apple events
+- Off-by-one in vi mode ParagraphUp action
+- Unbounded per-cell memory usage for zero-width cells
+- Unbounded Kitty keyboard mode stack size
+
+## 0.17.0
 
 ### Packaging
 

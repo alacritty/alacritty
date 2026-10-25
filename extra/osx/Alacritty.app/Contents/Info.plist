@@ -15,7 +15,7 @@
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.17.0-dev</string>
+  <string>0.18.0-dev</string>
   <key>CFBundleSupportedPlatforms</key>
   <array>
     <string>MacOSX</string>
@@ -34,6 +34,8 @@
   <string>Alacritty</string>
   <key>NSRequiresAquaSystemAppearance</key>
   <string>NO</string>
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
     <key>NSAppleEventsUsageDescription</key>
     <string>An application in Alacritty would like to access AppleScript.</string>
     <key>NSCalendarsUsageDescription</key>
@@ -56,5 +58,7 @@
     <string>An application in Alacritty requires elevated permissions.</string>
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>An application in Alacritty wants to use Bluetooth.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>An application in Alacritty wants to access the local network.</string>
 </dict>
 </plist>

@@ -161,7 +161,7 @@ impl ViModeCursor {
                 // Skip empty lines until we find the next paragraph,
                 // then skip over the paragraph until we reach the next empty line.
                 let topmost_line = term.topmost_line();
-                self.point.line = (*topmost_line..*self.point.line)
+                self.point.line = (*topmost_line..=*self.point.line)
                     .rev()
                     .skip_while(|line| term.grid()[Line(*line)].is_clear())
                     .find(|line| term.grid()[Line(*line)].is_clear())

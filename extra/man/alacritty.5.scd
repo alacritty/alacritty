@@ -7,7 +7,7 @@ Alacritty - TOML configuration file format.
 # SYNTAX
 
 Alacritty's configuration file uses the TOML format. The format's specification
-can be found at _https://toml.io/en/v1.0.0_.
+can be found at _https://toml.io/en/v1.1.0_.
 
 # LOCATION
 

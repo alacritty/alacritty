@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use arrayvec::ArrayVec;
 use bitflags::bitflags;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -9,6 +10,12 @@ use crate::graphics::GraphicsCell;
 use crate::grid::{self, GridCell};
 use crate::index::Column;
 use crate::vte::ansi::{Color, Hyperlink as VteHyperlink, NamedColor};
+
+/// Maximum number of zerowidth characters to retain per grid cell.
+///
+/// This enforces an upper bound on memory usage per cell, to ensure
+/// malicous applications cannot use this as a DoS vector.
+const MAX_ZEROWIDTH_CHARS: usize = 9;
 
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -125,7 +132,7 @@ impl ResetDiscriminant<Color> for Cell {
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CellExtra {
-    zerowidth: Vec<char>,
+    zerowidth: ArrayVec<char, MAX_ZEROWIDTH_CHARS>,
     underline_color: Option<Color>,
     hyperlink: Option<Hyperlink>,
 
@@ -168,7 +175,7 @@ impl Cell {
     #[inline]
     pub fn push_zerowidth(&mut self, character: char) {
         let extra = self.extra.get_or_insert(Default::default());
-        Arc::make_mut(extra).zerowidth.push(character);
+        let _ = Arc::make_mut(extra).zerowidth.try_push(character);
     }
 
     /// Graphic present in the cell.
@@ -203,7 +210,7 @@ impl Cell {
     pub fn clear_wide(&mut self) {
         self.flags.remove(Flags::WIDE_CHAR);
         if let Some(extra) = self.extra.as_mut() {
-            Arc::make_mut(extra).zerowidth = Vec::new();
+            Arc::make_mut(extra).zerowidth = ArrayVec::new();
         }
         self.c = ' ';
     }

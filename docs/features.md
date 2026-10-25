@@ -2,7 +2,9 @@
 
 This document gives an overview over Alacritty's features beyond its terminal
 emulation capabilities. To get a list with supported control sequences take a
-look at [Alacritty's escape sequence support](./escape_support.md).
+look at the [alacritty-escapes(7) manpage].
+
+[alacritty-escapes(7) manpage]: ../extra/man/alacritty-escapes.7.scd
 
 ## Vi Mode
 

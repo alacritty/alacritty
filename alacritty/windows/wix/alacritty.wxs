@@ -1,5 +1,5 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
-   <Package Name="Alacritty" UpgradeCode="87c21c74-dbd5-4584-89d5-46d9cd0c40a7" Language="1033" Codepage="1252" Version="0.17.0-dev" Manufacturer="Alacritty" InstallerVersion="200">
+   <Package Name="Alacritty" UpgradeCode="87c21c74-dbd5-4584-89d5-46d9cd0c40a7" Language="1033" Codepage="1252" Version="0.18.0-dev" Manufacturer="Alacritty" InstallerVersion="200">
       <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
       <Icon Id="AlacrittyIco" SourceFile=".\alacritty\windows\alacritty.ico" />
       <WixVariable Id="WixUILicenseRtf" Value=".\alacritty\windows\wix\license.rtf" />
@@ -11,6 +11,7 @@
          <ComponentRef Id="AlacrittyShortcut" />
          <ComponentRef Id="ModifyPathEnv" />
          <ComponentRef Id="ContextMenu" />
+         <ComponentRef Id="ContextMenuFolder" />
       </Feature>
       <!-- Application binaries -->
       <DirectoryRef Id="AlacrittyProgramFiles">
@@ -44,6 +45,14 @@
             <RegistryValue Type="string" Value='[AlacrittyProgramFiles]alacritty.exe --working-directory "%v"' KeyPath="yes" />
          </RegistryKey>
          <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\Open Alacritty here">
+            <RegistryValue Type="string" Name="Icon" Value="[AlacrittyProgramFiles]alacritty.exe" />
+         </RegistryKey>
+      </Component>
+      <Component Id="ContextMenuFolder" Guid="69483b38-a267-433f-9395-60827963347a" Directory="TARGETDIR">
+         <RegistryKey Root="HKCU" Key="Software\Classes\Directory\shell\Open Alacritty here\command">
+            <RegistryValue Type="string" Value='[AlacrittyProgramFiles]alacritty.exe --working-directory "%v"' KeyPath="yes" />
+         </RegistryKey>
+         <RegistryKey Root="HKCU" Key="Software\Classes\Directory\shell\Open Alacritty here">
             <RegistryValue Type="string" Name="Icon" Value="[AlacrittyProgramFiles]alacritty.exe" />
          </RegistryKey>
       </Component>

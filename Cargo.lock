@@ -32,7 +32,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty"
-version = "0.17.0-dev"
+version = "0.18.0-dev"
 dependencies = [
  "ahash",
  "alacritty_config",
@@ -96,8 +96,9 @@ dependencies = [
 
 [[package]]
 name = "alacritty_terminal"
-version = "0.25.2-dev"
+version = "0.26.1-dev"
 dependencies = [
+ "arrayvec",
  "base64",
  "bitflags 2.9.4",
  "home",
@@ -207,6 +208,9 @@ name = "arrayvec"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "as-raw-xcb-connection"
@@ -2728,8 +2732,7 @@ checksum = "f17a85883d4e6d00e8a97c586de764dabcc06133f7f1d55dce5cdc070ad7fe59"
 [[package]]
 name = "x11-clipboard"
 version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "662d74b3d77e396b8e5beb00b9cad6a9eccf40b2ef68cc858784b14c41d535a3"
+source = "git+https://github.com/quininer/x11-clipboard.git?rev=19ab2163cf0bd0db607e827a5214571990307866#19ab2163cf0bd0db607e827a5214571990307866"
 dependencies = [
  "libc",
  "x11rb",
