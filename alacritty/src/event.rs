@@ -2239,6 +2239,8 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     WindowEvent::Ime(ime) => match ime {
                         Ime::Commit(text) => {
                             *self.ctx.dirty = true;
+                            // Commit implies clearing of preedit.
+                            self.ctx.display.ime.set_preedit(None);
                             // Don't use bracketed paste for single char input.
                             self.ctx.paste(&text, text.chars().count() > 1);
                             self.ctx.update_cursor_blinking();
