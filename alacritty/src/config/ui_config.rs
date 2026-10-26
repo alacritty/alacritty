@@ -154,7 +154,7 @@ impl UiConfig {
 
     #[inline]
     pub fn mouse_bindings(&self) -> &[MouseBinding] {
-        &self.mouse.bindings.0
+        &self.mouse.bindings.bindings
     }
 
     #[inline]
@@ -755,7 +755,6 @@ mod tests {
             [keyboard]
             bindings = [
                 { key = "N", mods = "Control|Shift", action = "SpawnNewInstance" },
-                { key = "Invalid", action = "SpawnNewInstance" },
             ]
 
             [mouse]
@@ -783,5 +782,37 @@ mod tests {
         .unwrap();
         assert_eq!(reloaded.key_bindings(), config.key_bindings());
         assert_eq!(reloaded.mouse_bindings(), config.mouse_bindings());
+    }
+
+    #[test]
+    fn serialize_skips_invalid_bindings() {
+        let config: UiConfig = toml::from_str(
+            r#"
+            [keyboard]
+            bindings = [
+                { key = "N", mods = "Control|Shift", action = "SpawnNewInstance" },
+                { key = "Invalid", action = "SpawnNewInstance" },
+            ]
+
+            [mouse]
+            bindings = [
+                { mouse = "Middle", mode = "~Vi", action = "Copy" },
+                { mouse = "Middle", action = "Invalid" },
+            ]
+            "#,
+        )
+        .unwrap();
+
+        let serialized = serde_json::to_value(&config).unwrap();
+        assert_eq!(
+            serialized["keyboard"]["bindings"],
+            serde_json::json!([
+                { "key": "N", "mods": "Control|Shift", "action": "SpawnNewInstance" },
+            ])
+        );
+        assert_eq!(
+            serialized["mouse"]["bindings"],
+            serde_json::json!([{ "mouse": "Middle", "mode": "~Vi", "action": "Copy" }])
+        );
     }
 }

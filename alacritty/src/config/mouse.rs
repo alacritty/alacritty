@@ -13,11 +13,14 @@ pub struct Mouse {
 
 /// Active mouse bindings and the user's binding entries they were created from.
 #[derive(SerdeReplace, Clone, Debug, PartialEq)]
-pub struct MouseBindings(pub Vec<MouseBinding>, Vec<toml::Value>);
+pub struct MouseBindings {
+    pub bindings: Vec<MouseBinding>,
+    user_bindings: Vec<toml::Value>,
+}
 
 impl Default for MouseBindings {
     fn default() -> Self {
-        Self(bindings::default_mouse_bindings(), Vec::new())
+        Self { bindings: bindings::default_mouse_bindings(), user_bindings: Vec::new() }
     }
 }
 
@@ -29,7 +32,7 @@ impl<'de> Deserialize<'de> for MouseBindings {
         let mut user_bindings = Vec::<toml::Value>::deserialize(deserializer)?;
         let bindings =
             ui_config::deserialize_bindings(&mut user_bindings, bindings::default_mouse_bindings());
-        Ok(Self(bindings, user_bindings))
+        Ok(Self { bindings, user_bindings })
     }
 }
 
@@ -38,6 +41,6 @@ impl Serialize for MouseBindings {
     where
         S: Serializer,
     {
-        self.1.serialize(serializer)
+        self.user_bindings.serialize(serializer)
     }
 }
