@@ -66,6 +66,14 @@ This section documents the *[general]* table of the configuration file.
 
 	Default: _true_
 
+*memory_wait* = _<integer>_ | _"Forever"_
+
+	Seconds to wait for memory when the system runs out. Alacritty stops
+	responding while it waits. When the time is up, Alacritty aborts. With
+	_0_ it aborts right away.
+
+	Default: _300_
+
 # ENV
 
 All key-value pairs in the *[env]* section will be added as environment variables

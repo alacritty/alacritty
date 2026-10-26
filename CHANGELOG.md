@@ -15,6 +15,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Fixed `alacritty-escapes(7)` manpage missing from macOS install
 - Added the `Open Alacritty here` entry to the right-click context menu for folders on Windows
 
+### Added
+
+- Config option `general.memory_wait` to wait for memory instead of crashing when the system runs out
+
 ### Fixed
 
 - Spurious "Failed to set new owner of XCB selection" warnings on X11
@@ -22,6 +26,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Off-by-one in vi mode ParagraphUp action
 - Unbounded per-cell memory usage for zero-width cells
 - Unbounded Kitty keyboard mode stack size
+- Crash when the system is briefly low on memory
 
 ## 0.17.0
 

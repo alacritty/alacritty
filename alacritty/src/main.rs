@@ -27,6 +27,7 @@ use winit::raw_window_handle::{HasDisplayHandle, RawDisplayHandle};
 
 use alacritty_terminal::tty;
 
+mod allocator;
 mod cli;
 mod clipboard;
 mod config;
@@ -165,6 +166,8 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
 
     // Update the log level from config.
     log::set_max_level(config.debug.log_level);
+
+    allocator::set_memory_wait(config.general.memory_wait);
 
     // Set tty environment variables.
     tty::setup_env();

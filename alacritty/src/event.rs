@@ -44,6 +44,7 @@ use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, ClipboardType, Term, TermMode};
 use alacritty_terminal::vte::ansi::NamedColor;
 
+use crate::allocator;
 #[cfg(unix)]
 use crate::cli::{IpcConfig, ParsedOptions};
 use crate::cli::{Options as CliOptions, WindowOptions};
@@ -352,6 +353,7 @@ impl ApplicationHandler<Event> for Processor {
                 // Load config and update each terminal.
                 if let Ok(config) = config::reload(&path, &mut self.cli_options) {
                     self.config = Rc::new(config);
+                    allocator::set_memory_wait(self.config.general.memory_wait);
 
                     // Restart config monitor if imports changed.
                     if let Some(monitor) = self.config_monitor.take() {
@@ -466,6 +468,12 @@ impl ApplicationHandler<Event> for Processor {
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         if self.config.debug.print_events {
             info!(target: LOG_TARGET_WINIT, "About to wait");
+        }
+
+        // The allocator can't log while it waits for memory, so report it here.
+        let waited = allocator::take_waited();
+        if !waited.is_zero() {
+            warn!("Waited {}ms for memory to become available", waited.as_millis());
         }
 
         // Dispatch event to all windows.
