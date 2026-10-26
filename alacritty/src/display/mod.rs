@@ -44,7 +44,7 @@ use crate::config::window::Dimensions;
 use crate::config::window::StartupMode;
 use crate::display::bell::VisualBell;
 use crate::display::color::{List, Rgb};
-use crate::display::content::{RenderableContent, RenderableCursor};
+use crate::display::content::{RenderableCell, RenderableContent, RenderableCursor};
 use crate::display::cursor::IntoRects;
 use crate::display::damage::{DamageTracker, damage_y_to_viewport_y};
 use crate::display::hint::{HintMatch, HintState};
@@ -397,6 +397,10 @@ pub struct Display {
 
     glyph_cache: GlyphCache,
     meter: Meter,
+
+    /// Buffer for the cells of a frame, sized for the grid and kept between frames to avoid
+    /// allocating on every draw.
+    grid_cells: Vec<RenderableCell>,
 }
 
 impl Display {
@@ -537,6 +541,7 @@ impl Display {
             hint_mouse_point: Default::default(),
             pending_update: Default::default(),
             cursor_hidden: Default::default(),
+            grid_cells: Vec::with_capacity(size_info.screen_lines() * size_info.columns()),
             meter: Default::default(),
             ime: Default::default(),
         })
@@ -722,6 +727,10 @@ impl Display {
 
             // Resize damage tracking.
             self.damage_tracker.resize(new_size.screen_lines(), new_size.columns());
+
+            // Fit the cell buffer to the new grid, freeing the old one first.
+            self.grid_cells = Vec::new();
+            self.grid_cells.reserve_exact(new_size.screen_lines() * new_size.columns());
         }
 
         // Check if dimensions have changed.
@@ -780,9 +789,10 @@ impl Display {
         config: &UiConfig,
         search_state: &mut SearchState,
     ) {
+        let mut grid_cells = mem::take(&mut self.grid_cells);
+
         // Collect renderable content before the terminal is dropped.
         let mut content = RenderableContent::new(config, self, &terminal, search_state);
-        let mut grid_cells = Vec::new();
         for cell in &mut content {
             grid_cells.push(cell);
         }
@@ -855,7 +865,7 @@ impl Display {
             let vi_highlighted_hint = &self.vi_highlighted_hint;
             let damage_tracker = &mut self.damage_tracker;
 
-            let cells = grid_cells.into_iter().map(|mut cell| {
+            let cells = grid_cells.drain(..).map(|mut cell| {
                 // Underline hints hovered by mouse or vi mode cursor.
                 if has_highlighted_hint {
                     let point = term::viewport_to_point(display_offset, cell.point);
@@ -877,6 +887,7 @@ impl Display {
             });
             self.renderer.draw_cells(&size_info, glyph_cache, cells);
         }
+        self.grid_cells = grid_cells;
 
         let mut rects = lines.rects(&metrics, &size_info);
 
