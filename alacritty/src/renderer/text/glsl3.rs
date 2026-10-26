@@ -194,6 +194,10 @@ impl<'a> TextRenderer<'a> for Glsl3Renderer {
             current_atlas: &mut self.current_atlas,
         }
     }
+
+    fn reset_active_tex(&mut self) {
+        self.active_tex = 0;
+    }
 }
 
 impl Drop for Glsl3Renderer {
