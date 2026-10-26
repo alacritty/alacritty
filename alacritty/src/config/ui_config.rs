@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use log::{error, warn};
-use serde::de::{Error as SerdeError, MapAccess, Visitor};
+use serde::de::{DeserializeOwned, Error as SerdeError, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use unicode_width::UnicodeWidthChar;
 use winit::keyboard::{Key, ModifiersState};
@@ -154,7 +154,7 @@ impl UiConfig {
 
     #[inline]
     pub fn mouse_bindings(&self) -> &[MouseBinding] {
-        &self.mouse.bindings.0
+        &self.mouse.bindings.bindings
     }
 
     #[inline]
@@ -173,16 +173,16 @@ impl UiConfig {
 #[derive(ConfigDeserialize, Serialize, Default, Clone, Debug, PartialEq)]
 struct Keyboard {
     /// Keybindings.
-    #[serde(skip_serializing)]
     bindings: KeyBindings,
 }
 
-#[derive(SerdeReplace, Clone, Debug, PartialEq, Eq)]
-struct KeyBindings(Vec<KeyBinding>);
+/// Active keybindings and the user's binding entries they were created from.
+#[derive(SerdeReplace, Clone, Debug, PartialEq)]
+struct KeyBindings(Vec<KeyBinding>, Vec<toml::Value>);
 
 impl Default for KeyBindings {
     fn default() -> Self {
-        Self(bindings::default_key_bindings())
+        Self(bindings::default_key_bindings(), Vec::new())
     }
 }
 
@@ -191,31 +191,44 @@ impl<'de> Deserialize<'de> for KeyBindings {
     where
         D: Deserializer<'de>,
     {
-        Ok(Self(deserialize_bindings(deserializer, Self::default().0)?))
+        let mut user_bindings = Vec::<toml::Value>::deserialize(deserializer)?;
+        let bindings = deserialize_bindings(&mut user_bindings, bindings::default_key_bindings());
+        Ok(Self(bindings, user_bindings))
     }
 }
 
-pub fn deserialize_bindings<'a, D, T>(
-    deserializer: D,
-    mut default: Vec<Binding<T>>,
-) -> Result<Vec<Binding<T>>, D::Error>
-where
-    D: Deserializer<'a>,
-    T: Clone + Eq,
-    Binding<T>: Deserialize<'a>,
-{
-    let values = Vec::<toml::Value>::deserialize(deserializer)?;
+impl Serialize for KeyBindings {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.1.serialize(serializer)
+    }
+}
 
+/// Deserialize the user's bindings and merge them with the defaults.
+///
+/// Invalid bindings are logged and removed from `values`.
+pub fn deserialize_bindings<T>(
+    values: &mut Vec<toml::Value>,
+    mut default: Vec<Binding<T>>,
+) -> Vec<Binding<T>>
+where
+    T: Clone + Eq,
+    Binding<T>: DeserializeOwned,
+{
     // Skip all invalid values.
     let mut bindings = Vec::with_capacity(values.len());
-    for value in values {
-        match Binding::<T>::deserialize(value) {
-            Ok(binding) => bindings.push(binding),
-            Err(err) => {
-                error!(target: LOG_TARGET_CONFIG, "Config error: {err}; ignoring binding");
-            },
-        }
-    }
+    values.retain(|value| match Binding::<T>::deserialize(value.clone()) {
+        Ok(binding) => {
+            bindings.push(binding);
+            true
+        },
+        Err(err) => {
+            error!(target: LOG_TARGET_CONFIG, "Config error: {err}; ignoring binding");
+            false
+        },
+    });
 
     // Remove matching default bindings.
     for binding in bindings.iter() {
@@ -224,7 +237,7 @@ where
 
     bindings.extend(default);
 
-    Ok(bindings)
+    bindings
 }
 
 /// A delta for a point in a 2 dimensional plane.
@@ -733,5 +746,73 @@ mod tests {
                 "Should not match url in string {url_like}, but instead got: {matches:?}"
             )
         }
+    }
+
+    #[test]
+    fn serialize_user_bindings() {
+        let config: UiConfig = toml::from_str(
+            r#"
+            [keyboard]
+            bindings = [
+                { key = "N", mods = "Control|Shift", action = "SpawnNewInstance" },
+            ]
+
+            [mouse]
+            bindings = [{ mouse = "Middle", mode = "~Vi", action = "Copy" }]
+            "#,
+        )
+        .unwrap();
+
+        let serialized = serde_json::to_value(&config).unwrap();
+        assert_eq!(
+            serialized["keyboard"]["bindings"],
+            serde_json::json!([
+                { "key": "N", "mods": "Control|Shift", "action": "SpawnNewInstance" },
+            ])
+        );
+        assert_eq!(
+            serialized["mouse"]["bindings"],
+            serde_json::json!([{ "mouse": "Middle", "mode": "~Vi", "action": "Copy" }])
+        );
+
+        let reloaded: UiConfig = serde_json::from_value(serde_json::json!({
+            "keyboard": serialized["keyboard"],
+            "mouse": serialized["mouse"],
+        }))
+        .unwrap();
+        assert_eq!(reloaded.key_bindings(), config.key_bindings());
+        assert_eq!(reloaded.mouse_bindings(), config.mouse_bindings());
+    }
+
+    #[test]
+    fn serialize_skips_invalid_bindings() {
+        let config: UiConfig = toml::from_str(
+            r#"
+            [keyboard]
+            bindings = [
+                { key = "N", mods = "Control|Shift", action = "SpawnNewInstance" },
+                { key = "Invalid", action = "SpawnNewInstance" },
+            ]
+
+            [mouse]
+            bindings = [
+                { mouse = "Middle", mode = "~Vi", action = "Copy" },
+                { mouse = "Middle", action = "Invalid" },
+            ]
+            "#,
+        )
+        .unwrap();
+
+        let serialized = serde_json::to_value(&config).unwrap();
+        assert_eq!(
+            serialized["keyboard"]["bindings"],
+            serde_json::json!([
+                { "key": "N", "mods": "Control|Shift", "action": "SpawnNewInstance" },
+            ])
+        );
+        assert_eq!(
+            serialized["mouse"]["bindings"],
+            serde_json::json!([{ "mouse": "Middle", "mode": "~Vi", "action": "Copy" }])
+        );
     }
 }

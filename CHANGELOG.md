@@ -22,6 +22,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Off-by-one in vi mode ParagraphUp action
 - Unbounded per-cell memory usage for zero-width cells
 - Unbounded Kitty keyboard mode stack size
+- Keyboard and mouse bindings missing from `alacritty msg get-config` output
 
 ## 0.17.0
 
