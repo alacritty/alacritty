@@ -80,6 +80,15 @@ const TOUCH_ZOOM_FACTOR: f32 = 0.01;
 /// Cooldown between invocations of the bell command.
 const BELL_CMD_COOLDOWN: Duration = Duration::from_millis(100);
 
+/// Number of samples used for velocity calculation.
+///
+/// Since the latest sample is always ignored (see [`Velocity::velocity`]),
+/// this should be 1 more than the desired number of samples.
+const VELOCITY_SAMPLES: usize = 4;
+
+/// Rate of decceleration for velocity calculation.
+const VELOCITY_DAMPING: f64 = 5.;
+
 /// The event processor.
 ///
 /// Stores some state from received events and dispatches actions when they are
@@ -545,6 +554,7 @@ pub enum EventType {
     ConfigReload(PathBuf),
     Message(Message),
     Scroll(Scroll),
+    Velocity(f64),
     CreateWindow(WindowOptions),
     #[cfg(unix)]
     IpcConfig(IpcConfig),
@@ -685,6 +695,7 @@ pub struct ActionContext<'a, N, T> {
     pub master_fd: RawFd,
     #[cfg(not(windows))]
     pub shell_pid: u32,
+    pub velocity: &'a mut Velocity,
 }
 
 impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionContext<'a, N, T> {
@@ -733,6 +744,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         // Scrolling inside Vi mode moves the cursor, so start typing.
         if vi_mode {
             self.on_typing_start();
+        }
+
+        // Cancel velocity when receiving scroll events triggered bindings.
+        if !matches!(scroll, Scroll::Delta(_)) {
+            self.cancel_velocity();
         }
 
         // Update dirty if actually scrolled or moved Vi cursor in Vi mode.
@@ -1477,6 +1493,17 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.inline_search_next();
     }
 
+    /// Update vertical velocity based on the delta to the last touch point.
+    fn update_velocity(&mut self, y_delta: f64) {
+        self.velocity.update(y_delta);
+        *self.dirty = true;
+    }
+
+    /// Cancel all vertical velocity.
+    fn cancel_velocity(&mut self) {
+        self.velocity.cancel();
+    }
+
     fn message(&self) -> Option<&Message> {
         self.message_buffer.message()
     }
@@ -1836,6 +1863,118 @@ pub struct AccumulatedScroll {
     pub y: f64,
 }
 
+/// Input velocity tracking.
+#[derive(Default)]
+pub struct Velocity {
+    last_sample: Option<Instant>,
+    samples: [f64; VELOCITY_SAMPLES],
+    sample_count: usize,
+    direction: Option<f64>,
+
+    active_velocity: Option<(Instant, f64)>,
+}
+
+impl Velocity {
+    /// Update the active touch velocity.
+    pub fn update(&mut self, mut y_delta: f64) {
+        // Cancel velocity when direction changes.
+        let direction = y_delta.signum();
+        if direction != 0. && self.direction.is_some_and(|d| d != direction) {
+            self.cancel();
+            self.direction = Some(direction);
+        }
+
+        // Get elapsed time since last velocity update.
+        let now = Instant::now();
+        let elapsed = match self.last_sample.take() {
+            Some(last_sample) => now - last_sample,
+            // Use first sample solely to initialize the reference timestamp.
+            None => {
+                self.last_sample = Some(now);
+                return;
+            },
+        };
+
+        // Normalize touch polling rate to 1 second.
+        //
+        // This ensures that devices with different touch polling rates still have a
+        // consistent velocity.
+        y_delta *= 1_000_000. / elapsed.as_micros() as f64;
+
+        // Update tracked velocity samples.
+        self.samples.rotate_right(1);
+        self.samples[0] = y_delta;
+        self.sample_count += 1;
+
+        self.last_sample = Some(now);
+        self.active_velocity = None;
+    }
+
+    /// Clear the active touch velocity.
+    pub fn cancel(&mut self) {
+        *self = Default::default();
+    }
+
+    /// Update the remaining velocity and get its pending changes.
+    pub fn apply(&mut self) -> Option<f64> {
+        // Short-circuit when there's no velocity active.
+        if !self.is_active() {
+            return None;
+        }
+
+        // Get or initialize the active velocity.
+        let (last_tick, y_velocity) = match &mut self.active_velocity {
+            Some(velocity) => velocity,
+            None => {
+                let last_tick = self.last_sample?;
+                let y = self.velocity()?;
+                self.active_velocity.insert((last_tick, y))
+            },
+        };
+
+        // Get the fractional number of 1 second intervals passed since the last tick.
+        let now = Instant::now();
+        let interval = (now - *last_tick).as_micros() as f64 / 1_000_000.;
+
+        // Update velocity and calculate the expected delta.
+        let damping_exp = f64::exp(-VELOCITY_DAMPING * interval);
+        let delta = *y_velocity * (1. - damping_exp) / VELOCITY_DAMPING;
+        *y_velocity *= damping_exp;
+
+        // Stop velocity once delta is insignificant.
+        //
+        // This assumes the tick rate is somewhat constant, extrapolating that all future
+        // ticks would be insignificant if the current tick is. A tick interval length of 0
+        // would always stop the velocity.
+        if delta.abs() > 1. {
+            *last_tick = now;
+        } else {
+            self.cancel();
+        }
+
+        Some(delta)
+    }
+
+    /// Check whether a velocity is pending.
+    pub fn is_active(&self) -> bool {
+        self.sample_count != 0
+    }
+
+    /// Get the average recorded velocity.
+    ///
+    /// We ignore the latest sample, since it corresponds to the touch release event and
+    /// is always zero (at least on Wayland).
+    fn velocity(&self) -> Option<f64> {
+        if self.sample_count < 2 {
+            return None;
+        }
+
+        let count = self.sample_count.min(VELOCITY_SAMPLES);
+        let sum: f64 = self.samples[1..count].iter().sum();
+        Some(sum / (count - 1) as f64)
+    }
+}
+
 impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
     /// Handle events from winit.
     pub fn handle_event(&mut self, event: WinitEvent<Event>) {
@@ -1843,6 +1982,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
             WinitEvent::UserEvent(Event { payload, .. }) => match payload {
                 EventType::SearchNext => self.ctx.goto_match(None),
                 EventType::Scroll(scroll) => self.ctx.scroll(scroll),
+                EventType::Velocity(velocity) => self.apply_velocity(velocity),
                 EventType::BlinkCursor => {
                     // Only change state when timeout isn't reached, since we could get
                     // BlinkCursor and BlinkCursorTimeout events at the same time.
