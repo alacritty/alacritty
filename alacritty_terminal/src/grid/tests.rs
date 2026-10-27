@@ -388,3 +388,27 @@ fn wrap_cell(c: char) -> Cell {
     cell.flags.insert(Flags::WRAPLINE);
     cell
 }
+
+// Growing the viewport while scrollback exists pulls history down and moves the
+// cursor with it, so the cursor stays at the bottom of the screen.
+#[test]
+fn grow_lines_cursor_follows_history() {
+    let mut grid = Grid::<usize>::new(10, 1, 10);
+
+    // Push five lines into scrollback and park the cursor on the last row.
+    grid.scroll_up::<usize>(&(Line(0)..Line(10)), 5);
+    grid.cursor.point.line = Line(9);
+    assert_eq!(grid.history_size(), 5);
+
+    grid.resize::<usize>(false, 15, 1);
+
+    if cfg!(windows) {
+        // Top-anchored: five blank rows appended below, cursor unmoved.
+        assert_eq!(grid.cursor.point.line, Line(9));
+        assert_eq!(grid.history_size(), 5);
+    } else {
+        // Bottom-anchored: five lines pulled out of history, cursor follows.
+        assert_eq!(grid.cursor.point.line, Line(14));
+        assert_eq!(grid.history_size(), 0);
+    }
+}
