@@ -578,10 +578,10 @@ impl<T> Iterator for HintPostProcessor<'_, T> {
     fn next(&mut self) -> Option<Self::Item> {
         let next_match = self.next_match.take()?;
 
-        if self.start <= self.end {
-            if let Some(rm) = self.term.regex_search_right(self.regex, self.start, self.end) {
-                self.next_processed_match(rm);
-            }
+        if self.start <= self.end
+            && let Some(rm) = self.term.regex_search_right(self.regex, self.start, self.end)
+        {
+            self.next_processed_match(rm);
         }
 
         Some(next_match)
