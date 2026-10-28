@@ -59,6 +59,8 @@ use crate::display::window::{ImeInhibitor, Window};
 use crate::display::{Display, Preedit, SizeInfo};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
 use crate::logging::{LOG_TARGET_CONFIG, LOG_TARGET_WINIT};
+#[cfg(target_os = "macos")]
+use crate::macos;
 use crate::message_bar::{Message, MessageBuffer};
 #[cfg(unix)]
 use crate::polling::ipc::{self, SocketReply};
@@ -231,7 +233,14 @@ impl ApplicationHandler<Event> for Processor {
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
 
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
-        if cause != StartCause::Init || self.cli_options.daemon {
+        if cause != StartCause::Init {
+            return;
+        }
+
+        #[cfg(target_os = "macos")]
+        macos::add_window_menu();
+
+        if self.cli_options.daemon {
             return;
         }
 
