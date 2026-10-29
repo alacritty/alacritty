@@ -15,6 +15,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Fixed `alacritty-escapes(7)` manpage missing from macOS install
 - Added the `Open Alacritty here` entry to the right-click context menu for folders on Windows
 
+### Added
+
+- `colors.unfocused_fade` option to dim text and background colors when the window loses focus, based on urxvt's "fade" feature (extended here to also cover the background, not just text)
+
 ### Fixed
 
 - Spurious "Failed to set new owner of XCB selection" warnings on X11
