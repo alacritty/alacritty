@@ -13,6 +13,7 @@ Table of Contents:
     4. [Style](#style)
 4. [Release Process](#release-process)
 5. [Contact](#contact)
+6. [LLM / "AI" Contributions](#llmai-contributions)
 
 ## Feature Requests
 
