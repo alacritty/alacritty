@@ -2909,8 +2909,13 @@ mod tests {
         size.screen_lines = 30;
         term.resize(size);
 
-        assert_eq!(term.history_size(), 0);
-        assert_eq!(term.grid.cursor.point, Point::new(Line(19), Column(0)));
+        if cfg!(windows) {
+            assert_eq!(term.history_size(), 10);
+            assert_eq!(term.grid.cursor.point, Point::new(Line(9), Column(0)));
+        } else {
+            assert_eq!(term.history_size(), 0);
+            assert_eq!(term.grid.cursor.point, Point::new(Line(19), Column(0)));
+        }
     }
 
     #[test]
@@ -2935,8 +2940,13 @@ mod tests {
         // Leave alt screen.
         term.unset_private_mode(NamedPrivateMode::SwapScreenAndSetRestoreCursor.into());
 
-        assert_eq!(term.history_size(), 0);
-        assert_eq!(term.grid.cursor.point, Point::new(Line(19), Column(0)));
+        if cfg!(windows) {
+            assert_eq!(term.history_size(), 10);
+            assert_eq!(term.grid.cursor.point, Point::new(Line(9), Column(0)));
+        } else {
+            assert_eq!(term.history_size(), 0);
+            assert_eq!(term.grid.cursor.point, Point::new(Line(19), Column(0)));
+        }
     }
 
     #[test]
