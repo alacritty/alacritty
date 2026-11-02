@@ -138,6 +138,8 @@ pub trait ActionContext<T: EventListener> {
     fn semantic_word(&self, point: Point) -> String;
     fn on_terminal_input_start(&mut self) {}
     fn paste(&mut self, _text: &str, _bracketed: bool) {}
+    fn update_velocity(&mut self, _y_delta: f64) {}
+    fn cancel_velocity(&mut self) {}
     fn spawn_daemon<I, S>(&self, _program: &str, _args: I)
     where
         I: IntoIterator<Item = S> + Debug + Copy,
@@ -615,6 +617,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     fn on_mouse_press(&mut self, button: MouseButton) {
+        // Cancel velocity when a mouse button is pressed.
+        self.ctx.cancel_velocity();
+
         // Handle mouse mode.
         if !self.ctx.modifiers().state().shift_key() && self.ctx.mouse_mode() {
             self.ctx.mouse_mut().click_state = ClickState::None;
@@ -723,7 +728,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
+        let velocity = self.ctx.config().scrolling.velocity.unwrap_or(false);
         let multiplier = self.ctx.config().scrolling.multiplier;
+
         match delta {
             MouseScrollDelta::LineDelta(columns, lines) => {
                 let new_scroll_px_x = columns * self.ctx.size_info().cell_width();
@@ -732,6 +739,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                     new_scroll_px_x as f64,
                     new_scroll_px_y as f64,
                     multiplier as f64,
+                    velocity,
                 );
             },
             MouseScrollDelta::PixelDelta(mut lpos) => {
@@ -749,7 +757,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                             lpos.x = 0.;
                         }
 
-                        self.scroll_terminal(lpos.x, lpos.y, multiplier as f64);
+                        self.scroll_terminal(lpos.x, lpos.y, multiplier as f64, velocity);
                     },
                     _ => (),
                 }
@@ -757,11 +765,23 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
     }
 
-    fn scroll_terminal(&mut self, new_scroll_x_px: f64, new_scroll_y_px: f64, multiplier: f64) {
+    /// Handle horizontal and vertical scroll events.
+    fn scroll_terminal(
+        &mut self,
+        new_scroll_x_px: f64,
+        new_scroll_y_px: f64,
+        multiplier: f64,
+        velocity: bool,
+    ) {
         const MOUSE_WHEEL_UP: u8 = 64;
         const MOUSE_WHEEL_DOWN: u8 = 65;
         const MOUSE_WHEEL_LEFT: u8 = 66;
         const MOUSE_WHEEL_RIGHT: u8 = 67;
+
+        // Add scroll delta to velocity samples.
+        if velocity {
+            self.ctx.update_velocity(new_scroll_y_px * multiplier);
+        }
 
         let width = f64::from(self.ctx.size_info().cell_width());
         let height = f64::from(self.ctx.size_info().cell_height());
@@ -852,6 +872,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             self.ctx.window().set_ime_inhibitor(ImeInhibitor::TOUCH, true);
         }
 
+        // Cancel velocity when a new touch slot appears.
+        self.ctx.cancel_velocity();
+
         let touch_purpose = self.ctx.touch_purpose();
         *touch_purpose = match mem::take(touch_purpose) {
             TouchPurpose::None => TouchPurpose::Tap(touch),
@@ -916,7 +939,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 *touch_purpose = TouchPurpose::Scroll(touch);
 
                 // Use a fixed scroll factor for touchscreens, to accurately track finger motion.
-                self.scroll_terminal(0., delta_y, 1.0);
+                let velocity = self.ctx.config().scrolling.velocity.unwrap_or(true);
+                self.scroll_terminal(0., delta_y, 1.0, velocity);
             },
             TouchPurpose::Select(_) => self.mouse_moved(touch.location),
             TouchPurpose::ZoomPendingSlot(_) | TouchPurpose::Invalid(_) => (),
@@ -964,6 +988,11 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             TouchPurpose::Scroll(_) => *touch_purpose = Default::default(),
             TouchPurpose::None => (),
         }
+    }
+
+    /// Apply scroll velocity delta.
+    pub fn apply_velocity(&mut self, y_delta: f64) {
+        self.scroll_terminal(0., y_delta, 1.0, false);
     }
 
     /// Reset mouse cursor based on modifier and terminal state.

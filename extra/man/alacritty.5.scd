@@ -232,6 +232,17 @@ Limited to _100000_.
 
 	Default: _3_
 
+*velocity* = _"Auto"_ | _"On"_ | _"Off"_
+
+	*Auto*
+		Enable velocity only for touch scrolling
+	*On*
+		Enable velocity for all input sources
+	*Off*
+		Disable velocity for all input sources
+
+	Default: _"Auto"_
+
 # FONT
 
 This section documents the *[font]* table of the configuration file.
