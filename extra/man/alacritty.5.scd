@@ -625,6 +625,16 @@ Windows: _"powershell"_
 
 	Default: _"OnlyCopy"_
 
+*bidi* = _true_ | _false_
+
+	Join Arabic letters and display right-to-left text, like Arabic and Hebrew,
+	in its visual order.
+
+	This should be disabled for programs which already reorder text themselves,
+	like Emacs.
+
+	Default: _true_
+
 # MOUSE
 
 This section documents the *[mouse]* table of the configuration file.

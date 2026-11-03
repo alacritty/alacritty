@@ -4,7 +4,10 @@
 //! Arabic letters are replaced by the presentation form matching their joining context and every
 //! line containing right-to-left text is reordered using the Unicode Bidirectional Algorithm.
 //!
-//! This only changes how cells are drawn, so mouse selection still operates on logical columns.
+//! This only changes how cells are drawn, the resulting [`RtlLines`] layout is used to map mouse
+//! positions back to the grid.
+
+use std::collections::HashMap;
 
 use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::term::cell::Flags;
@@ -14,6 +17,7 @@ use crate::display::content::{RenderableCell, RenderableCursor};
 
 const TATWEEL: char = '\u{0640}';
 const LAM: char = '\u{0644}';
+const ZWNJ: char = '\u{200C}';
 
 /// Arabic letters with their isolated presentation form and whether they join on both sides.
 ///
@@ -63,17 +67,32 @@ const ARABIC_FORMS: [(char, u32, bool); 41] = [
     ('\u{06CC}', 0xFBFC, true),  // Farsi yeh.
 ];
 
+/// Displayed layout of all reordered viewport lines.
+#[derive(Debug, Default)]
+pub struct RtlLines(HashMap<usize, Vec<(Column, bool)>>);
+
+impl RtlLines {
+    /// Grid column displayed at a viewport point and whether its text is right-to-left.
+    pub fn logical(&self, point: Point<usize>) -> (Column, bool) {
+        let column = self.0.get(&point.line).and_then(|columns| columns.get(point.column.0));
+        column.copied().unwrap_or((point.column, false))
+    }
+
+    /// Viewport lines which were reordered.
+    pub fn lines(&self) -> impl Iterator<Item = usize> + '_ {
+        self.0.keys().copied()
+    }
+}
+
 /// Shape and reorder all lines containing right-to-left text.
 ///
 /// The cells must be ordered by line, the cursor is moved together with the cell below it.
-///
-/// Returns the viewport lines whose cells were moved.
 pub fn reorder(
     cells: &mut [RenderableCell],
     columns: usize,
     cursor: &mut RenderableCursor,
-) -> Vec<usize> {
-    let mut reordered = Vec::new();
+) -> RtlLines {
+    let mut rtl_lines = RtlLines::default();
 
     for cells in cells.chunk_by_mut(|a, b| a.point.line == b.point.line) {
         if !cells.iter().any(|cell| is_rtl(cell.character)) {
@@ -83,21 +102,28 @@ pub fn reorder(
         // Logical text of the entire line, since empty cells are not part of the renderable cells.
         let line = cells[0].point.line;
         let mut chars = vec![' '; columns];
+        let mut non_joiners = vec![false; columns];
         for cell in cells.iter() {
-            chars[cell.point.column.0] = cell.character;
+            let column = cell.point.column.0;
+            chars[column] = cell.character;
             if cell.flags.contains(Flags::WIDE_CHAR) {
-                if let Some(spacer) = chars.get_mut(cell.point.column.0 + 1) {
+                if let Some(spacer) = chars.get_mut(column + 1) {
                     *spacer = cell.character;
                 }
             }
+
+            // Zero-width non-joiners are stored in the cell before them.
+            let zerowidth = cell.extra.as_ref().and_then(|extra| extra.zerowidth.as_ref());
+            non_joiners[column] = zerowidth.is_some_and(|zerowidth| zerowidth.contains(&ZWNJ));
         }
 
         let text: String = chars.iter().collect();
         let bidi = BidiInfo::new(&text, Some(Level::ltr()));
         let levels = bidi.reordered_levels_per_char(&bidi.paragraphs[0], 0..text.len());
 
+        let logical_columns = BidiInfo::reorder_visual(&levels);
         let mut visual_columns = vec![0; columns];
-        for (visual, logical) in BidiInfo::reorder_visual(&levels).into_iter().enumerate() {
+        for (visual, &logical) in logical_columns.iter().enumerate() {
             visual_columns[logical] = visual;
         }
 
@@ -109,8 +135,14 @@ pub fn reorder(
 
         for cell in cells.iter_mut() {
             let column = cell.point.column.0;
-            let prev = column.checked_sub(1).map_or(' ', |column| chars[column]);
-            let next = chars.get(column + 1).copied().unwrap_or(' ');
+            let prev = match column.checked_sub(1) {
+                Some(prev) if !non_joiners[prev] => chars[prev],
+                _ => ' ',
+            };
+            let next = match chars.get(column + 1) {
+                Some(&next) if !non_joiners[column] => next,
+                _ => ' ',
+            };
 
             cell.character = shape(prev, chars[column], next);
             if levels[column].is_rtl() {
@@ -129,10 +161,12 @@ pub fn reorder(
             *cursor = RenderableCursor::new(point, cursor.shape(), cursor.color(), cursor.width());
         }
 
-        reordered.push(line);
+        let layout =
+            logical_columns.into_iter().map(|column| (Column(column), levels[column].is_rtl()));
+        rtl_lines.0.insert(line, layout.collect());
     }
 
-    reordered
+    rtl_lines
 }
 
 /// Check if a character is written right-to-left.
@@ -219,38 +253,52 @@ mod tests {
 
     use super::*;
     use crate::display::color::Rgb;
+    use crate::display::content::RenderableCellExtra;
 
-    /// Reorder a single line, returning its visual text and cursor column.
-    fn render(text: &str, cursor_column: usize) -> (String, usize) {
+    /// Reorder a single line, returning its visual text, cursor column, and layout.
+    fn render(text: &str, cursor_column: usize) -> (String, usize, RtlLines) {
         let columns = 12;
-        let mut cells: Vec<_> = text
-            .chars()
-            .enumerate()
-            .filter(|&(_, c)| c != ' ')
-            .map(|(column, character)| RenderableCell {
-                character,
-                point: Point::new(0, Column(column)),
-                fg: Rgb::default(),
-                bg: Rgb::default(),
-                bg_alpha: 0.,
-                underline: Rgb::default(),
-                flags: Flags::empty(),
-                extra: None,
-            })
-            .collect();
+        let mut cells: Vec<RenderableCell> = Vec::new();
+        let mut column = 0;
+        for character in text.chars() {
+            if character == ZWNJ {
+                let extra = RenderableCellExtra { zerowidth: Some(vec![ZWNJ]), hyperlink: None };
+                cells.last_mut().unwrap().extra = Some(Box::new(extra));
+                continue;
+            } else if character != ' ' {
+                cells.push(RenderableCell {
+                    character,
+                    point: Point::new(0, Column(column)),
+                    fg: Rgb::default(),
+                    bg: Rgb::default(),
+                    bg_alpha: 0.,
+                    underline: Rgb::default(),
+                    flags: Flags::empty(),
+                    extra: None,
+                });
+            }
+            column += 1;
+        }
         let point = Point::new(0, Column(cursor_column));
         let width = NonZeroU32::new(1).unwrap();
         let mut cursor = RenderableCursor::new(point, CursorShape::Beam, Rgb::default(), width);
 
-        let reordered = reorder(&mut cells, columns, &mut cursor);
-        assert_eq!(reordered.is_empty(), !text.chars().any(is_rtl));
+        let rtl_lines = reorder(&mut cells, columns, &mut cursor);
+        assert_eq!(rtl_lines.lines().next().is_none(), !text.chars().any(is_rtl));
         assert!(cells.is_sorted_by_key(|cell| cell.point.column));
 
         let mut line = vec![' '; columns];
         for cell in cells {
             line[cell.point.column.0] = cell.character;
         }
-        (line.into_iter().collect::<String>().trim_end().into(), cursor.point().column.0)
+        let line = line.into_iter().collect::<String>().trim_end().into();
+        (line, cursor.point().column.0, rtl_lines)
+    }
+
+    /// Visual text and cursor column of a single line.
+    fn display(text: &str, cursor_column: usize) -> (String, usize) {
+        let (line, cursor_column, _) = render(text, cursor_column);
+        (line, cursor_column)
     }
 
     #[test]
@@ -260,21 +308,41 @@ mod tests {
 
     #[test]
     fn ltr_untouched() {
-        assert_eq!(render("echo (1)", 3), ("echo (1)".into(), 3));
+        assert_eq!(display("echo (1)", 3), ("echo (1)".into(), 3));
     }
 
     #[test]
     fn joined_and_reversed() {
         // Seen (initial), lam-alef (final), meem (isolated).
-        assert_eq!(render("سلام", 0), ("\u{FEE1} \u{FEFC}\u{FEB3}".into(), 3));
+        assert_eq!(display("سلام", 0), ("\u{FEE1} \u{FEFC}\u{FEB3}".into(), 3));
 
         // Beh (initial), teh (medial), heh (final).
-        assert_eq!(render("$ بته", 5), ("$ \u{FEEA}\u{FE98}\u{FE91}".into(), 5));
+        assert_eq!(display("$ بته", 5), ("$ \u{FEEA}\u{FE98}\u{FE91}".into(), 5));
     }
 
     #[test]
     fn numbers_and_brackets() {
         // Numbers stay left-to-right and brackets are mirrored within right-to-left text.
-        assert_eq!(render("ب (12)", 0), ("(12) \u{FE8F}".into(), 5));
+        assert_eq!(display("ب (12)", 0), ("(12) \u{FE8F}".into(), 5));
+    }
+
+    #[test]
+    fn zero_width_non_joiner() {
+        // Meem (initial), yeh (final), khah (isolated), since the non-joiner breaks the word.
+        assert_eq!(display("می\u{200C}خ", 3), ("\u{FEA5}\u{FBFD}\u{FEE3}".into(), 3));
+    }
+
+    #[test]
+    fn mouse_mapping() {
+        let (_, _, rtl_lines) = render("ab بت", 0);
+        let logical = |column| rtl_lines.logical(Point::new(0, Column(column)));
+
+        assert_eq!(logical(0), (Column(0), false));
+        assert_eq!(logical(3), (Column(4), true));
+        assert_eq!(logical(4), (Column(3), true));
+        assert_eq!(logical(8), (Column(8), false));
+
+        // Lines without right-to-left text are not modified.
+        assert_eq!(rtl_lines.logical(Point::new(1, Column(3))), (Column(3), false));
     }
 }

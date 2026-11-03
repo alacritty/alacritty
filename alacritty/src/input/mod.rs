@@ -528,14 +528,17 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             (size_info.width() - size_info.padding_x() * 2.) % size_info.cell_width();
         let end_of_grid = size_info.width() - size_info.padding_x() - additional_padding;
 
-        if cell_x > half_cell_width
+        let side = if cell_x > half_cell_width
             // Edge case when mouse leaves the window.
             || x as f32 >= end_of_grid
         {
             Side::Right
         } else {
             Side::Left
-        }
+        };
+
+        // Sides are swapped for mirrored right-to-left text.
+        if self.ctx.mouse().above_rtl(&size_info) { side.opposite() } else { side }
     }
 
     fn mouse_report(&mut self, button: u8, state: ElementState) {

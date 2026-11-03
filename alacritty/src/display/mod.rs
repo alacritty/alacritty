@@ -49,6 +49,7 @@ use crate::display::cursor::IntoRects;
 use crate::display::damage::{DamageTracker, damage_y_to_viewport_y};
 use crate::display::hint::{HintMatch, HintState};
 use crate::display::meter::Meter;
+use crate::display::rtl::RtlLines;
 use crate::display::window::Window;
 use crate::event::{Event, EventType, Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
@@ -61,12 +62,12 @@ pub mod color;
 pub mod content;
 pub mod cursor;
 pub mod hint;
+pub mod rtl;
 pub mod window;
 
 mod bell;
 mod damage;
 mod meter;
-mod rtl;
 
 /// Label for the forward terminal search bar.
 const FORWARD_SEARCH_LABEL: &str = "Search: ";
@@ -773,6 +774,8 @@ impl Display {
     /// A reference to Term whose state is being drawn must be provided.
     ///
     /// This call may block if vsync is enabled.
+    ///
+    /// Returns the layout of right-to-left lines, to map mouse positions back to the grid.
     pub fn draw<T: EventListener>(
         &mut self,
         mut terminal: MutexGuard<'_, Term<T>>,
@@ -780,7 +783,7 @@ impl Display {
         message_buffer: &MessageBuffer,
         config: &UiConfig,
         search_state: &mut SearchState,
-    ) {
+    ) -> RtlLines {
         // Collect renderable content before the terminal is dropped.
         let mut content = RenderableContent::new(config, self, &terminal, search_state);
         let mut grid_cells = Vec::new();
@@ -816,7 +819,12 @@ impl Display {
         drop(terminal);
 
         // Shape and reorder right-to-left text, which moves glyphs across the entire line.
-        for line in rtl::reorder(&mut grid_cells, size_info.columns(), &mut cursor) {
+        let rtl_lines = if config.terminal.bidi {
+            rtl::reorder(&mut grid_cells, size_info.columns(), &mut cursor)
+        } else {
+            RtlLines::default()
+        };
+        for line in rtl_lines.lines() {
             let damage = LineDamageBounds::new(line, 0, size_info.columns() - 1);
             self.damage_tracker.frame().damage_line(damage);
             self.damage_tracker.next_frame().damage_line(damage);
@@ -866,7 +874,9 @@ impl Display {
             let cells = grid_cells.into_iter().map(|mut cell| {
                 // Underline hints hovered by mouse or vi mode cursor.
                 if has_highlighted_hint {
-                    let point = term::viewport_to_point(display_offset, cell.point);
+                    let column = rtl_lines.logical(cell.point).0;
+                    let point = Point::new(cell.point.line, column);
+                    let point = term::viewport_to_point(display_offset, point);
                     let hyperlink = cell.extra.as_ref().and_then(|extra| extra.hyperlink.as_ref());
 
                     let should_highlight = |hint: &Option<HintMatch>| {
@@ -1052,6 +1062,8 @@ impl Display {
         }
 
         self.damage_tracker.swap_damage();
+
+        rtl_lines
     }
 
     /// Update to a new configuration.

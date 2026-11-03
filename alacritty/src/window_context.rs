@@ -388,7 +388,7 @@ impl WindowContext {
 
         // Redraw the window.
         let terminal = self.terminal.lock();
-        self.display.draw(
+        self.mouse.rtl_lines = self.display.draw(
             terminal,
             scheduler,
             &self.message_buffer,

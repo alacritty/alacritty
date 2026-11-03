@@ -17,7 +17,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ### Added
 
-- Arabic letter joining and right-to-left text reordering
+- Arabic letter joining and right-to-left text reordering, configurable with `terminal.bidi`
 
 ### Fixed
 

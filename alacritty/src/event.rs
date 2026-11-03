@@ -55,6 +55,7 @@ use crate::daemon::foreground_process_path;
 use crate::daemon::spawn_daemon;
 use crate::display::color::Rgb;
 use crate::display::hint::HintMatch;
+use crate::display::rtl::RtlLines;
 use crate::display::window::{ImeInhibitor, Window};
 use crate::display::{Display, Preedit, SizeInfo};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
@@ -1777,6 +1778,7 @@ pub struct Mouse {
     pub block_hint_launcher: bool,
     pub hint_highlight_dirty: bool,
     pub inside_text_area: bool,
+    pub rtl_lines: RtlLines,
     pub x: usize,
     pub y: usize,
 }
@@ -1795,6 +1797,7 @@ impl Default for Mouse {
             block_hint_launcher: Default::default(),
             inside_text_area: Default::default(),
             accumulated_scroll: Default::default(),
+            rtl_lines: Default::default(),
             x: Default::default(),
             y: Default::default(),
         }
@@ -1808,13 +1811,25 @@ impl Mouse {
     /// coordinates will be clamped to the closest grid coordinates.
     #[inline]
     pub fn point(&self, size: &SizeInfo, display_offset: usize) -> Point {
+        let point = self.viewport_point(size);
+        let column = self.rtl_lines.logical(point).0;
+        term::viewport_to_point(display_offset, Point::new(point.line, column))
+    }
+
+    /// Check if the mouse is above mirrored right-to-left text.
+    pub fn above_rtl(&self, size: &SizeInfo) -> bool {
+        self.rtl_lines.logical(self.viewport_point(size)).1
+    }
+
+    /// Displayed viewport cell below the mouse.
+    fn viewport_point(&self, size: &SizeInfo) -> Point<usize> {
         let col = self.x.saturating_sub(size.padding_x() as usize) / (size.cell_width() as usize);
         let col = min(Column(col), size.last_column());
 
         let line = self.y.saturating_sub(size.padding_y() as usize) / (size.cell_height() as usize);
         let line = min(line, size.bottommost_line().0 as usize);
 
-        term::viewport_to_point(display_offset, Point::new(line, col))
+        Point::new(line, col)
     }
 }
 
