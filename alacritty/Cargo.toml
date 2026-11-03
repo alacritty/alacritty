@@ -42,6 +42,7 @@ signal-hook = { version = "0.4.3", default-features = false }
 tempfile = "3.12.0"
 toml.workspace = true
 toml_edit.workspace = true
+unicode-bidi = "0.3.18"
 unicode-width = "0.2.0"
 winit = { version = "0.30.9", default-features = false, features = ["rwh_06", "serde"] }
 

@@ -66,6 +66,7 @@ pub mod window;
 mod bell;
 mod damage;
 mod meter;
+mod rtl;
 
 /// Label for the forward terminal search bar.
 const FORWARD_SEARCH_LABEL: &str = "Search: ";
@@ -790,7 +791,7 @@ impl Display {
         let foreground_color = content.color(NamedColor::Foreground as usize);
         let background_color = content.color(NamedColor::Background as usize);
         let display_offset = content.display_offset();
-        let cursor = content.cursor();
+        let mut cursor = content.cursor();
 
         let cursor_point = terminal.grid().cursor.point;
         let total_lines = terminal.grid().total_lines();
@@ -813,6 +814,13 @@ impl Display {
 
         // Drop terminal as early as possible to free lock.
         drop(terminal);
+
+        // Shape and reorder right-to-left text, which moves glyphs across the entire line.
+        for line in rtl::reorder(&mut grid_cells, size_info.columns(), &mut cursor) {
+            let damage = LineDamageBounds::new(line, 0, size_info.columns() - 1);
+            self.damage_tracker.frame().damage_line(damage);
+            self.damage_tracker.next_frame().damage_line(damage);
+        }
 
         // Invalidate highlighted hints if grid has changed.
         self.validate_hint_highlights(display_offset);
