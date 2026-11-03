@@ -10,8 +10,8 @@
 
 setBackgroundColor()
 {
-    #printf '\x1bPtmux;\x1b\x1b[48;2;%s;%s;%sm' $1 $2 $3
-    printf '\x1b[48;2;%s;%s;%sm' $1 $2 $3
+    #printf '\x1bPtmux;\x1b\x1b[48;2;%s;%s;%sm' "$1" "$2" "$3"
+    printf '\x1b[48;2;%s;%s;%sm' "$1" "$2" "$3"
 }
 
 resetOutput()
@@ -26,27 +26,28 @@ resetOutput()
 # ranging between 0 and 255 inclusive
 rainbowColor()
 {
-    let h=$1/43
-    let f=$1-43*$h
-    let t=$f*255/43
-    let q=255-t
+    local h f t q
+    (( h = $1 / 43 )) || true
+    (( f = $1 - 43 * h )) || true
+    (( t = f * 255 / 43 )) || true
+    (( q = 255 - t )) || true
 
-    if [ $h -eq 0 ]
+    if (( h == 0 ))
     then
         echo "255 $t 0"
-    elif [ $h -eq 1 ]
+    elif (( h == 1 ))
     then
         echo "$q 255 0"
-    elif [ $h -eq 2 ]
+    elif (( h == 2 ))
     then
         echo "0 255 $t"
-    elif [ $h -eq 3 ]
+    elif (( h == 3 ))
     then
         echo "0 $q 255"
-    elif [ $h -eq 4 ]
+    elif (( h == 4 ))
     then
         echo "$t 0 255"
-    elif [ $h -eq 5 ]
+    elif (( h == 5 ))
     then
         echo "255 0 $q"
     else
@@ -55,46 +56,48 @@ rainbowColor()
     fi
 }
 
-for i in `seq 0 127`; do
-    setBackgroundColor $i 0 0
+for i in {0..127}; do
+    setBackgroundColor "$i" 0 0
     echo -en " "
 done
 resetOutput
-for i in `seq 255 -1 128`; do
-    setBackgroundColor $i 0 0
+for i in {255..128}; do
+    setBackgroundColor "$i" 0 0
     echo -en " "
 done
 resetOutput
 
-for i in `seq 0 127`; do
-    setBackgroundColor 0 $i 0
+for i in {0..127}; do
+    setBackgroundColor 0 "$i" 0
     echo -n " "
 done
 resetOutput
-for i in `seq 255 -1 128`; do
-    setBackgroundColor 0 $i 0
-    echo -n " "
-done
-resetOutput
-
-for i in `seq 0 127`; do
-    setBackgroundColor 0 0 $i
-    echo -n " "
-done
-resetOutput
-for i in `seq 255 -1 128`; do
-    setBackgroundColor 0 0 $i
+for i in {255..128}; do
+    setBackgroundColor 0 "$i" 0
     echo -n " "
 done
 resetOutput
 
-for i in `seq 0 127`; do
-    setBackgroundColor `rainbowColor $i`
+for i in {0..127}; do
+    setBackgroundColor 0 0 "$i"
     echo -n " "
 done
 resetOutput
-for i in `seq 255 -1 128`; do
-    setBackgroundColor `rainbowColor $i`
+for i in {255..128}; do
+    setBackgroundColor 0 0 "$i"
+    echo -n " "
+done
+resetOutput
+
+for i in {0..127}; do
+    read -ra color_args <<< "$(rainbowColor "$i")" 
+    setBackgroundColor "${color_args[@]}"
+    echo -n " "
+done
+resetOutput
+for i in {255..128}; do
+    read -ra color_args <<< "$(rainbowColor "$i")" 
+    setBackgroundColor "${color_args[@]}"
     echo -n " "
 done
 resetOutput
