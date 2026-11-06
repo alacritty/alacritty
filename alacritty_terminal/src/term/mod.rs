@@ -1757,8 +1757,8 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::ClearMode::Above => {
                 let cursor = self.grid.cursor.point;
 
-                // If clearing more than one line.
-                if cursor.line > 1 {
+                // If clearing one or more line.
+                if cursor.line > 0 {
                     // Fully clear all lines before the current line.
                     self.grid.reset_region(..cursor.line);
                 }
@@ -2515,7 +2515,7 @@ mod tests {
     use crate::index::{Column, Point, Side};
     use crate::selection::{Selection, SelectionType};
     use crate::term::cell::{Cell, Flags};
-    use crate::term::test::TermSize;
+    use crate::term::test::{TermSize, mock_term};
     use crate::vte::ansi::{self, CharsetIndex, Handler, StandardCharset};
 
     #[test]
@@ -3298,5 +3298,19 @@ mod tests {
         assert_eq!(version_number("0.1.2-dev"), 1_02);
         assert_eq!(version_number("1.2.3-dev"), 1_02_03);
         assert_eq!(version_number("999.99.99"), 9_99_99_99);
+    }
+
+    #[test]
+    fn clear_screen_above_from_second_line() {
+        let mut term = mock_term("abcd\r\nefgh\r\nijkl");
+        term.goto(1, 2);
+        term.clear_screen(ansi::ClearMode::Above);
+
+        assert_eq!(term.grid[Line(0)][Column(0)].c, ' ');
+        assert_eq!(term.grid[Line(0)][Column(3)].c, ' ');
+        assert_eq!(term.grid[Line(1)][Column(0)].c, ' ');
+        assert_eq!(term.grid[Line(1)][Column(2)].c, ' ');
+        assert_eq!(term.grid[Line(1)][Column(3)].c, 'h');
+        assert_eq!(term.grid[Line(2)][Column(0)].c, 'i');
     }
 }
