@@ -162,7 +162,7 @@ impl Atlas {
                     // explicit copy.
                     if self.is_gles_context {
                         let mut new_buffer = Vec::with_capacity(buffer.len() / 3 * 4);
-                        for rgb in buffer.chunks_exact(3) {
+                        for rgb in buffer.as_chunks::<3>().0 {
                             new_buffer.push(rgb[0]);
                             new_buffer.push(rgb[1]);
                             new_buffer.push(rgb[2]);

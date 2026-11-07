@@ -204,15 +204,14 @@ impl RenderLines {
         }
 
         // Check if there's an active line.
-        if let Some(line) = self.inner.get_mut(&flag).and_then(|lines| lines.last_mut()) {
-            if color == line.color
-                && cell.point.column == line.end.column + 1
-                && cell.point.line == line.end.line
-            {
-                // Update the length of the line.
-                line.end = end;
-                return;
-            }
+        if let Some(line) = self.inner.get_mut(&flag).and_then(|lines| lines.last_mut())
+            && color == line.color
+            && cell.point.column == line.end.column + 1
+            && cell.point.line == line.end.line
+        {
+            // Update the length of the line.
+            line.end = end;
+            return;
         }
 
         // Start new line if there currently is none.
