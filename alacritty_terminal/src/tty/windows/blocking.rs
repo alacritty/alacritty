@@ -78,13 +78,13 @@ impl<R: Read + Send + 'static> UnblockedReader<R> {
                         continue;
                     },
 
-                    Poll::Ready(Err(e)) if e.kind() == io::ErrorKind::Interrupted => {
+                    Poll::Ready(Err(err)) if err.kind() == io::ErrorKind::Interrupted => {
                         // We were interrupted; continue.
                         continue;
                     },
 
-                    Poll::Ready(Err(e)) => {
-                        log::error!("error writing to pipe: {}", e);
+                    Poll::Ready(Err(err)) => {
+                        log::error!("error writing to pipe: {err}");
                         return;
                     },
 
@@ -176,13 +176,13 @@ impl<W: Write + Send + 'static> UnblockedWriter<W> {
                         continue;
                     },
 
-                    Poll::Ready(Err(e)) if e.kind() == io::ErrorKind::Interrupted => {
+                    Poll::Ready(Err(err)) if err.kind() == io::ErrorKind::Interrupted => {
                         // We were interrupted; continue.
                         continue;
                     },
 
-                    Poll::Ready(Err(e)) => {
-                        log::error!("error writing to pipe: {}", e);
+                    Poll::Ready(Err(err)) => {
+                        log::error!("error writing to pipe: {err}");
                         return;
                     },
 

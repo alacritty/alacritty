@@ -215,7 +215,7 @@ mod test {
         for (input, expected) in test_set {
             let mut escaped_arg = String::new();
             push_escaped_arg(&mut escaped_arg, input);
-            assert_eq!(escaped_arg, expected, "Failed for input: {}", input);
+            assert_eq!(escaped_arg, expected, "Failed for input: {input}");
         }
     }
 
