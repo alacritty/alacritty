@@ -3,9 +3,10 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use alacritty_config_derive::ConfigDeserialize;
 
+use crate::config::ui_config::Percentage;
 use crate::display::color::{CellRgb, Rgb};
 
-#[derive(ConfigDeserialize, Serialize, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Clone, Debug, Default, PartialEq)]
 pub struct Colors {
     pub primary: PrimaryColors,
     pub cursor: InvertedCellColors,
@@ -20,6 +21,7 @@ pub struct Colors {
     pub hints: HintColors,
     pub transparent_background_colors: bool,
     pub draw_bold_text_with_bright_colors: bool,
+    pub unfocused_fade: Percentage,
     footer_bar: BarColors,
 }
 

@@ -32,28 +32,28 @@ use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::{
-    self, LineDamageBounds, MIN_COLUMNS, MIN_SCREEN_LINES, Term, TermDamage, TermMode,
+    self, LineDamageBounds, Term, TermDamage, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES,
 };
 use alacritty_terminal::vte::ansi::{CursorShape, NamedColor};
 
-use crate::config::UiConfig;
 use crate::config::debug::RendererPreference;
 use crate::config::font::Font;
 use crate::config::window::Dimensions;
 #[cfg(not(windows))]
 use crate::config::window::StartupMode;
+use crate::config::UiConfig;
 use crate::display::bell::VisualBell;
 use crate::display::color::{List, Rgb};
 use crate::display::content::{RenderableContent, RenderableCursor};
 use crate::display::cursor::IntoRects;
-use crate::display::damage::{DamageTracker, damage_y_to_viewport_y};
+use crate::display::damage::{damage_y_to_viewport_y, DamageTracker};
 use crate::display::hint::{HintMatch, HintState};
 use crate::display::meter::Meter;
 use crate::display::window::Window;
 use crate::event::{Event, EventType, Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
 use crate::renderer::rects::{RenderLine, RenderLines, RenderRect};
-use crate::renderer::{self, GlyphCache, Renderer, platform};
+use crate::renderer::{self, platform, GlyphCache, Renderer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::string::{ShortenDirection, StrShortener};
 
@@ -789,6 +789,7 @@ impl Display {
         let selection_range = content.selection_range();
         let foreground_color = content.color(NamedColor::Foreground as usize);
         let background_color = content.color(NamedColor::Background as usize);
+        let faded_background_color = content.fade(background_color);
         let display_offset = content.display_offset();
         let cursor = content.cursor();
 
@@ -835,7 +836,7 @@ impl Display {
         // Make sure this window's OpenGL context is active.
         self.make_current();
 
-        self.renderer.clear(background_color, config.window_opacity());
+        self.renderer.clear(faded_background_color, config.window_opacity());
         let mut lines = RenderLines::new();
 
         // Optimize loop hint comparator.
