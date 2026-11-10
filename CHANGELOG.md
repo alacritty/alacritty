@@ -23,6 +23,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Unbounded per-cell memory usage for zero-width cells
 - Unbounded Kitty keyboard mode stack size
 - Keyboard and mouse bindings missing from `alacritty msg get-config` output
+- Crash when a message bar message with multi-byte characters is truncated
 
 ## 0.17.0
 
