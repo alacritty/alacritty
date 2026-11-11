@@ -321,6 +321,20 @@ mod tests {
     }
 
     #[test]
+    fn close_button_on_fullwidth_first_line() {
+        let input = "あ".repeat(40);
+        let mut message_buffer = MessageBuffer::default();
+        message_buffer.push(Message::new(input, MessageType::Error));
+        let size = SizeInfo::new(80., 10., 1., 1., 0., 0., false);
+
+        let lines = message_buffer.message().unwrap().text(&size);
+
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].ends_with(CLOSE_BUTTON_TEXT));
+        assert_eq!(lines[0], format!("{}{}{}", "あ ".repeat(38), " ", CLOSE_BUTTON_TEXT));
+    }
+
+    #[test]
     fn remove_target() {
         let mut message_buffer = MessageBuffer::default();
         for i in 0..10 {
