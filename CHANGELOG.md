@@ -17,7 +17,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ### Added
 
-- Window menu on macOS
+- Window menu on macOS, enabling system window tiling, full screen, tab merging and the window list
 
 ### Fixed
 

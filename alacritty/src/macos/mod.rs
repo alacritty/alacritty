@@ -25,6 +25,7 @@ pub fn add_window_menu() {
 
     let window_menu = NSMenu::initWithTitle(mtm.alloc(), ns_string!("Window"));
     let window_item = NSMenuItem::new(mtm);
+    window_item.setTitle(ns_string!("Window"));
     window_item.setSubmenu(Some(&window_menu));
     main_menu.addItem(&window_item);
 
