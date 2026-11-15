@@ -124,7 +124,16 @@ impl<R: Read + Send + 'static> UnblockedReader<R> {
 
         match self.pipe.poll_drain_bytes(&mut Context::from_waker(&waker), buf) {
             Poll::Pending => 0,
-            Poll::Ready(n) => n,
+            Poll::Ready(n) => {
+                // A successful drain removes piper's reader waker. The PTY
+                // loop can stop at its read budget before polling an empty
+                // pipe, so keep level readiness asserted until it does.
+                // That final empty poll also arms notification for new data.
+                if n > 0 {
+                    self.interest.wake_by_ref();
+                }
+                n
+            },
         }
     }
 }
@@ -272,5 +281,70 @@ impl Wake for Registration {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::num::NonZeroUsize;
+    use std::sync::mpsc::{self, Receiver};
+    use std::time::{Duration, Instant};
+
+    use polling::Events;
+
+    use super::*;
+
+    struct ChannelReader(Receiver<Vec<u8>>);
+
+    impl Read for ChannelReader {
+        fn read(&mut self, dest: &mut [u8]) -> io::Result<usize> {
+            if dest.is_empty() {
+                return Ok(0);
+            }
+            let Ok(bytes) = self.0.recv() else { return Ok(0) };
+            assert!(bytes.len() <= dest.len());
+            dest[..bytes.len()].copy_from_slice(&bytes);
+            Ok(bytes.len())
+        }
+    }
+
+    fn wait_readable(poller: &Poller) {
+        let mut events = Events::with_capacity(NonZeroUsize::new(8).unwrap());
+        poller.wait(&mut events, Some(Duration::from_secs(1))).unwrap();
+        assert!(
+            events.iter().any(|event| event.key == 42 && event.readable),
+            "buffered PTY output lost its readable notification"
+        );
+    }
+
+    #[test]
+    fn successful_read_keeps_level_readiness_until_empty() {
+        let (sender, receiver) = mpsc::channel();
+        let mut reader = UnblockedReader::new(ChannelReader(receiver), 64);
+        let poller = Arc::new(Poller::new().unwrap());
+        reader.register(&poller, Event::readable(42), PollMode::Level);
+
+        // Consume the synthetic initial event and arm the pipe's empty-reader waker.
+        wait_readable(&poller);
+        assert_eq!(reader.read(&mut [0; 1]).unwrap(), 0);
+        sender.send(vec![b'x'; 16]).unwrap();
+
+        // A successful partial read clears piper's waker. The terminal event loop
+        // can stop at its read budget here, with bytes still waiting in the pipe.
+        let deadline = Instant::now() + Duration::from_secs(2);
+        let mut byte = [0; 1];
+        loop {
+            assert!(Instant::now() < deadline, "reader did not deliver output");
+            wait_readable(&poller);
+            if reader.read(&mut byte).unwrap() == 1 {
+                break;
+            }
+        }
+        assert_eq!(byte, [b'x']);
+        assert_eq!(reader.pipe.len(), 15);
+
+        // This must not require keyboard input or another PTY write.
+        wait_readable(&poller);
+        drop(sender);
     }
 }
