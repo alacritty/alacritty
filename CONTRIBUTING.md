@@ -12,7 +12,8 @@ Table of Contents:
     3. [Documentation](#documentation)
     4. [Style](#style)
 4. [Release Process](#release-process)
-5. [Contact](#contact)
+5. [LLM / "AI" Contributions](#llmai-contributions)
+6. [Contact](#contact)
 
 ## Feature Requests
 
