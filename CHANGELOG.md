@@ -17,6 +17,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ### Fixed
 
+- UI responsiveness during heavy terminal output
 - Output freezing on Windows until keyboard input
 - Spurious "Failed to set new owner of XCB selection" warnings on X11
 - Lacking permissions to launch software sending Apple events

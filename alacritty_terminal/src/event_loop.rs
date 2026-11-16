@@ -119,7 +119,8 @@ where
 
         loop {
             // Read from the PTY.
-            match self.pty.reader().read(&mut buf[unprocessed..]) {
+            let read_limit = MAX_LOCKED_READ.saturating_sub(processed).min(buf.len());
+            match self.pty.reader().read(&mut buf[unprocessed..read_limit]) {
                 // This is received on Windows/macOS when no more data is readable from the PTY.
                 Ok(0) if unprocessed == 0 => break,
                 Ok(got) => unprocessed += got,
@@ -138,8 +139,8 @@ where
             let terminal = match &mut terminal {
                 Some(terminal) => terminal,
                 None => terminal.insert(match self.terminal.try_lock_unfair() {
-                    // Force block if we are at the buffer size limit.
-                    None if unprocessed >= READ_BUFFER_SIZE => self.terminal.lock_unfair(),
+                    // Parse the buffered bytes before exceeding the read budget.
+                    None if unprocessed >= read_limit => self.terminal.lock_unfair(),
                     None => continue,
                     Some(terminal) => terminal,
                 }),
@@ -458,6 +459,79 @@ impl Writing {
 struct PeekableReceiver<T> {
     rx: Receiver<T>,
     peeked: Option<T>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::event::VoidListener;
+    use crate::index::{Column, Line, Point};
+    use crate::term::test::TermSize;
+    use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
+
+    struct TestPty {
+        reader: io::Cursor<Vec<u8>>,
+        writer: io::Sink,
+    }
+
+    impl EventedReadWrite for TestPty {
+        type Reader = io::Cursor<Vec<u8>>;
+        type Writer = io::Sink;
+
+        unsafe fn register(
+            &mut self,
+            _: &Arc<Poller>,
+            _: PollingEvent,
+            _: PollMode,
+        ) -> io::Result<()> {
+            Ok(())
+        }
+        fn reregister(&mut self, _: &Arc<Poller>, _: PollingEvent, _: PollMode) -> io::Result<()> {
+            Ok(())
+        }
+        fn deregister(&mut self, _: &Arc<Poller>) -> io::Result<()> {
+            Ok(())
+        }
+        fn reader(&mut self) -> &mut Self::Reader {
+            &mut self.reader
+        }
+        fn writer(&mut self) -> &mut Self::Writer {
+            &mut self.writer
+        }
+    }
+
+    impl EventedPty for TestPty {
+        fn next_child_event(&mut self) -> Option<ChildEvent> {
+            None
+        }
+    }
+
+    impl event::OnResize for TestPty {
+        fn on_resize(&mut self, _: WindowSize) {}
+    }
+
+    #[test]
+    fn read_budget_preserves_utf8_across_batches() {
+        let mut bytes = vec![b'a'; MAX_LOCKED_READ - 1];
+        bytes.extend_from_slice("€Z".as_bytes());
+        let length = bytes.len();
+        let pty = TestPty { reader: io::Cursor::new(bytes), writer: io::sink() };
+        let terminal = Term::new(Default::default(), &TermSize::new(80, 24), VoidListener);
+        let terminal = Arc::new(FairMutex::new(terminal));
+        let mut event_loop =
+            EventLoop::new(Arc::clone(&terminal), VoidListener, pty, false, false).unwrap();
+        let mut state = State::default();
+        let mut buffer = vec![0; READ_BUFFER_SIZE];
+
+        event_loop.pty_read::<io::Sink>(&mut state, &mut buffer, None).unwrap();
+        assert_eq!(event_loop.pty.reader.position(), MAX_LOCKED_READ as u64);
+
+        event_loop.pty_read::<io::Sink>(&mut state, &mut buffer, None).unwrap();
+        assert_eq!(event_loop.pty.reader.position(), length as u64);
+        let terminal = terminal.lock();
+        assert_eq!(terminal.grid()[Point::new(Line(23), Column(14))].c, '€');
+        assert_eq!(terminal.grid()[Point::new(Line(23), Column(15))].c, 'Z');
+    }
 }
 
 impl<T> PeekableReceiver<T> {
