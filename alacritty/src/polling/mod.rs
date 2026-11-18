@@ -7,13 +7,12 @@ use std::process;
 
 use log::error;
 use std::result::Result;
-use winit::event_loop::EventLoopProxy;
 
 use alacritty_terminal::thread;
 
 use crate::UiConfig;
 use crate::cli::Options;
-use crate::event::Event;
+use crate::event::EventLoopProxy;
 use crate::polling::ipc::IpcListener;
 use crate::polling::signal::SignalListener;
 
@@ -39,7 +38,7 @@ impl IoListener {
     pub fn spawn(
         config: &UiConfig,
         options: &Options,
-        event_proxy: EventLoopProxy<Event>,
+        event_proxy: EventLoopProxy,
     ) -> Result<IoListenerHandle, IoError> {
         let poller = Poller::new()?;
         let events = Events::new();
@@ -110,10 +109,10 @@ impl Drop for IoListener {
         if let Err(err) = self.poller.delete(&self.signal_listener.pipe) {
             error!("Failed to remove signal listener interest: {err}");
         }
-        if let Some(ipc_listener) = &self.ipc_listener {
-            if let Err(err) = self.poller.delete(&ipc_listener.socket) {
-                error!("Failed to remove IPC listener interest: {err}");
-            }
+        if let Some(ipc_listener) = &self.ipc_listener
+            && let Err(err) = self.poller.delete(&ipc_listener.socket)
+        {
+            error!("Failed to remove IPC listener interest: {err}");
         }
     }
 }

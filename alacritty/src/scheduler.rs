@@ -3,10 +3,9 @@
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
-use winit::event_loop::EventLoopProxy;
 use winit::window::WindowId;
 
-use crate::event::Event;
+use crate::event::{Event, EventLoopProxy};
 
 /// ID uniquely identifying a timer.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -43,11 +42,11 @@ pub struct Timer {
 /// Scheduler tracking all pending timers.
 pub struct Scheduler {
     timers: VecDeque<Timer>,
-    event_proxy: EventLoopProxy<Event>,
+    event_proxy: EventLoopProxy,
 }
 
 impl Scheduler {
-    pub fn new(event_proxy: EventLoopProxy<Event>) -> Self {
+    pub fn new(event_proxy: EventLoopProxy) -> Self {
         Self { timers: VecDeque::new(), event_proxy }
     }
 
@@ -65,7 +64,7 @@ impl Scheduler {
                     self.schedule(timer.event.clone(), interval, true, timer.id);
                 }
 
-                let _ = self.event_proxy.send_event(timer.event);
+                self.event_proxy.send_event(timer.event);
             }
         }
 

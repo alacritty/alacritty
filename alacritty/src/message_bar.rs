@@ -90,19 +90,19 @@ impl Message {
         // Truncate output if it's too long.
         if lines.len() > max_lines {
             lines.truncate(max_lines);
-            if TRUNCATED_MESSAGE.len() <= num_cols {
-                if let Some(line) = lines.iter_mut().last() {
-                    *line = Self::pad_text(TRUNCATED_MESSAGE.into(), num_cols);
-                }
+            if TRUNCATED_MESSAGE.len() <= num_cols
+                && let Some(line) = lines.iter_mut().last()
+            {
+                *line = Self::pad_text(TRUNCATED_MESSAGE.into(), num_cols);
             }
         }
 
         // Append close button to first line.
-        if button_len <= num_cols {
-            if let Some(line) = lines.get_mut(0) {
-                line.truncate(num_cols - button_len);
-                line.push_str(CLOSE_BUTTON_TEXT);
-            }
+        if button_len <= num_cols
+            && let Some(line) = lines.get_mut(0)
+        {
+            line.truncate(num_cols - button_len);
+            line.push_str(CLOSE_BUTTON_TEXT);
         }
 
         lines
