@@ -36,7 +36,8 @@ use crate::config::UiConfig;
 use crate::display::Display;
 use crate::display::window::Window;
 use crate::event::{
-    ActionContext, Event, EventProxy, InlineSearchState, Mouse, SearchState, TouchPurpose,
+    ActionContext, Event, EventProxy, EventType, InlineSearchState, Mouse, SearchState,
+    TouchPurpose, Velocity,
 };
 #[cfg(unix)]
 use crate::logging::LOG_TARGET_IPC_CONFIG;
@@ -67,6 +68,7 @@ pub struct WindowContext {
     shell_pid: u32,
     window_config: ParsedOptions,
     config: Rc<UiConfig>,
+    velocity: Velocity,
 }
 
 impl WindowContext {
@@ -251,6 +253,7 @@ impl WindowContext {
             event_queue: Default::default(),
             modifiers: Default::default(),
             occluded: Default::default(),
+            velocity: Default::default(),
             mouse: Default::default(),
             touch: Default::default(),
             dirty: Default::default(),
@@ -375,8 +378,8 @@ impl WindowContext {
         // Force the display to process any pending display update.
         self.display.process_renderer_update();
 
-        // Request immediate re-draw if visual bell animation is not finished yet.
-        if !self.display.visual_bell.completed() {
+        // Request immediate re-draw if visual bell animation or velocity are not finished yet.
+        if !self.display.visual_bell.completed() || self.velocity.is_active() {
             // We can get an OS redraw which bypasses alacritty's frame throttling, thus
             // marking the window as dirty when we don't have frame yet.
             if self.display.window.has_frame {
@@ -410,7 +413,7 @@ impl WindowContext {
             WinitEvent::AboutToWait
             | WinitEvent::WindowEvent { event: WindowEvent::RedrawRequested, .. } => {
                 // Skip further event handling with no staged updates.
-                if self.event_queue.is_empty() {
+                if self.event_queue.is_empty() && !self.velocity.is_active() {
                     return;
                 }
 
@@ -422,6 +425,7 @@ impl WindowContext {
             },
         }
 
+        let window_id = self.id();
         let mut terminal = self.terminal.lock();
 
         let old_is_searching = self.search_state.history_index.is_some();
@@ -446,6 +450,7 @@ impl WindowContext {
             shell_pid: self.shell_pid,
             preserve_title: self.preserve_title,
             config: &self.config,
+            velocity: &mut self.velocity,
             event_proxy,
             #[cfg(target_os = "macos")]
             event_loop,
@@ -453,6 +458,22 @@ impl WindowContext {
             scheduler,
         };
         let mut processor = input::Processor::new(context);
+
+        // Schedule velocity update event before redraw.
+        //
+        // We do this here since a timer based event would lead to a velocity interval
+        // that doesn't match the display's refresh rate, but we still have access to the
+        // event processor context.
+        let is_redraw =
+            matches!(event, WinitEvent::WindowEvent { event: WindowEvent::RedrawRequested, .. });
+        if is_redraw
+            && !*processor.ctx.occluded
+            && matches!(processor.ctx.touch, TouchPurpose::None)
+            && let Some(velocity) = processor.ctx.velocity.apply()
+        {
+            let event = Event::new(EventType::Velocity(velocity), window_id);
+            self.event_queue.push(event.into());
+        }
 
         for event in self.event_queue.drain(..) {
             processor.handle_event(event);
@@ -482,13 +503,9 @@ impl WindowContext {
             self.mouse.hint_highlight_dirty = false;
         }
 
-        // Don't call `request_redraw` when event is `RedrawRequested` since the `dirty` flag
-        // represents the current frame, but redraw is for the next frame.
-        if self.dirty
-            && self.display.window.has_frame
-            && !self.occluded
-            && !matches!(event, WinitEvent::WindowEvent { event: WindowEvent::RedrawRequested, .. })
-        {
+        // If it's time for a new frame (`has_frame`) and we're `dirty` and visible (`!occluded`),
+        // but not about to redraw (`!is_redraw`), then request a redraw.
+        if self.dirty && self.display.window.has_frame && !self.occluded && !is_redraw {
             self.display.window.request_redraw();
         }
     }

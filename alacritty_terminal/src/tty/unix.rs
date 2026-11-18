@@ -172,7 +172,7 @@ fn default_shell_command(shell: &str, user: &str, home: &str) -> Command {
 
     // Exec the shell with argv[0] prepended by '-' so it becomes a login shell.
     // `login` normally does this itself, but `-l` disables this.
-    let exec = format!("exec -a -{} {}", shell_name, shell);
+    let exec = format!("exec -a -{shell_name} {shell}");
 
     // Since we use -l, `login` will not change directory to the user's home. However,
     // `login` only checks the current working directory for a .hushlogin file, causing
