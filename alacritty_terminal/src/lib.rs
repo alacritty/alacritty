@@ -7,6 +7,7 @@
 pub mod event;
 #[cfg(not(target_family = "wasm"))]
 pub mod event_loop;
+pub mod graphics;
 pub mod grid;
 pub mod index;
 pub mod selection;
