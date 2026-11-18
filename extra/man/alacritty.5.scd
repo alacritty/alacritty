@@ -492,6 +492,20 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 
 	Default: _false_
 
+*unfocused_fade* = _<float>_
+
+	Brightness of text and background colors while the window is unfocused,
+	as a loating point number from _0.0_ to _1.0_. Full brightness is
+	restored when focus is regained.
+
+	This only affects rendering; it does not change colors copied to the
+	clipboard, reported to applications, or sent to the shell.
+
+	The value _1.0_ keeps colors at full brightness (no fade). The value
+	_0.0_ fades text and background to black while unfocused.
+
+	Default: _1.0_
+
 # BELL
 
 This section documents the *[bell]* table of the configuration file.
